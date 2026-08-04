@@ -1,7 +1,7 @@
 # PLAN — Sitio Scrollytelling 3D de Presentación de Aeronave
 
 > Documento de planificación. Ninguna línea de este plan es código de implementación.
-> Estado: **borrador para aprobación**. La fuente del modelo 3D ya está resuelta ([§12.2](#122-fuente-y-presupuesto-del-modelo-3d--resuelto)); quedan otras decisiones sin bloquear — ver [§12 Preguntas abiertas](#12-preguntas-abiertas).
+> Estado: **todas las decisiones fundacionales de [§12](#12-decisiones-confirmadas) están cerradas y confirmadas por el usuario.** No quedan preguntas abiertas ni bloqueos de decisión — lo que resta es investigación de verificación (§9, Fase 9) y ejecución (§13).
 
 ---
 
@@ -45,7 +45,7 @@ Single-page donde el **scroll del usuario conduce directamente el estado de una 
 
 ### 2.1 Motor de render: React Three Fiber + drei
 
-**Decisión: R3F + `@react-three/drei` + `@react-three/postprocessing`.**
+**Decisión confirmada por el usuario: R3F + `@react-three/drei` + `@react-three/postprocessing`.**
 
 La justificación no es "React es más cómodo". Es un reparto concreto de dónde está la complejidad real de este sitio:
 
@@ -66,7 +66,7 @@ Sin esa regla, R3F es una trampa de performance en un sitio como este. Con ella,
 
 **Alternativa considerada: Three.js vanilla.** Es defendible, y no la descarto con desdén: menos dependencias, control total del render loop, y el argumento de "la cámara es la protagonista absoluta" es cierto. Pero el código del rig de cámara (§4) es **idéntico** en ambos casos — es matemática sobre `THREE.CatmullRomCurve3`, no tiene nada de React. Lo que se perdería yendo a vanilla es la capa DOM y los helpers de drei, que es donde vanilla obliga a reimplementar. El ahorro de overhead no compensa.
 
-→ **Esto queda como pregunta abierta ([§12.1](#121-stack-final)) porque el brief pidió no asumirlo.** La recomendación es R3F.
+**Decisión cerrada ([§12.1](#121-stack-final--resuelto)):** el usuario confirmó R3F sobre la alternativa vanilla.
 
 ### 2.2 Scroll: Lenis + GSAP ScrollTrigger
 
@@ -100,7 +100,7 @@ Dos detalles que definen si esto se siente cinematográfico o nervioso:
 
 Cada sección especifica **cámara / entorno / contenido / interactividad**.
 
-Los porcentajes son fracciones del scroll total y son un punto de partida a calibrar. Presupuesto total de scroll: **~800vh** (ver riesgo [§11.6](#116-longitud-de-scroll-vs-fatiga)).
+Los porcentajes son fracciones del scroll total y son un punto de partida a calibrar dentro de la implementación. Presupuesto total de scroll: **~800vh, confirmado por el usuario** ([§12.6](#126-longitud-total-de-scroll--resuelto)).
 
 ---
 
@@ -215,7 +215,7 @@ Los porcentajes son fracciones del scroll total y son un punto de partida a cali
 
 ### Sección 5 — Recorrido interior por secciones
 
-**Es la sección más cara del proyecto: fácilmente el 60% del trabajo total.** Ver [§11.7](#117-alcance-del-interior).
+**Es la sección más cara del proyecto.** Ver [§11.7](#117-alcance-del-interior) y la decisión de alcance en [§12.3](#123-alcance-del-interior--resuelto).
 
 | | |
 |---|---|
@@ -223,20 +223,20 @@ Los porcentajes son fracciones del scroll total y son un punto de partida a cali
 | **Cámara** | Walkthrough: avance por el pasillo a la altura de los ojos (~1.6m), con micro-oscilación lateral y vertical muy sutil para dar sensación de caminata. Pausas (mesetas en la curva de easing) en cada zona para que el overlay se lea. |
 | **Entorno** | Cálido y contenido. Luz de cabina como fuente principal, más pequeñas piscinas de luz fría entrando por las ventanillas. Aquí es donde el DoF se justifica: profundidad de campo corta vendiendo la escala del pasillo. |
 
-**Zonas, en orden de recorrido:**
+**Zonas — decisión confirmada: v1 con 3 zonas**, marcadas ★. Las otras 3 quedan documentadas como incremento posterior, no descartadas:
 
-1. Cabina de mando — hotspots sobre instrumentos
-2. Primera clase — suites, hotspot sobre configuración de asiento
-3. Business / Economy Plus *(candidata a recorte, ver §12.3)*
-4. Economy — el plano que muestra la anchura real de la cabina
-5. Escalera al piso superior — la transición vertical, visualmente el momento más distintivo de la sección
-6. Piso superior — la carga narrativa del "doble piso completo"
+1. ★ Cabina de mando — hotspots sobre instrumentos
+2. Primera clase — suites, hotspot sobre configuración de asiento *(diferida)*
+3. Business / Economy Plus *(diferida)*
+4. ★ Economy — el plano que muestra la anchura real de la cabina
+5. ★ Escalera al piso superior — la transición vertical, visualmente el momento más distintivo de la sección
+6. ★ Piso superior — la carga narrativa del "doble piso completo"
+
+Nótese que las 3 zonas de v1 preservan el arco narrativo íntegro, incluido el momento que justifica haber elegido el A380 (piso superior corrido). Lo que se difiere es densidad de clases de cabina, no el clímax de la sección.
 
 **Contenido:** overlay por zona con datos de configuración de esa cabina — asientos por clase, disposición, dimensiones.
 
-**Interactividad:** la mayor densidad de hotspots del sitio. Asiento, pantalla de entretenimiento, galley, ventanilla, compartimiento superior.
-
-> **Riesgo de scope señalado desde ya:** seis zonas con calidad de walkthrough es mucho. Ver [§12.3](#123-alcance-del-interior) — la recomendación es empezar con 3 y crecer.
+**Interactividad:** la mayor densidad de hotspots del sitio, concentrada en las 3 zonas de v1. Asiento, pantalla de entretenimiento, galley, ventanilla, compartimiento superior.
 
 ---
 
@@ -457,7 +457,7 @@ Fácil de arruinar en un sitio así, y es un marcador genuino de calidad:
 
 Las libreas y las configuraciones de cabina de aerolíneas reales (Emirates, Singapore Airlines, etc.) son **marcas registradas y diseños protegidos**. Varias de las cifras de configuración de arriba son específicas de una aerolínea.
 
-**Recomendación: librea ficticia y neutra**, con un nombre de marca inventado para el proyecto. Elimina la cuestión de IP, y además le da al sitio una identidad propia en vez de parecer material de marketing de un tercero. Ver [§12.4](#124-librea).
+**Decisión confirmada por el usuario: librea ficticia y neutra**, con un nombre de marca inventado para el proyecto. Elimina la cuestión de IP, y además le da al sitio una identidad propia en vez de parecer material de marketing de un tercero. Ver [§12.4](#124-librea--resuelto).
 
 ---
 
@@ -533,6 +533,8 @@ Salida: la regla se expande a ancho completo → wordmark sube y se desvanece �
 
 64px de alto, fijo, transparente sobre el canvas. Izquierda: wordmark. Derecha: indicador de progreso con 7 marcas (la activa alargada) + toggle de calidad.
 
+> **Sin audio en v1 ([§12.5](#125-audio--resuelto)):** el nav no lleva toggle de mute. Si el audio se agrega en una iteración futura, el toggle entra acá, junto al de calidad — no antes.
+
 > **Decisión de legibilidad, con su razón:** `mix-blend-mode: difference` es la solución tentadora para texto legible sobre escenas de luminancia variable. **Se descarta**: sobre las nubes brillantes de S3 se rompe y produce un resultado sucio e impredecible. En su lugar, un **scrim** sutil en degradado desde el borde superior. Menos elegante como truco, confiable en las 8 secciones.
 
 ---
@@ -593,9 +595,9 @@ S4 es la pieza **bespoke** de mayor riesgo: no hay una receta estándar. Por eso
 
 ### 11.6 Longitud de scroll vs. fatiga
 
-Ocho secciones scrubbeadas implican un scroll muy largo. Demasiado largo produce fatiga y abandono.
+Ocho secciones scrubbeadas implican un scroll muy largo. Demasiado largo produce fatiga y abandono. El riesgo sigue vigente aun con la decisión tomada — **~800vh confirmado** ([§12.6](#126-longitud-total-de-scroll--resuelto)) — porque es una cifra de partida, no una garantía: si en la implementación se siente pesado, corresponde acortar, no forzar el número.
 
-**Presupuesto: ~800vh total**, más un "saltar a sección" en el nav para quien quiera navegar en vez de recorrer. Es una cifra a validar con usuarios reales, no una constante.
+**Mitigación no negociable:** un "saltar a sección" en el nav para quien prefiera navegar en vez de recorrer completo.
 
 ### 11.7 Alcance del interior
 
@@ -607,13 +609,15 @@ Incluso bien optimizado, esto probablemente pesa **20–40 MB** en total. En con
 
 ---
 
-## 12. Preguntas abiertas
+## 12. Decisiones confirmadas
 
-Decisiones que requieren input directo antes de continuar. No se asumen por cuenta propia.
+Las 6 decisiones fundacionales del proyecto. Todas fueron presentadas al usuario con opciones explicadas y una recomendación, vía cuestionario, y **todas quedaron confirmadas en la opción recomendada.** No queda ninguna pregunta abierta de esta lista.
 
-### 12.1 Stack final
+### 12.1 Stack final — **RESUELTO**
 
-R3F + drei (recomendado, §2.1) **o** Three.js vanilla. El código del rig de cámara es idéntico en ambos; la diferencia está en la capa DOM y en los helpers de drei.
+**Decisión confirmada: R3F + drei**, sobre la alternativa de Three.js vanilla.
+
+Razón (desarrollada en [§2.1](#21-motor-de-render-react-three-fiber--drei)): el código del rig de cámara es idéntico en ambos casos, así que la diferencia real está en la capa DOM — loader, nav, overlays, hotspots — que sí tiene estado genuino y donde drei ahorra trabajo concreto (`<Html occlude>` para oclusión por profundidad, carga de GLTF+Draco+KTX2 resuelta, `useProgress`). Con la regla dura de que el scroll vive en un ref mutable y nunca en `useState`, el costo de reconciliación de React es despreciable.
 
 ### 12.2 Fuente y presupuesto del modelo 3D — **RESUELTO**
 
@@ -623,23 +627,31 @@ R3F + drei (recomendado, §2.1) **o** Three.js vanilla. El código del rig de c�
 - **Interior:** **modelado a medida en Blender**, íntegramente desde cero. Se acepta explícitamente que **no sea una réplica exacta del A380 real** — el objetivo es un interior propio, controlado, optimizado para el recorrido de S5, no un gemelo digital certificado.
 - **Descartado sin ambigüedad:** compra de sets de interior (TurboSquid/CGTrader, ~USD 129–149) y encargo de modelado a un tercero. Las opciones B y C quedan fuera del plan.
 
-Esto **destraba la Fase 3 en adelante** en lo referido a la fuente del asset. Lo que queda pendiente no es *de dónde sale* el modelo sino *el trabajo de modelarlo* — ver el ajuste de cronograma en [§13](#13-fases) y el riesgo actualizado en [§11.7](#117-alcance-del-interior).
+Esto **destraba la Fase 3 en adelante** en lo referido a la fuente del asset. Lo que queda pendiente no es *de dónde sale* el modelo sino *el trabajo de modelarlo* — ver el cronograma en [§13](#13-fases) y el riesgo en [§11.7](#117-alcance-del-interior).
 
-### 12.3 Alcance del interior
+### 12.3 Alcance del interior — **RESUELTO**
 
-Las 6 zonas completas, o **3 para la v1** (cabina de mando, economy, escalera + piso superior) con las demás como incremento posterior. **Recomendación: empezar con 3 — más fuerte todavía tras §12.2**, porque ahora cada zona es modelado 100% propio en Blender, sin atajo de comprar geometría. Preserva el arco narrativo completo — incluido el doble piso, que es el punto del A380 — a una fracción del tiempo de modelado.
+**Decisión confirmada: v1 con 3 zonas** — cabina de mando, economy, escalera + piso superior. Las otras 3 (primera clase, business/economy plus) quedan como incremento posterior, documentadas, no descartadas.
 
-### 12.4 Librea
+Razón: preserva el arco narrativo completo, incluido el piso superior corrido — el punto central de haber elegido el A380 sobre el 747 — a una fracción del tiempo de modelado. Con la decisión de §12.2 de modelar todo a mano en Blender, cada zona es tiempo de trabajo real y no hay atajo de comprar geometría, así que el argumento para empezar acotado es más fuerte que si se hubiera podido comprar el interior.
 
-Ficticia y neutra (recomendada, §9.1) o una aerolínea real. La primera evita la cuestión de IP y le da identidad propia al sitio.
+### 12.4 Librea — **RESUELTO**
 
-### 12.5 Audio
+**Decisión confirmada: librea ficticia y neutra**, con nombre de marca inventado para el proyecto.
 
-¿Lleva? Motor ambiental, tono de cabina, un whoosh en el cruce del umbral. Suma mucho a la inmersión, pero requiere un toggle en el nav (afecta §10.5) y una política de autoplay bien manejada.
+Razón (desarrollada en [§9.1](#91-punto-no-planteado-en-el-brief-propiedad-intelectual)): las libreas y configuraciones de cabina de aerolíneas reales son marca registrada y diseño protegido. Una marca propia elimina la cuestión de IP por completo y le da al sitio identidad propia, en vez de leerse como material de marketing no autorizado de un tercero.
 
-### 12.6 Longitud total de scroll
+### 12.5 Audio — **RESUELTO**
 
-¿Se sostiene el presupuesto de ~800vh, o se prefiere más compacto y denso?
+**Decisión confirmada: sin audio en la v1.**
+
+Razón: el brief prioriza explícitamente calidad visual por encima de features accesorias, y el audio trae complejidad real y no gratuita — política de autoplay de los navegadores (tiene que arrancar muteado sí o sí), un toggle más que diseñar en un nav ya acotado, y diseño/mezcla de sonido de varios estados (motor, ambiente de cabina, acento en el umbral). Queda como enhancement de una iteración futura, sin que la arquitectura actual lo bloquee: el nav no reserva espacio para un toggle de mute en v1 (§10.5).
+
+### 12.6 Longitud total de scroll — **RESUELTO**
+
+**Decisión confirmada: se sostiene el presupuesto de ~800vh**, sobre la alternativa más compacta de ~500–600vh.
+
+Razón: da respiro real a las dos secciones que más lo necesitan — el walkthrough interior (S5, el tramo más largo, con 3 zonas tras §12.3) y el cruce del umbral (S4, que el propio plan marca que "debe respirar", no puede resolverse apurado). El riesgo de fatiga de [§11.6](#116-longitud-de-scroll-vs-fatiga) sigue vigente como algo a monitorear en implementación, mitigado con "saltar a sección" en el nav — la cifra es el punto de partida confirmado, no una garantía cerrada en piedra si en la práctica se siente pesado.
 
 ---
 
@@ -651,12 +663,12 @@ Ficticia y neutra (recomendada, §9.1) o una aerolínea real. La primera evita l
 
 | Fase | Contenido | Dependencias |
 |---|---|---|
-| **0** | Decisiones restantes de §12, auditoría de licencia del exterior CC-BY. **Arranque del modelado del interior en Blender** — es la tarea de mayor duración del proyecto, conviene iniciarla en paralelo con las Fases 1–2, no esperar a que terminen | Ya no bloquea el inicio de 1–2 |
+| **0** | Todas las decisiones de §12 ya están cerradas. Queda: auditoría de licencia del exterior CC-BY y **arranque del modelado del interior en Blender** — es la tarea de mayor duración del proyecto, conviene iniciarla en paralelo con las Fases 1–2, no esperar a que terminen | No bloquea el inicio de 1–2 |
 | **1** | Esqueleto: Vite + TS, canvas, Lenis + ScrollTrigger, escalar de progreso, HUD de debug | — |
 | **2** | **Rig de cámara con placeholder a través de las 8 secciones.** Herramienta de autoría de keyframes. Validación del arco completo | 1 |
 | **3** | Pipeline de assets exterior. Secciones 1–3 con el modelo real | 0 (exterior auditado), 2 |
 | **4** | **Spike del umbral (S4).** Registración espacial exterior/interior | 3 |
-| **5** | Interior (S5): zonas, instancing de asientos, iluminación de cabina | 4 |
+| **5** | Interior (S5): **3 zonas de v1** (cabina de mando, economy, escalera + piso superior — §12.3), instancing de asientos, iluminación de cabina | 4 |
 | **6** | S6, S7. Sistema de overlays, tipografía, hotspots | 5 |
 | **7** | Post-proceso y pasada de dirección de arte: grading por sección, tone mapping, bloom, DoF | 6 |
 | **8** | Tiering de performance, mobile, fallback estático, accesibilidad | 7 |

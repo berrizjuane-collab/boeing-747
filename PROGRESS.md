@@ -3,7 +3,7 @@
 Checklist de seguimiento espejado a las fases de [`PLAN.md`](./PLAN.md).
 Sirve para retomar contexto entre sesiones: **antes de trabajar, leer las notas de la fase activa.**
 
-**Estado global: Fase 0 — decisión de asset resuelta, resto de §12 pendiente. `PLAN.md` en revisión.**
+**Estado global: Fase 0 — las 6 decisiones de §12 están cerradas. Queda auditoría del asset exterior y modelado del interior; puede arrancar en paralelo con Fases 1–2.**
 
 Convención: `[ ]` pendiente · `[~]` en curso · `[x]` completo · `[!]` bloqueado
 
@@ -11,19 +11,16 @@ Convención: `[ ]` pendiente · `[~]` en curso · `[x]` completo · `[!]` bloque
 
 ## Fase 0 — Decisiones y adquisición de assets
 
-> **Contexto:** la fuente del modelo 3D ya está resuelta (ver abajo) — deja de bloquear el inicio de las Fases 1–2. Lo que sí conviene arrancar ya, en paralelo, es el modelado del interior: es la tarea de mayor duración de todo el proyecto.
+> **Contexto:** las 6 decisiones de §12 de PLAN.md están cerradas. Nada de esto bloquea ya el inicio de las Fases 1–2. Lo que sí conviene arrancar ya, en paralelo, es el modelado del interior: es la tarea de mayor duración de todo el proyecto.
 
-### Decisión de asset — RESUELTA
+### Decisiones de §12 — TODAS RESUELTAS
 
-- [x] **Fuente del modelo 3D** — **Opción A confirmada.** Exterior: modelo CC-BY gratuito existente (no comprado, no encargado). Interior: modelado a medida en Blender, íntegramente desde cero, sin buscar fidelidad exacta al A380 real. Ver §11.1 y §12.2 de PLAN.md.
-
-### Decisiones pendientes (§12 de PLAN.md)
-
-- [ ] **Stack final** — R3F + drei (recomendado) vs. Three.js vanilla
-- [ ] **Alcance del interior** — 6 zonas vs. 3 para v1 (recomendado: 3 — la razón es más fuerte ahora que todo el interior es modelado propio)
-- [ ] **Librea** — ficticia/neutra (recomendada) vs. aerolínea real
-- [ ] **Audio** — ¿lleva? Afecta el diseño del nav
-- [ ] **Longitud total de scroll** — ¿se sostiene ~800vh?
+- [x] **Fuente del modelo 3D** — Exterior: CC-BY gratuito existente (no comprado, no encargado). Interior: modelado a medida en Blender, íntegramente desde cero, sin buscar fidelidad exacta al A380 real. Ver §11.1 y §12.2 de PLAN.md.
+- [x] **Stack final** — R3F + drei, confirmado sobre Three.js vanilla. Ver §12.1 de PLAN.md.
+- [x] **Alcance del interior** — v1 con 3 zonas (cabina de mando, economy, escalera + piso superior); las otras 3 quedan diferidas. Ver §12.3 de PLAN.md.
+- [x] **Librea** — Ficticia y neutra, confirmada. Ver §12.4 de PLAN.md.
+- [x] **Audio** — Sin audio en v1, confirmado. Ver §12.5 de PLAN.md.
+- [x] **Longitud total de scroll** — ~800vh, confirmado. Ver §12.6 de PLAN.md.
 
 ### Auditoría del asset exterior
 
@@ -41,7 +38,7 @@ Convención: `[ ]` pendiente · `[~]` en curso · `[x]` completo · `[!]` bloque
 
 - [ ] Definir el layout base del interior propio (pasillo, disposición de zonas) — no una réplica exacta
 - [ ] Modelar el asiento base para `InstancedMesh` (ver Fase 5)
-- [ ] Modelar pasillo y paneles de al menos las 3 zonas de la v1 recomendada (§12.3)
+- [ ] Modelar pasillo y paneles de las 3 zonas de la v1 confirmada (§12.3)
 - [ ] Alinear el modelado con las dimensiones del exterior CC-BY elegido, para minimizar el trabajo de registración de la Fase 4
 
 ---
@@ -130,7 +127,7 @@ Convención: `[ ]` pendiente · `[~]` en curso · `[x]` completo · `[!]` bloque
 
 ## Fase 5 — Interior (S5)
 
-**Alcance sujeto a la decisión §12.3 — marcadas con ★ las 3 zonas de la v1 recomendada**
+**Alcance confirmado (§12.3 de PLAN.md): v1 con 3 zonas, marcadas ★. Las otras 3 quedan diferidas — documentadas, no eliminadas.**
 
 - [ ] Assets de interior procesados por el pipeline
 - [ ] **Asientos como `InstancedMesh`** con variación por atributos de instancia
@@ -140,14 +137,17 @@ Convención: `[ ]` pendiente · `[~]` en curso · `[x]` completo · `[!]` bloque
 - [ ] Cámara de walkthrough a ~1.6m con micro-oscilación sutil
 - [ ] Mesetas de easing en cada zona para lectura de overlays
 
-### Zonas
+### Zonas v1 (alcance confirmado)
 
 - [ ] ★ Cabina de mando
-- [ ] Primera clase
-- [ ] Business / Economy Plus *(candidata a recorte)*
 - [ ] ★ Economy
 - [ ] ★ Escalera al piso superior
 - [ ] ★ Piso superior
+
+### Zonas diferidas — incremento posterior, fuera de v1
+
+- [ ] Primera clase
+- [ ] Business / Economy Plus
 
 ---
 
@@ -258,3 +258,4 @@ Convención: `[ ]` pendiente · `[~]` en curso · `[x]` completo · `[!]` bloque
 |---|---|---|---|
 | 2026-08-04 | Planificación | `PLAN.md` y `PROGRESS.md` creados. Investigación de specs y de disponibilidad de assets (fuentes primarias inaccesibles — 403). | Las 6 decisiones de Fase 0. La fuente del modelo 3D bloquea de Fase 3 en adelante. |
 | 2026-08-04 | Planificación (continuación) | **Decisión de asset resuelta:** exterior CC-BY existente, interior modelado a medida en Blender desde cero (sin fidelidad exacta), nada comprado ni encargado a terceros. Actualizados §0, §11.1, §11.7, §12.2, §12.3, §13 de PLAN.md y Fase 0 de PROGRESS.md en consecuencia. | Las otras 5 decisiones de §12 (stack, alcance de zonas, librea, audio, longitud de scroll). El modelado del interior en Blender puede arrancar ya, en paralelo con Fases 1–2. |
+| 2026-08-04 | Planificación (cierre de §12) | **Las 5 preguntas abiertas restantes quedaron cerradas vía cuestionario**, todas en la opción recomendada: stack → R3F + drei; alcance interior → v1 con 3 zonas (cabina de mando, economy, escalera + piso superior); librea → ficticia/neutra; audio → sin audio en v1; longitud de scroll → ~800vh. §12 de PLAN.md reescrito de "Preguntas abiertas" a "Decisiones confirmadas" (6/6 resueltas), con ajustes de consistencia en §2.1, §3 (Sección 5), §9.1, §10.5, §11.6 y §13. PROGRESS.md Fase 0 y Fase 5 actualizadas en consecuencia. | Ninguna decisión fundacional pendiente. Sigue abierta la verificación de datos técnicos de §9 (Fase 9) y toda la ejecución de las Fases 1–9. |
