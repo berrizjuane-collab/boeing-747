@@ -1,7 +1,7 @@
 # Fase 0 — Layout base del interior propio
 
-**Estado:** layout narrativo y paramétrico definido; fuente procedural de blockout preparada, geometría Blender todavía no ejecutada/verificada.  
-**Fuente reproducible:** [`blender/interior_blockout.py`](./blender/interior_blockout.py).  
+**Estado:** layout narrativo y paramétrico definido; blockout Blender ejecutado, reabierto y verificado. La alineación con el exterior sigue pendiente.  
+**Fuentes reproducibles:** [`blender/interior_blockout.py`](./blender/interior_blockout.py), [`blender/verify_blockout.py`](./blender/verify_blockout.py) y [`blender/render_preview.py`](./blender/render_preview.py).  
 **Alcance:** v1 con tres zonas narrativas: cabina de mando, economy y escalera + piso superior. La última se divide en dos módulos geométricos porque necesita una transición vertical.
 
 ## Principio de diseño
@@ -92,18 +92,14 @@ Cada zona tendrá paneles modulares con tres niveles:
 
 La iluminación se resolverá en la implementación con luces de cabina y emisivos ligeros. Las texturas y la marca de una aerolínea real no forman parte de este layout.
 
-## Verificación prevista en Blender
+## Verificación ejecutada en Blender — 2026-08-04
 
-La geometría sólo podrá marcarse como completada cuando se cumpla todo esto:
-
-- el archivo abre sin dependencias externas rotas;
-- existen los cuatro módulos y el asiento base con los nombres del contrato;
-- la cámara atraviesa las zonas sin colisiones evidentes;
-- el asiento base puede repetirse sin duplicar geometría;
-- se puede exportar una prueba GLB y volver a abrirla;
-- la escena queda dentro del presupuesto de geometría de Fase 5;
-- el origen, escala y orientación se registran después de la auditoría estructural del exterior.
+- Blender 5.2.0 LTS arrancó en modo headless y `bpy` cargó correctamente.
+- El archivo BLEND se guardó, se reabrió y pasó [`blender/verify_blockout.py`](./blender/verify_blockout.py): 353 mallas; colecciones `Zone_Cockpit` (15), `Zone_Economy` (220), `Zone_Stair` (20), `Zone_UpperDeck` (98) y `Technical` (4); 250 asientos enlazados a `Seat_Base`, con 251 usuarios de la malla maestra; bounds mundiales de 6.32 × 4.58 × 58.26 m.
+- El GLB se exportó y volvió a abrir en Blender: 360 objetos, 354 mallas, 11 materiales y 750,952 bytes.
+- Se generó una vista QA en Workbench y se inspeccionó visualmente: el pasillo, las filas, los paneles, las ventanillas y la escalera son legibles en el blockout.
+- El recorrido de cámara narrativo completo sigue siendo trabajo de la Fase 2; no se marca aquí como terminado.
 
 ## Bloqueo actual
 
-Este entorno no tiene Blender instalado y el repositorio todavía no contiene un asset exterior aprobado. Por tanto, en esta sesión se completa la **definición del layout base**, pero no se marcan como terminados el asiento, los paneles ni la alineación. Esos puntos requieren producir y verificar geometría real.
+El blockout propio de Fase 0 está terminado y verificado. La alineación final requiere el exterior CC-BY aprobado, pero Sketchfab exige autenticación para descargar el candidato Brout y no se recibió un archivo fuente autorizado. Por eso no se marcan como cerrados los checks de jerarquía del tren, UVs limpias, PBR, escala/orientación ni registración exterior/interior.
