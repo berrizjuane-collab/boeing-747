@@ -1,7 +1,7 @@
 # PLAN — Sitio Scrollytelling 3D de Presentación de Aeronave
 
 > Documento de planificación. Ninguna línea de este plan es código de implementación.
-> Estado: **borrador para aprobación**. Hay decisiones bloqueantes sin resolver — ver [§12 Preguntas abiertas](#12-preguntas-abiertas).
+> Estado: **borrador para aprobación**. La fuente del modelo 3D ya está resuelta ([§12.2](#122-fuente-y-presupuesto-del-modelo-3d--resuelto)); quedan otras decisiones sin bloquear — ver [§12 Preguntas abiertas](#12-preguntas-abiertas).
 
 ---
 
@@ -21,7 +21,7 @@ El pedido original decía "Airbus 747 de dos pisos". Eso mezcla dos aeronaves di
 
 - El rig de cámara (§4) es agnóstico del modelo: opera sobre keyframes en coordenadas de mundo, no sobre nombres de nodos del glTF.
 - Las secciones 1–3 y 6 sólo necesitan silueta exterior y proporciones; cambiar el `.glb` exterior y reajustar la escala de los keyframes es trabajo de horas.
-- La Sección 5 sí cambiaría de fondo: el 747 no tiene piso superior corrido, así que el sub-tramo "escalera + piso superior" se reduciría a la joroba delantera, y el recorrido perdería ~1 zona.
+- La Sección 5 sí cambiaría de fondo: el 747 no tiene piso superior corrido, así que el sub-tramo "escalera + piso superior" se reduciría a la joroba delantera, y el recorrido perdería ~1 zona. Con la decisión de §12.2 de modelar el interior a medida en Blender, este cambio es incluso más contenido de lo que parecía originalmente: no hay un asset comprado con forma fija que reconvertir, es geometría propia — ajustar proporciones y perder una zona es trabajo de modelado normal, no una migración de asset.
 
 > Nota menor: el repositorio se llama `boeing-747`. Es un desajuste cosmético que no vale la pena arreglar renombrando; queda anotado para que nadie lo lea como una decisión de producto.
 
@@ -539,26 +539,25 @@ Salida: la regla se expande a ancho completo → wordmark sube y se desvanece �
 
 ## 11. Riesgos
 
-### 11.1 Adquisición del modelo 3D — RIESGO BLOQUEANTE
+### 11.1 Adquisición del modelo 3D
 
-**Es el riesgo número uno y condiciona todo lo demás.**
+**Decisión confirmada ([§12.2](#122-fuente-y-presupuesto-del-modelo-3d--resuelto)): exterior CC-BY existente, interior modelado a medida en Blender. Nada comprado, nada encargado a terceros.**
 
-Lo que arrojó la investigación:
+Con esto resuelto, el riesgo **cambia de naturaleza**: ya no es "conseguir el asset", es **el tiempo de modelado del interior**, que ahora es trabajo propio de principio a fin.
 
-- **Modelos gratuitos CC-BY en Sketchfab: existen varios A380.** Pero son *game-ready* / low-poly, construidos para leerse en silueta a distancia. **Ninguno aguanta el rango de cámara de la Sección 5.** El interior o falta directamente, o es tosco.
-- **Sets de interior de pago existen** — del orden de **USD 129–149** en TurboSquid/CGTrader (interiores de cabina A380, colecciones por clase). Pero suelen venir como **escenas 3ds Max / V-Ray**, no glTF con materiales PBR. **La conversión y re-autoría de materiales es trabajo de días, no de horas** — y ese costo se subestima sistemáticamente.
+Lo que arrojó la investigación sobre el exterior:
 
-**Salvedad sobre la investigación misma:** las páginas de producto no se pudieron abrir (403 en sketchfab.com). Los conteos de polígonos, formatos disponibles y términos exactos de licencia de cada modelo **no están verificados**. La auditoría modelo por modelo es una tarea pendiente de Fase 0.
+- **Modelos gratuitos CC-BY en Sketchfab: existen varios A380.** Son *game-ready* / low-poly, construidos para leerse en silueta a distancia — que es exactamente el uso que tienen en este plan (S1–S3, S6). No necesitan aguantar el rango de cámara de S5, porque el interior ya no sale de ahí.
 
-**Opciones:**
+**Salvedad sobre la investigación misma:** las páginas de producto no se pudieron abrir (403 en sketchfab.com). Los conteos de polígonos, formatos disponibles y términos exactos de licencia de cada modelo **no están verificados**. La auditoría modelo por modelo sigue siendo tarea pendiente de Fase 0.
 
-| Opción | Costo | Riesgo |
-|---|---|---|
-| **A** — Exterior gratuito CC-BY + interior genérico modelado a medida en Blender | 0 USD + tiempo de modelado | El interior a medida no será una réplica fiel del A380, pero es *controlable* y está optimizado para el recorrido. **Recomendada.** |
-| **B** — Exterior de pago + interior de pago + conversión | ~300 USD + días de conversión | Mayor fidelidad; riesgo real de que la conversión consuma más de lo estimado |
-| **C** — Encargar el modelado | Alto | Menor riesgo técnico, mayor costo y plazo |
+**Sobre el interior modelado a medida — lo que esto implica en la práctica:**
 
-**Criterios de aceptación para cualquier candidato a asset exterior:**
+- **Costo:** cero en licencias, pero el ítem de mayor tiempo del proyecto entero. Modelar pasillo, asientos (base para instancing), paneles, iluminación embebida y detalle de cada zona desde cero en Blender no es un fin de semana por zona.
+- **Ventaja real, no sólo ausencia de costo:** al ser un modelo propio, se puede diseñar **ya optimizado** para el walkthrough (topología pensada para la cámara que efectivamente pasa por ahí, sin geometría de más) y ya alineado con el exterior desde el modelado mismo — mitiga parte del riesgo de registración espacial de [§11.2](#112-registración-espacial-exteriorinterior), porque la alineación se decide al modelar, no se ajusta después a la fuerza.
+- **Contrapartida honesta:** no va a tener la fidelidad de un interior de referencia real (materiales, mecanismos, cantidad de detalle de un asiento de primera clase real). Es una recreación estilizada, no un gemelo digital. Eso es aceptado explícitamente como parte de la decisión, no un defecto a ocultar.
+
+**Criterios de aceptación para el asset exterior CC-BY:**
 
 - [ ] Licencia auditada y compatible con el uso previsto
 - [ ] Tren de aterrizaje como nodos separados y jerarquizados (lo requiere S2 — ver la nota de asset de la Sección 2)
@@ -600,7 +599,7 @@ Ocho secciones scrubbeadas implican un scroll muy largo. Demasiado largo produce
 
 ### 11.7 Alcance del interior
 
-Las seis zonas de S5 son fácilmente el **60% del trabajo total** del proyecto. Es la parte más subestimable del plan. Ver [§12.3](#123-alcance-del-interior).
+Las seis zonas de S5 son fácilmente el **60% del trabajo total** del proyecto — y con la decisión de §12.2 de modelar todo a medida en Blender, esa proporción **sube, no baja**: antes al menos existía la posibilidad de comprar geometría ya hecha; ahora cada zona es modelado propio de punta a punta (pasillo, asientos base para instancing, paneles, iluminación embebida). Es, con diferencia, la parte más subestimable del plan. Ver [§12.3](#123-alcance-del-interior) — con modelado 100% propio, la razón para arrancar con 3 zonas en vez de 6 es todavía más fuerte que antes.
 
 ### 11.8 Payload total
 
@@ -616,13 +615,19 @@ Decisiones que requieren input directo antes de continuar. No se asumen por cuen
 
 R3F + drei (recomendado, §2.1) **o** Three.js vanilla. El código del rig de cámara es idéntico en ambos; la diferencia está en la capa DOM y en los helpers de drei.
 
-### 12.2 Fuente y presupuesto del modelo 3D — **BLOQUEANTE**
+### 12.2 Fuente y presupuesto del modelo 3D — **RESUELTO**
 
-Opción A (gratuito + interior a medida, recomendada), B (~300 USD de assets + días de conversión), o C (encargar el modelado). **Nada de la Fase 3 en adelante puede empezar sin esta decisión.**
+**Decisión confirmada: Opción A, sin nada comprado ni encargado a terceros.**
+
+- **Exterior:** modelo gratuito CC-BY existente (Sketchfab u otro repositorio equivalente), auditado por licencia y por los criterios de aceptación de [§11.1](#111-adquisición-del-modelo-3d). No es una compra ni un encargo — es un asset ya publicado y disponible.
+- **Interior:** **modelado a medida en Blender**, íntegramente desde cero. Se acepta explícitamente que **no sea una réplica exacta del A380 real** — el objetivo es un interior propio, controlado, optimizado para el recorrido de S5, no un gemelo digital certificado.
+- **Descartado sin ambigüedad:** compra de sets de interior (TurboSquid/CGTrader, ~USD 129–149) y encargo de modelado a un tercero. Las opciones B y C quedan fuera del plan.
+
+Esto **destraba la Fase 3 en adelante** en lo referido a la fuente del asset. Lo que queda pendiente no es *de dónde sale* el modelo sino *el trabajo de modelarlo* — ver el ajuste de cronograma en [§13](#13-fases) y el riesgo actualizado en [§11.7](#117-alcance-del-interior).
 
 ### 12.3 Alcance del interior
 
-Las 6 zonas completas, o **3 para la v1** (cabina de mando, economy, escalera + piso superior) con las demás como incremento posterior. **Recomendación: empezar con 3.** Preserva el arco narrativo completo — incluido el doble piso, que es el punto del A380 — a aproximadamente la mitad del costo.
+Las 6 zonas completas, o **3 para la v1** (cabina de mando, economy, escalera + piso superior) con las demás como incremento posterior. **Recomendación: empezar con 3 — más fuerte todavía tras §12.2**, porque ahora cada zona es modelado 100% propio en Blender, sin atajo de comprar geometría. Preserva el arco narrativo completo — incluido el doble piso, que es el punto del A380 — a una fracción del tiempo de modelado.
 
 ### 12.4 Librea
 
@@ -640,14 +645,16 @@ Ficticia y neutra (recomendada, §9.1) o una aerolínea real. La primera evita l
 
 ## 13. Fases
 
-> **La recomendación de proceso más valiosa de este plan:** validar el **arco narrativo completo con geometría placeholder** — literalmente una caja como avión — **antes** de cualquier trabajo de asset real. Si el recorrido de cámara no funciona, hay que descubrirlo con una caja, no después de gastar días o dinero en modelos.
+> **La recomendación de proceso más valiosa de este plan:** validar el **arco narrativo completo con geometría placeholder** — literalmente una caja como avión — **antes** de cualquier trabajo de asset real. Si el recorrido de cámara no funciona, hay que descubrirlo con una caja, no después de gastar días modelando.
+>
+> **Ajuste tras la decisión de §12.2:** como el interior se modela a medida y es la tarea más larga del proyecto, **conviene arrancarla ya, en paralelo con las Fases 1–2**, en vez de esperar a que el rig de cámara esté validado. El riesgo de "modelar algo que después no encaja con la cámara" se mitiga con la herramienta de autoría de keyframes de la Fase 2 (permite ajustar el recorrido a la geometría real, no sólo al revés) y con el criterio de registración espacial de [§11.2](#112-registración-espacial-exteriorinterior) aplicado desde el modelado mismo.
 
 | Fase | Contenido | Dependencias |
 |---|---|---|
-| **0** | Decisiones (§12), auditoría de licencias, adquisición de assets | **Bloquea todo** |
+| **0** | Decisiones restantes de §12, auditoría de licencia del exterior CC-BY. **Arranque del modelado del interior en Blender** — es la tarea de mayor duración del proyecto, conviene iniciarla en paralelo con las Fases 1–2, no esperar a que terminen | Ya no bloquea el inicio de 1–2 |
 | **1** | Esqueleto: Vite + TS, canvas, Lenis + ScrollTrigger, escalar de progreso, HUD de debug | — |
 | **2** | **Rig de cámara con placeholder a través de las 8 secciones.** Herramienta de autoría de keyframes. Validación del arco completo | 1 |
-| **3** | Pipeline de assets exterior. Secciones 1–3 con el modelo real | 0, 2 |
+| **3** | Pipeline de assets exterior. Secciones 1–3 con el modelo real | 0 (exterior auditado), 2 |
 | **4** | **Spike del umbral (S4).** Registración espacial exterior/interior | 3 |
 | **5** | Interior (S5): zonas, instancing de asientos, iluminación de cabina | 4 |
 | **6** | S6, S7. Sistema de overlays, tipografía, hotspots | 5 |

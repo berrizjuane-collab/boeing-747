@@ -3,28 +3,31 @@
 Checklist de seguimiento espejado a las fases de [`PLAN.md`](./PLAN.md).
 Sirve para retomar contexto entre sesiones: **antes de trabajar, leer las notas de la fase activa.**
 
-**Estado global: Fase 0 — nada iniciado. `PLAN.md` pendiente de aprobación.**
+**Estado global: Fase 0 — decisión de asset resuelta, resto de §12 pendiente. `PLAN.md` en revisión.**
 
 Convención: `[ ]` pendiente · `[~]` en curso · `[x]` completo · `[!]` bloqueado
 
 ---
 
-## Fase 0 — Decisiones y adquisición de assets · **BLOQUEA TODO LO DEMÁS**
+## Fase 0 — Decisiones y adquisición de assets
 
-> **Contexto:** ninguna fase posterior a la 2 puede empezar sin resolver la fuente del modelo 3D. Las fases 1 y 2 sí pueden avanzar en paralelo con geometría placeholder.
+> **Contexto:** la fuente del modelo 3D ya está resuelta (ver abajo) — deja de bloquear el inicio de las Fases 1–2. Lo que sí conviene arrancar ya, en paralelo, es el modelado del interior: es la tarea de mayor duración de todo el proyecto.
+
+### Decisión de asset — RESUELTA
+
+- [x] **Fuente del modelo 3D** — **Opción A confirmada.** Exterior: modelo CC-BY gratuito existente (no comprado, no encargado). Interior: modelado a medida en Blender, íntegramente desde cero, sin buscar fidelidad exacta al A380 real. Ver §11.1 y §12.2 de PLAN.md.
 
 ### Decisiones pendientes (§12 de PLAN.md)
 
 - [ ] **Stack final** — R3F + drei (recomendado) vs. Three.js vanilla
-- [ ] **Fuente del modelo 3D** — opción A (gratuito + interior a medida, recomendada) / B (~300 USD + conversión) / C (encargar) — **BLOQUEANTE**
-- [ ] **Alcance del interior** — 6 zonas vs. 3 para v1 (recomendado: 3)
+- [ ] **Alcance del interior** — 6 zonas vs. 3 para v1 (recomendado: 3 — la razón es más fuerte ahora que todo el interior es modelado propio)
 - [ ] **Librea** — ficticia/neutra (recomendada) vs. aerolínea real
 - [ ] **Audio** — ¿lleva? Afecta el diseño del nav
 - [ ] **Longitud total de scroll** — ¿se sostiene ~800vh?
 
-### Auditoría de assets
+### Auditoría del asset exterior
 
-- [ ] Relevar candidatos a modelo exterior de A380
+- [ ] Relevar candidatos a modelo exterior de A380 CC-BY
 - [ ] **Auditar licencia de cada candidato individualmente** — no confiar en lo que declara un listado de búsqueda
 - [ ] Descartar CC-BY-NC si el proyecto tiene cualquier connotación comercial
 - [ ] Verificar criterios de aceptación por candidato:
@@ -32,9 +35,14 @@ Convención: `[ ]` pendiente · `[~]` en curso · `[x]` completo · `[!]` bloque
   - [ ] UVs limpias, sin solapamientos
   - [ ] Texturas PBR reales, no materiales horneados de un renderer específico
   - [ ] Escala y orientación correctas o corregibles sin romper la jerarquía
-- [ ] Decidir origen del interior: a medida en Blender vs. comprado + convertido
-- [ ] Estimar el costo real de conversión si se compra (escenas 3ds Max/V-Ray → glTF PBR es trabajo de días)
-- [ ] Definir el texto de atribución y **diseñarlo dentro del footer** (no pegarlo al final)
+- [ ] Definir el texto de atribución CC-BY y **diseñarlo dentro del footer** (no pegarlo al final)
+
+### Modelado del interior en Blender — puede arrancar ya, en paralelo
+
+- [ ] Definir el layout base del interior propio (pasillo, disposición de zonas) — no una réplica exacta
+- [ ] Modelar el asiento base para `InstancedMesh` (ver Fase 5)
+- [ ] Modelar pasillo y paneles de al menos las 3 zonas de la v1 recomendada (§12.3)
+- [ ] Alinear el modelado con las dimensiones del exterior CC-BY elegido, para minimizar el trabajo de registración de la Fase 4
 
 ---
 
@@ -249,3 +257,4 @@ Convención: `[ ]` pendiente · `[~]` en curso · `[x]` completo · `[!]` bloque
 | Fecha | Sesión | Qué se hizo | Qué quedó abierto |
 |---|---|---|---|
 | 2026-08-04 | Planificación | `PLAN.md` y `PROGRESS.md` creados. Investigación de specs y de disponibilidad de assets (fuentes primarias inaccesibles — 403). | Las 6 decisiones de Fase 0. La fuente del modelo 3D bloquea de Fase 3 en adelante. |
+| 2026-08-04 | Planificación (continuación) | **Decisión de asset resuelta:** exterior CC-BY existente, interior modelado a medida en Blender desde cero (sin fidelidad exacta), nada comprado ni encargado a terceros. Actualizados §0, §11.1, §11.7, §12.2, §12.3, §13 de PLAN.md y Fase 0 de PROGRESS.md en consecuencia. | Las otras 5 decisiones de §12 (stack, alcance de zonas, librea, audio, longitud de scroll). El modelado del interior en Blender puede arrancar ya, en paralelo con Fases 1–2. |
