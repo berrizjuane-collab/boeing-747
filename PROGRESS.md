@@ -47,7 +47,7 @@ Convención: `[ ]` pendiente · `[~]` en curso · `[x]` completo · `[!]` bloque
 
 | Fecha | Sesión | Qué se hizo | Qué quedó abierto |
 |---|---|---|---|
-| 2026-08-04 | Fase 0 — auditoría inicial | Se relevaron 9 candidatos de A380, se auditaron individualmente sus licencias y se excluyó CC BY-NC-SA. Brout quedó como shortlist principal por CC BY, descargabilidad, etiqueta game-ready y presupuesto preliminar (~4.41 MB GLB; 67.6k triángulos). Se definió el texto/ubicación de atribución y el layout base del interior en [`ASSET_AUDIT.md`](./ASSET_AUDIT.md) e [`INTERIOR_LAYOUT.md`](./INTERIOR_LAYOUT.md). | Pendientes: descargar e inspeccionar el archivo Brout en Blender (nodos del tren, UVs, PBR y escala/orientación); modelar asiento, pasillo/paneles y alinear interior con el exterior. Blender no está instalado en el entorno actual. |
+| 2026-08-04 | Fase 0 — auditoría inicial | Se relevaron 9 candidatos de A380, se auditaron individualmente sus licencias y se excluyó CC BY-NC-SA. Brout quedó como shortlist principal por CC BY, descargabilidad, etiqueta game-ready y presupuesto preliminar (~4.41 MB GLB; 67.6k triángulos). Se definió el texto/ubicación de atribución y el layout base del interior en [`ASSET_AUDIT.md`](./ASSET_AUDIT.md) e [`INTERIOR_LAYOUT.md`](./INTERIOR_LAYOUT.md). Se añadió [`blender/interior_blockout.py`](./blender/interior_blockout.py) como fuente procedural reproducible y se verificó estáticamente su sintaxis y contrato de nombres; no se ejecutó porque Blender no está instalado. | Pendientes: descargar e inspeccionar el archivo Brout en Blender (nodos del tren, UVs, PBR y escala/orientación); modelar asiento, pasillo/paneles y alinear interior con el exterior. Blender no está instalado en el entorno actual. |
 
 ## Fase 1 — Esqueleto
 
