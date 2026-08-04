@@ -551,7 +551,7 @@ Lo que arrojó la investigación sobre el exterior:
 
 - **Modelos gratuitos CC-BY en Sketchfab: existen varios A380.** Son *game-ready* / low-poly, construidos para leerse en silueta a distancia — que es exactamente el uso que tienen en este plan (S1–S3, S6). No necesitan aguantar el rango de cámara de S5, porque el interior ya no sale de ahí.
 
-**Salvedad sobre la investigación misma:** las páginas de producto no se pudieron abrir (403 en sketchfab.com). Los conteos de polígonos, formatos disponibles y términos exactos de licencia de cada modelo **no están verificados**. La auditoría modelo por modelo sigue siendo tarea pendiente de Fase 0.
+**Actualización de auditoría (2026-08-04):** la página individual y la API pública de Sketchfab permitieron verificar licencias, descargabilidad y metadatos de varios candidatos. Los resultados y los límites de la verificación estructural están documentados en [`ASSET_AUDIT.md`](./ASSET_AUDIT.md). La jerarquía de nodos, UVs, materiales PBR y transformación exacta siguen pendientes de inspección en Blender.
 
 **Sobre el interior modelado a medida — lo que esto implica en la práctica:**
 
@@ -663,7 +663,7 @@ Razón: da respiro real a las dos secciones que más lo necesitan — el walkthr
 
 | Fase | Contenido | Dependencias |
 |---|---|---|
-| **0** | Todas las decisiones de §12 ya están cerradas. Queda: auditoría de licencia del exterior CC-BY y **arranque del modelado del interior en Blender** — es la tarea de mayor duración del proyecto, conviene iniciarla en paralelo con las Fases 1–2, no esperar a que terminen | No bloquea el inicio de 1–2 |
+| **0** | Todas las decisiones de §12 ya están cerradas. Queda: auditoría de licencia del exterior CC-BY y **arranque del modelado del interior en Blender** — auditoría documentada en [`ASSET_AUDIT.md`](./ASSET_AUDIT.md); layout base documentado en [`INTERIOR_LAYOUT.md`](./INTERIOR_LAYOUT.md); la geometría real sigue pendiente | No bloquea el inicio de 1–2 |
 | **1** | Esqueleto: Vite + TS, canvas, Lenis + ScrollTrigger, escalar de progreso, HUD de debug | — |
 | **2** | **Rig de cámara con placeholder a través de las 8 secciones.** Herramienta de autoría de keyframes. Validación del arco completo | 1 |
 | **3** | Pipeline de assets exterior. Secciones 1–3 con el modelo real | 0 (exterior auditado), 2 |
