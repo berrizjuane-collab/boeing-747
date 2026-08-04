@@ -3,7 +3,7 @@
 Checklist de seguimiento espejado a las fases de [`PLAN.md`](./PLAN.md).
 Sirve para retomar contexto entre sesiones: **antes de trabajar, leer las notas de la fase activa.**
 
-**Estado global: Fase 0 — las 6 decisiones de §12 están cerradas. Queda auditoría del asset exterior y modelado del interior; puede arrancar en paralelo con Fases 1–2.**
+**Estado global: Fase 0 — auditoría documental y layout base completados; quedan pendientes la inspección estructural del exterior y la geometría real del interior.**
 
 Convención: `[ ]` pendiente · `[~]` en curso · `[x]` completo · `[!]` bloqueado
 
@@ -24,24 +24,30 @@ Convención: `[ ]` pendiente · `[~]` en curso · `[x]` completo · `[!]` bloque
 
 ### Auditoría del asset exterior
 
-- [ ] Relevar candidatos a modelo exterior de A380 CC-BY
-- [ ] **Auditar licencia de cada candidato individualmente** — no confiar en lo que declara un listado de búsqueda
-- [ ] Descartar CC-BY-NC si el proyecto tiene cualquier connotación comercial
+- [x] Relevar candidatos a modelo exterior de A380 CC-BY — 9 candidatos documentados en [`ASSET_AUDIT.md`](./ASSET_AUDIT.md); Brout queda como shortlist principal
+- [x] **Auditar licencia de cada candidato individualmente** — API/página individual revisada; ver [`ASSET_AUDIT.md`](./ASSET_AUDIT.md)
+- [x] Descartar CC-BY-NC si el proyecto tiene cualquier connotación comercial — OUTPISTON queda excluido por CC BY-NC-SA; no se acepta NC para este proyecto
 - [ ] Verificar criterios de aceptación por candidato:
   - [ ] Tren de aterrizaje como nodos separados y jerarquizados (lo requiere S2)
   - [ ] UVs limpias, sin solapamientos
   - [ ] Texturas PBR reales, no materiales horneados de un renderer específico
   - [ ] Escala y orientación correctas o corregibles sin romper la jerarquía
-- [ ] Definir el texto de atribución CC-BY y **diseñarlo dentro del footer** (no pegarlo al final)
+- [x] Definir el texto de atribución CC-BY y **diseñarlo dentro del footer** (no pegarlo al final) — texto y ubicación definidos en [`ASSET_AUDIT.md`](./ASSET_AUDIT.md)
 
 ### Modelado del interior en Blender — puede arrancar ya, en paralelo
 
-- [ ] Definir el layout base del interior propio (pasillo, disposición de zonas) — no una réplica exacta
+- [x] Definir el layout base del interior propio (pasillo, disposición de zonas) — contrato paramétrico en [`INTERIOR_LAYOUT.md`](./INTERIOR_LAYOUT.md)
 - [ ] Modelar el asiento base para `InstancedMesh` (ver Fase 5)
 - [ ] Modelar pasillo y paneles de las 3 zonas de la v1 confirmada (§12.3)
 - [ ] Alinear el modelado con las dimensiones del exterior CC-BY elegido, para minimizar el trabajo de registración de la Fase 4
 
 ---
+
+### Registro de sesiones
+
+| Fecha | Sesión | Qué se hizo | Qué quedó abierto |
+|---|---|---|---|
+| 2026-08-04 | Fase 0 — auditoría inicial | Se relevaron 9 candidatos de A380, se auditaron individualmente sus licencias y se excluyó CC BY-NC-SA. Brout quedó como shortlist principal por CC BY, descargabilidad, etiqueta game-ready y presupuesto preliminar (~4.41 MB GLB; 67.6k triángulos). Se definió el texto/ubicación de atribución y el layout base del interior en [`ASSET_AUDIT.md`](./ASSET_AUDIT.md) e [`INTERIOR_LAYOUT.md`](./INTERIOR_LAYOUT.md). | Pendientes: descargar e inspeccionar el archivo Brout en Blender (nodos del tren, UVs, PBR y escala/orientación); modelar asiento, pasillo/paneles y alinear interior con el exterior. Blender no está instalado en el entorno actual. |
 
 ## Fase 1 — Esqueleto
 
