@@ -1,7 +1,7 @@
 # PLAN — Sitio Scrollytelling 3D de Presentación de Aeronave
 
 > Documento de planificación. Ninguna línea de este plan es código de implementación.
-> Estado: **todas las decisiones fundacionales de [§12](#12-decisiones-confirmadas) están cerradas y confirmadas por el usuario.** No quedan preguntas abiertas ni bloqueos de decisión — lo que resta es investigación de verificación (§9, Fase 9) y ejecución (§13).
+> Estado: **todas las decisiones fundacionales de [§12](#12-decisiones-confirmadas) están cerradas y confirmadas por el usuario.** La Fase 0 ya tiene blockout interior ejecutado y verificado; el gate estructural del exterior Brout permanece bloqueado hasta obtener el archivo fuente por una ruta autorizada.
 
 ---
 
@@ -663,7 +663,7 @@ Razón: da respiro real a las dos secciones que más lo necesitan — el walkthr
 
 | Fase | Contenido | Dependencias |
 |---|---|---|
-| **0** | Todas las decisiones de §12 ya están cerradas. Queda: auditoría de licencia del exterior CC-BY y **arranque del modelado del interior en Blender** — auditoría documentada en [`ASSET_AUDIT.md`](./ASSET_AUDIT.md); layout base documentado en [`INTERIOR_LAYOUT.md`](./INTERIOR_LAYOUT.md); la geometría real sigue pendiente | No bloquea el inicio de 1–2 |
+| **0** | Decisiones cerradas; auditoría de licencia documentada; **blockout interior ejecutado y verificado en Blender** con cockpit, economy, escalera y upper deck. La aprobación estructural del exterior CC-BY y la alineación final siguen bloqueadas por la descarga autenticada del candidato. | No bloquea el inicio de 1–2; sí condiciona 3–5 |
 | **1** | Esqueleto: Vite + TS, canvas, Lenis + ScrollTrigger, escalar de progreso, HUD de debug | — |
 | **2** | **Rig de cámara con placeholder a través de las 8 secciones.** Herramienta de autoría de keyframes. Validación del arco completo | 1 |
 | **3** | Pipeline de assets exterior. Secciones 1–3 con el modelo real | 0 (exterior auditado), 2 |
