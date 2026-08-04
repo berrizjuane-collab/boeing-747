@@ -237,7 +237,7 @@ def create_main_cabin(zone, mats):
     for index, z in enumerate(range(9, 35, 2)):
         for x, side in ((-3.03, "L"), (3.03, "R")):
             box(
-                "Economy_Window_{}_{}".format(side, index + 1),
+                "Panel_Window_Module_{}_{}".format(side, index + 1),
                 (0.04, 0.62, 1.25),
                 (x, 1.45, z),
                 zone,
@@ -266,6 +266,8 @@ def create_stair(zone, mats):
     step_height = 0.14
     start_z = 35.0
     start_y = 0.08
+
+    box("Stair_Main", (1.20, 0.08, 4.80), (0.0, 0.04, 37.20), zone, mats["floor"])
 
     for index in range(step_count):
         y = start_y + index * step_height
@@ -300,7 +302,7 @@ def create_upper_deck(zone, mats):
     for index, z in enumerate(range(41, 59, 2)):
         for x, side in ((-2.68, "L"), (2.68, "R")):
             box(
-                "UpperDeck_Window_{}_{}".format(side, index + 1),
+                "Panel_Window_Module_Upper_{}_{}".format(side, index + 1),
                 (0.04, 0.58, 1.15),
                 (x, 3.72, z),
                 zone,
