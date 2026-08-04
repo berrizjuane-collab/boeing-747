@@ -3,7 +3,7 @@
 Checklist de seguimiento espejado a las fases de [`PLAN.md`](./PLAN.md).
 Sirve para retomar contexto entre sesiones: **antes de trabajar, leer las notas de la fase activa.**
 
-**Estado global: Fase 0 — auditoría documental y layout base completados; quedan pendientes la inspección estructural del exterior y la geometría real del interior.**
+**Estado global: Fase 0 — blockout interior ejecutado y verificado; la aprobación estructural del exterior sigue bloqueada por la descarga autenticada de Sketchfab y la alineación final queda abierta.**
 
 Convención: `[ ]` pendiente · `[~]` en curso · `[x]` completo · `[!]` bloqueado
 
@@ -11,7 +11,7 @@ Convención: `[ ]` pendiente · `[~]` en curso · `[x]` completo · `[!]` bloque
 
 ## Fase 0 — Decisiones y adquisición de assets
 
-> **Contexto:** las 6 decisiones de §12 de PLAN.md están cerradas. Nada de esto bloquea ya el inicio de las Fases 1–2. Lo que sí conviene arrancar ya, en paralelo, es el modelado del interior: es la tarea de mayor duración de todo el proyecto.
+> **Salida de sesión:** las 6 decisiones de §12 siguen cerradas. El blockout propio ya está ejecutado y verificado en Blender; las Fases 1–2 no quedan bloqueadas. Fase 3 y la alineación exterior esperan el archivo fuente autorizado del candidato.
 
 ### Decisiones de §12 — TODAS RESUELTAS
 
@@ -27,19 +27,21 @@ Convención: `[ ]` pendiente · `[~]` en curso · `[x]` completo · `[!]` bloque
 - [x] Relevar candidatos a modelo exterior de A380 CC-BY — 9 candidatos documentados en [`ASSET_AUDIT.md`](./ASSET_AUDIT.md); Brout queda como shortlist principal
 - [x] **Auditar licencia de cada candidato individualmente** — API/página individual revisada; ver [`ASSET_AUDIT.md`](./ASSET_AUDIT.md)
 - [x] Descartar CC-BY-NC si el proyecto tiene cualquier connotación comercial — OUTPISTON queda excluido por CC BY-NC-SA; no se acepta NC para este proyecto
-- [ ] Verificar criterios de aceptación por candidato:
-  - [ ] Tren de aterrizaje como nodos separados y jerarquizados (lo requiere S2)
-  - [ ] UVs limpias, sin solapamientos
-  - [ ] Texturas PBR reales, no materiales horneados de un renderer específico
-  - [ ] Escala y orientación correctas o corregibles sin romper la jerarquía
+- [!] Verificar criterios de aceptación por candidato — **bloqueado**: la ruta oficial de descarga de Sketchfab responde HTTP 401 sin credenciales; no se aprobará el asset por inferencia desde la miniatura.
+  - [!] Tren de aterrizaje como nodos separados y jerarquizados (lo requiere S2) — la miniatura confirma presencia visual, no la jerarquía.
+  - [!] UVs limpias, sin solapamientos — requiere abrir el archivo fuente.
+  - [!] Texturas PBR reales, no materiales horneados de un renderer específico — los metadatos declaran 1 textura y 1 material, pero no prueban PBR utilizable.
+  - [!] Escala y orientación correctas o corregibles sin romper la jerarquía — requiere inspección de transforms en Blender.
 - [x] Definir el texto de atribución CC-BY y **diseñarlo dentro del footer** (no pegarlo al final) — texto y ubicación definidos en [`ASSET_AUDIT.md`](./ASSET_AUDIT.md)
 
 ### Modelado del interior en Blender — puede arrancar ya, en paralelo
 
 - [x] Definir el layout base del interior propio (pasillo, disposición de zonas) — contrato paramétrico en [`INTERIOR_LAYOUT.md`](./INTERIOR_LAYOUT.md)
-- [ ] Modelar el asiento base para `InstancedMesh` (ver Fase 5)
-- [ ] Modelar pasillo y paneles de las 3 zonas de la v1 confirmada (§12.3)
-- [ ] Alinear el modelado con las dimensiones del exterior CC-BY elegido, para minimizar el trabajo de registración de la Fase 4
+- [x] Modelar el asiento base para `InstancedMesh` (ver Fase 5) — `Seat_Base` y 250 copias enlazadas a la misma malla; verificador Blender en [`blender/verify_blockout.py`](./blender/verify_blockout.py)
+- [x] Modelar pasillo y paneles de las 3 zonas de la v1 confirmada (§12.3) — cockpit, economy, escalera y upper deck en colecciones separadas; 353 mallas verificadas
+- [!] Alinear el modelado con las dimensiones del exterior CC-BY elegido, para minimizar el trabajo de registración de la Fase 4 — bloqueado hasta obtener e inspeccionar el archivo exterior autorizado.
+
+**Evidencia de la ejecución 2026-08-04:** Blender 5.2.0 LTS arrancó en modo headless con checksum verificado. El `.blend` se guardó y reabrió con 353 mallas, colecciones `Zone_Cockpit` (15), `Zone_Economy` (220), `Zone_Stair` (20), `Zone_UpperDeck` (98) y `Technical` (4); hay 250 asientos enlazados y 251 usuarios de la malla maestra. El GLB se reimportó con 354 mallas, 11 materiales y 750,952 bytes. La vista QA fue renderizada e inspeccionada visualmente. Scripts: [`blender/interior_blockout.py`](./blender/interior_blockout.py), [`blender/verify_blockout.py`](./blender/verify_blockout.py) y [`blender/render_preview.py`](./blender/render_preview.py).
 
 ---
 
@@ -48,6 +50,8 @@ Convención: `[ ]` pendiente · `[~]` en curso · `[x]` completo · `[!]` bloque
 | Fecha | Sesión | Qué se hizo | Qué quedó abierto |
 |---|---|---|---|
 | 2026-08-04 | Fase 0 — auditoría inicial | Se relevaron 9 candidatos de A380, se auditaron individualmente sus licencias y se excluyó CC BY-NC-SA. Brout quedó como shortlist principal por CC BY, descargabilidad, etiqueta game-ready y presupuesto preliminar (~4.41 MB GLB; 67.6k triángulos). Se definió el texto/ubicación de atribución y el layout base del interior en [`ASSET_AUDIT.md`](./ASSET_AUDIT.md) e [`INTERIOR_LAYOUT.md`](./INTERIOR_LAYOUT.md). Se añadió [`blender/interior_blockout.py`](./blender/interior_blockout.py) como fuente procedural reproducible y se verificó estáticamente su sintaxis y contrato de nombres; no se ejecutó porque Blender no está instalado. | Pendientes: descargar e inspeccionar el archivo Brout en Blender (nodos del tren, UVs, PBR y escala/orientación); modelar asiento, pasillo/paneles y alinear interior con el exterior. Blender no está instalado en el entorno actual. |
+
+| 2026-08-04 | Fase 0 — ejecución Blender y cierre del blockout | Se instaló Blender 5.2.0 LTS en el entorno de trabajo, se verificó el checksum, se ejecutó el blockout, se reabrieron el BLEND y el GLB, y se inspeccionó una vista QA. Se subieron los verificadores reproducibles al repositorio. | Asset Brout aún no aprobado: la descarga oficial exige autenticación y deja sin evidencia la jerarquía del tren, UVs limpias, PBR y escala/orientación. La alineación exterior queda bloqueada. |
 
 ## Fase 1 — Esqueleto
 
