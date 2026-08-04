@@ -10,7 +10,7 @@
 - Se consultó la página individual y/o la respuesta individual de la API de cada candidato; no se tomó la licencia de un listado como prueba suficiente.
 - Se excluyó explícitamente el modelo CC BY-NC-SA porque el proyecto puede publicarse como portfolio/producto.
 - **Candidato preliminar recomendado:** [Airbus A380 — Brout](https://sketchfab.com/3d-models/airbus-a380-98d21f9c8104445f814cef47ef992889).
-- **Estado de aprobación:** provisional. La licencia y el presupuesto inicial están verificados; la estructura interna del archivo todavía requiere descarga e inspección en Blender.
+- **Estado de aprobación:** provisional y bloqueado para integración. La licencia, autoría, descargabilidad declarada, conteos y miniatura pública están verificados; la estructura interna del archivo no se pudo inspeccionar porque la ruta oficial de descarga exige autenticación.
 - **Ningún modelo se ha incorporado aún al repositorio.** No se redistribuye un archivo de terceros antes de cerrar la auditoría estructural.
 
 ## Criterio de aceptación
@@ -24,6 +24,13 @@ El candidato final sólo se aprueba cuando pasa las cuatro comprobaciones siguie
 
 La vista previa sólo permite comprobar la silueta y la presencia visual del tren. **No sustituye** la inspección del archivo fuente.
 
+## Registro de verificación de esta sesión
+
+- API pública del modelo Brout verificada: `name=Airbus A380`, `creator=Brout`, `license=by`, `downloadable=true`, `faces=67580`, `vertices=36224`, `textures=1`, `materials=1`.
+- La miniatura pública confirma visualmente la silueta del A380 y la presencia del tren, pero no permite verificar nodos separados/jerarquizados.
+- La ruta oficial [`/v3/models/{uid}/download`](https://api.sketchfab.com/v3/models/98d21f9c8104445f814cef47ef992889/download) respondió **HTTP 401** con `WWW-Authenticate: Token`. El archivo de trabajo no se obtiene sin credenciales autorizadas.
+- Los metadatos públicos declaran UV mapping, una textura y un material; eso no demuestra UVs sin solapamiento ni materiales PBR aptos para el pipeline. Tampoco exponen una transformación real-world usable.
+- No se incorporó ningún archivo de terceros al repositorio. El candidato sigue siendo **preseleccionado, no aprobado**.
 ## Candidatos auditados
 
 | Candidato individual | Licencia declarada | Geometría publicada | Evidencia adicional | Decisión |
@@ -65,12 +72,11 @@ La implementación visual real corresponde a la Fase 6; en Fase 0 queda definido
 
 ## Límites y siguiente verificación
 
-La API y las páginas públicas permiten verificar licencia, descargabilidad, conteos, texturas/materiales declarados y metadatos del catálogo. No exponen aquí la jerarquía de nodos, la calidad de UVs ni la transformación exacta. El siguiente paso de asset debe ser:
+La API y las páginas públicas permiten verificar licencia, descargabilidad declarada, conteos y metadatos de catálogo. La miniatura permite comprobar únicamente la silueta y la presencia visual del tren. En esta sesión se intentó la ruta oficial de descarga; el servidor devolvió HTTP 401 y no se usaron credenciales ni rutas no autorizadas.
 
-1. descargar legalmente el candidato Brout desde Sketchfab;
-2. abrirlo en Blender;
-3. inspeccionar el árbol de nodos, UV Editor, materiales y dimensiones;
-4. exportar una copia de prueba a GLB;
-5. registrar en este documento los resultados y hashes del archivo de trabajo.
+Para cerrar el gate exterior se necesita una de estas evidencias autorizadas:
 
-Hasta completar esos pasos, el candidato permanece **preseleccionado, no aprobado**.
+1. el archivo `.blend`, `.glb` o `.zip` descargado desde Sketchfab por el usuario y puesto a disposición del workspace; o
+2. una credencial/token de Sketchfab configurada en el conector correspondiente, sin pegar secretos en el repositorio o en el chat.
+
+Con el archivo disponible, el siguiente paso es abrirlo en Blender, inspeccionar árbol de nodos, UV Editor, materiales y dimensiones, exportar una copia GLB y registrar los hashes. Hasta entonces, Brout permanece **preseleccionado, no aprobado** y la alineación del interior queda bloqueada.
