@@ -1,6 +1,7 @@
 # Fase 0 — Layout base del interior propio
 
-**Estado:** layout narrativo y paramétrico definido; geometría Blender todavía no modelada.  
+**Estado:** layout narrativo y paramétrico definido; fuente procedural de blockout preparada, geometría Blender todavía no ejecutada/verificada.  
+**Fuente reproducible:** [`blender/interior_blockout.py`](./blender/interior_blockout.py).  
 **Alcance:** v1 con tres zonas narrativas: cabina de mando, economy y escalera + piso superior. La última se divide en dos módulos geométricos porque necesita una transición vertical.
 
 ## Principio de diseño
