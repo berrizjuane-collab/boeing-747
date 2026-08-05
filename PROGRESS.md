@@ -3,7 +3,7 @@
 Checklist de seguimiento espejado a las fases de [`PLAN.md`](./PLAN.md).
 Sirve para retomar contexto entre sesiones: **antes de trabajar, leer las notas de la fase activa.**
 
-**Estado global: Fase 0 — blockout interior ejecutado y verificado; la aprobación estructural del exterior sigue bloqueada por la descarga autenticada de Sketchfab y la alineación final queda abierta.**
+**Estado global: Fase 0 — auditoría estructural, copia de trabajo y registración gruesa ejecutadas y verificadas; UV original y PBR multi-mapa quedan condicionados y el umbral/puertas se reserva para Fase 4.**
 
 Convención: `[ ]` pendiente · `[~]` en curso · `[x]` completo · `[!]` bloqueado
 
@@ -60,7 +60,7 @@ Convención: [ ] pendiente · [~] en curso/condicionado · [x] completo · [!] b
 | 2026-08-04 | Fase 0 — ejecución Blender y blockout | Se instaló Blender 5.2.0 LTS, se generó y verificó el blockout, y se reabrieron BLEND/GLB del interior. | Faltaba inspeccionar el exterior y registrarlo. |
 | 2026-08-04 | Fase 0 — cierre de auditoría de fuente | Se validó y extrajo airbus-a380.zip, se abrió A380.blend, se verificaron jerarquía/UV/material/transforms, se creó la copia de trabajo con 115 piezas del tren, se exportó/reabrió GLB y se registró el interior con una transformación única. | Limpiar UV y decidir el tratamiento del material albedo-only antes del asset final; el umbral/puertas queda para Fase 4. |
 
-## Fase 1 — Esqueleto## Fase 1 — Esqueleto
+## Fase 1 — Esqueleto
 
 - [ ] Proyecto Vite + TypeScript
 - [ ] Canvas WebGL a pantalla completa, renderer configurado (ACES Filmic, color space correcto)
