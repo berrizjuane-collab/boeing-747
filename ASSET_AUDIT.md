@@ -10,28 +10,37 @@
 - Se consultó la página individual y/o la respuesta individual de la API de cada candidato; no se tomó la licencia de un listado como prueba suficiente.
 - Se excluyó explícitamente el modelo CC BY-NC-SA porque el proyecto puede publicarse como portfolio/producto.
 - **Candidato preliminar recomendado:** [Airbus A380 — Brout](https://sketchfab.com/3d-models/airbus-a380-98d21f9c8104445f814cef47ef992889).
-- **Estado de aprobación:** provisional y bloqueado para integración. La licencia, autoría, descargabilidad declarada, conteos y miniatura pública están verificados; la estructura interna del archivo no se pudo inspeccionar porque la ruta oficial de descarga exige autenticación.
-- **Ningún modelo se ha incorporado aún al repositorio.** No se redistribuye un archivo de terceros antes de cerrar la auditoría estructural.
+- **Estado de aprobación:** operativo para una copia de trabajo de Fase 0. La licencia, autoría, descargabilidad declarada, conteos y el archivo fuente autorizado ya están verificados. El gate de asset final queda condicionado por la UV original solapada y por el material albedo-only; ambas limitaciones están registradas explícitamente.
+- **El binario de terceros no se ha incorporado al repositorio.** Sólo se subieron scripts reproducibles; la copia de trabajo y los reportes permanecen como artefactos de sesión con atribución CC BY.
 
 ## Criterio de aceptación
 
-El candidato final sólo se aprueba cuando pasa las cuatro comprobaciones siguientes:
+Convención de esta auditoría: [x] evidencia suficiente para el uso de Fase 0 · [~] usable pero con una limitación que debe quedar visible · [!] bloqueado.
 
-1. **Tren de aterrizaje:** existen ruedas/patas como nodos separados y jerarquizados, para permitir la retracción de S2.
-2. **UVs:** no hay solapamientos accidentales ni UVs degeneradas en las superficies visibles.
-3. **Materiales:** existen texturas/materiales PBR utilizables; no depende de un material horneado exclusivo de un renderer.
-4. **Transformación:** escala y orientación se pueden corregir sin romper la jerarquía; la longitud final se puede registrar contra el interior propio.
+1. **Tren de aterrizaje:** [x] la fuente contiene un mesh separado llamado Wheels, con 115 componentes geométricos desconectados y parentado bajo A380_low. La copia de trabajo separa esos componentes en 115 nodos LandingGear_Part_### bajo LandingGear, conservando A380_low → A380 y dejando un grupo animable para S2.
+2. **UVs:** [~] ambos meshes tienen una capa UV dentro de 0–1 y la textura se visualiza correctamente, pero bpy.ops.uv.select_overlap selecciona las 20.990 caras de A380 y las 13.032 caras de Wheels. La fuente también presenta 708 y 2.699 polígonos con área UV degenerada, respectivamente. No se declara una UV limpia/no solapada; requiere limpieza o bake en el pipeline.
+3. **Materiales:** [~] existe un grafo nativo Principled BSDF → Material Output con A380.JPG conectado a Base Color. Es PBR-compatible y no depende de un renderer exclusivo, pero sólo hay una textura de albedo de 7.321 × 4.677 px; no hay mapas conectados a Roughness, Metallic o Normal.
+4. **Transformación:** [x] la copia de trabajo usa un único Exterior_Root: rotación X = −90°, traslación = (0, 0, 28,9781) m, unidades métricas. La conversión deja x lateral, y arriba y z longitudinal, con bounds 79,6807 × 24,6860 × 72,9999 m, sin romper la jerarquía.
 
-La vista previa sólo permite comprobar la silueta y la presencia visual del tren. **No sustituye** la inspección del archivo fuente.
+La condición operativa para continuar es [x] en tren y transformación, [~] documentado en UV/PBR. La limpieza de UV y la ampliación del material quedan como trabajo explícito de pipeline, no como supuestos ocultos.
+
+La vista previa sólo permite comprobarLa vista previa sólo permite comprobar la silueta y la presencia visual del tren. **No sustituye** la inspección del archivo fuente.
 
 ## Registro de verificación de esta sesión
 
-- API pública del modelo Brout verificada: `name=Airbus A380`, `creator=Brout`, `license=by`, `downloadable=true`, `faces=67580`, `vertices=36224`, `textures=1`, `materials=1`.
-- La miniatura pública confirma visualmente la silueta del A380 y la presencia del tren, pero no permite verificar nodos separados/jerarquizados.
-- La ruta oficial [`/v3/models/{uid}/download`](https://api.sketchfab.com/v3/models/98d21f9c8104445f814cef47ef992889/download) respondió **HTTP 401** con `WWW-Authenticate: Token`. El archivo de trabajo no se obtiene sin credenciales autorizadas.
-- Los metadatos públicos declaran UV mapping, una textura y un material; eso no demuestra UVs sin solapamiento ni materiales PBR aptos para el pipeline. Tampoco exponen una transformación real-world usable.
-- No se incorporó ningún archivo de terceros al repositorio. El candidato sigue siendo **preseleccionado, no aprobado**.
-## Candidatos auditados
+- Archivo adjunto recibido: airbus-a380.zip; SHA-256: 3fe2fad103db2ead487e0ed6b6d3f400a9173eeef8b2aa368cec848192e3c72b.
+- La extracción se hizo en una ruta aislada después de validar que el ZIP principal y el ZIP anidado no contenían rutas absolutas ni segmentos .. . El contenido fue source/A380.zip + textures/A380.jpeg; el ZIP anidado contiene A380.blend + A380.JPG.
+- A380.blend fuente: Blender 3.5, SHA-256 7b7dfe3d2931329f13a8f512c2f40112abc96c4e2f4b3b46cfd27a97c8e49273.
+- A380.JPG fuente: 7.321 × 4.677 px, SHA-256 edbcd9540c8ac89c5c62fc035d2c98f8410779a8116c74ceb6859f3048d77c83.
+- Blender 5.2.0 LTS reabrió la fuente: 3 objetos, 2 meshes, 1 material, 1 imagen, unidades NONE en origen.
+- Jerarquía fuente observada: A380_low (EMPTY) → A380 (mesh) y Wheels (mesh). Wheels contiene 115 componentes conectados por separado; no era una sola pieza topológica continua.
+- Material fuente observado: A380 → Principled BSDF, Material Output e Image Texture; la única conexión de textura es A380.JPG → Base Color.
+- La copia de trabajo se guardó como phase0_exterior_working.blend y se exportó como phase0_exterior_working.glb después de separar el tren, empaquetar A380.JPG y aplicar Exterior_Root. El BLEND reabierto pasó 10/10 checks; reportó 119 objetos, 116 meshes y 115 piezas del tren. El GLB reimportado reportó 119 objetos, 116 meshes, 1 material, 1 imagen y UVs presentes.
+- El GLB de trabajo tiene SHA-256 4fa54b950f20e580f9dac9c0248338f7bb99074bcec91b10ce7d96d6ee1717b6. El BLEND de trabajo tiene SHA-256 e8ee85c660e7448c263f48ef29844d2d358aa428d3e1c4f369bdd5646a3fd807.
+- La escena combinada con el interior se guardó como phase0_registered_scene.blend. La copia de interior se registró con Interior_Registration_Root = (0, 3,2, 0,3) m; al reabrirla pasó todos los checks: 357 objetos de interior, 353 meshes, bounds visibles 6,32 × 4,58 × 58,00 m dentro de los bounds exteriores. El Seat_Base oculto se excluye sólo de bounds visibles.
+- Se renderizó e inspeccionó visualmente la copia de trabajo: silueta, librea, ventanillas, motores y tren son legibles. El render no prueba por sí solo la limpieza de UV ni un set PBR completo; por eso esos checks permanecen [~].
+
+## Candidatos auditados## Candidatos auditados
 
 | Candidato individual | Licencia declarada | Geometría publicada | Evidencia adicional | Decisión |
 |---|---|---:|---|---|
@@ -70,7 +79,18 @@ La atribución irá en un bloque colapsable o de baja jerarquía visual dentro d
 
 La implementación visual real corresponde a la Fase 6; en Fase 0 queda definido el texto y su ubicación.
 
-## Límites y siguiente verificación
+## Cierre y trabajo restante
+
+La ruta autorizada ya desbloqueó la inspección estructural del candidato Brout y permite continuar con el exterior de Fase 0. No se redistribuye el ZIP ni el BLEND de terceros dentro del repositorio.
+
+Quedan dos tareas declaradas, no ocultas:
+
+- Limpiar o bakear la UV original antes de afirmar “sin solapamientos” en el pipeline de assets.
+- Decidir si se conserva el material albedo-only con parámetros Principled o si se genera un set roughness/normal adicional; no se deben inventar mapas a partir de los metadatos.
+
+La registración gruesa del interior está cerrada con una transformación única. El ajuste fino del plano de umbral, puertas, deck y cámara permanece como spike de la Fase 4.
+
+La atribución prevista no cambia: el footer debe enlazar el modelo original de Brout, el autor, CC BY 4.0 y la nota de adaptación.
 
 La API y las páginas públicas permiten verificar licencia, descargabilidad declarada, conteos y metadatos de catálogo. La miniatura permite comprobar únicamente la silueta y la presencia visual del tren. En esta sesión se intentó la ruta oficial de descarga; el servidor devolvió HTTP 401 y no se usaron credenciales ni rutas no autorizadas.
 
