@@ -3,7 +3,7 @@
 Checklist de seguimiento espejado a las fases de [`PLAN.md`](./PLAN.md).
 Sirve para retomar contexto entre sesiones: **antes de trabajar, leer las notas de la fase activa.**
 
-**Estado global: Fases 1 y 2 implementadas y verificadas — el esqueleto scroll-driven y el rig de cámara con placeholder están andando y pasaron la revisión GATE. Fase 0 sigue con la auditoría de assets pendiente (no bloquea lo ya hecho, pero sí bloquea la Fase 3).**
+**Estado global: Fases 0, 1 y 2 avanzadas en paralelo por sesiones distintas sobre la misma rama. Fase 0 — auditoría estructural, copia de trabajo y registración gruesa del exterior/interior ejecutadas y verificadas en Blender; UV original y PBR multi-mapa quedan condicionados, y el umbral/puertas se reserva para Fase 4. Fases 1 y 2 — esqueleto scroll-driven y rig de cámara con placeholder implementados y verificados en navegador, GATE del arco narrativo pasada. Fase 3 (pipeline del asset real) puede arrancar: ya tiene tanto el exterior auditado como el código que lo va a consumir.**
 
 Convención: `[ ]` pendiente · `[~]` en curso · `[x]` completo · `[!]` bloqueado
 
@@ -11,37 +11,54 @@ Convención: `[ ]` pendiente · `[~]` en curso · `[x]` completo · `[!]` bloque
 
 ## Fase 0 — Decisiones y adquisición de assets
 
-> **Contexto:** las 6 decisiones de §12 de PLAN.md están cerradas. Nada de esto bloquea ya el inicio de las Fases 1–2. Lo que sí conviene arrancar ya, en paralelo, es el modelado del interior: es la tarea de mayor duración de todo el proyecto.
+> **Salida de sesión:** Fase 0 queda cerrada a nivel de auditoría, copia de trabajo y registración gruesa. No se marcan como [x] las dos limitaciones que la evidencia contradice: UV sin solapamientos y set PBR multi-mapa. Fases 1–2 siguen libres para arrancar; el pipeline exterior debe atender esas limitaciones antes de publicarse como asset final.
+
+Convención: [ ] pendiente · [~] en curso/condicionado · [x] completo · [!] bloqueado
 
 ### Decisiones de §12 — TODAS RESUELTAS
 
-- [x] **Fuente del modelo 3D** — Exterior: CC-BY gratuito existente (no comprado, no encargado). Interior: modelado a medida en Blender, íntegramente desde cero, sin buscar fidelidad exacta al A380 real. Ver §11.1 y §12.2 de PLAN.md.
-- [x] **Stack final** — R3F + drei, confirmado sobre Three.js vanilla. Ver §12.1 de PLAN.md.
-- [x] **Alcance del interior** — v1 con 3 zonas (cabina de mando, economy, escalera + piso superior); las otras 3 quedan diferidas. Ver §12.3 de PLAN.md.
-- [x] **Librea** — Ficticia y neutra, confirmada. Ver §12.4 de PLAN.md.
-- [x] **Audio** — Sin audio en v1, confirmado. Ver §12.5 de PLAN.md.
-- [x] **Longitud total de scroll** — ~800vh, confirmado. Ver §12.6 de PLAN.md.
+- [x] **Fuente del modelo 3D** — Exterior: CC-BY gratuito existente (no comprado, no encargado). Interior: modelado a medida en Blender, íntegramente desde cero, sin buscar fidelidad exacta al A380 real.
+- [x] **Stack final** — R3F + drei, confirmado sobre Three.js vanilla.
+- [x] **Alcance del interior** — v1 con 3 zonas (cabina de mando, economy, escalera + piso superior); las otras 3 quedan diferidas.
+- [x] **Librea** — Ficticia y neutra, confirmada.
+- [x] **Audio** — Sin audio en v1, confirmado.
+- [x] **Longitud total de scroll** — ~800vh, confirmada.
 
 ### Auditoría del asset exterior
 
-- [ ] Relevar candidatos a modelo exterior de A380 CC-BY
-- [ ] **Auditar licencia de cada candidato individualmente** — no confiar en lo que declara un listado de búsqueda
-- [ ] Descartar CC-BY-NC si el proyecto tiene cualquier connotación comercial
-- [ ] Verificar criterios de aceptación por candidato:
-  - [ ] Tren de aterrizaje como nodos separados y jerarquizados (lo requiere S2)
-  - [ ] UVs limpias, sin solapamientos
-  - [ ] Texturas PBR reales, no materiales horneados de un renderer específico
-  - [ ] Escala y orientación correctas o corregibles sin romper la jerarquía
-- [ ] Definir el texto de atribución CC-BY y **diseñarlo dentro del footer** (no pegarlo al final)
+- [x] Relevar candidatos a modelo exterior de A380 CC-BY — 9 candidatos documentados en ASSET_AUDIT.md; Brout quedó como shortlist principal.
+- [x] **Auditar licencia de cada candidato individualmente** — API/página individual revisada; ver ASSET_AUDIT.md.
+- [x] Descartar CC-BY-NC si el proyecto tiene cualquier connotación comercial — OUTPISTON queda excluido por CC BY-NC-SA.
+- [~] Verificar criterios de aceptación por candidato — el archivo fuente autorizado ya fue inspeccionado. Tren y transformación pasan; UV original y PBR multi-mapa quedan condicionados y documentados.
+  - [x] Tren de aterrizaje como nodos separados y jerarquizados — la copia de trabajo contiene LandingGear → 115 piezas LandingGear_Part_###.
+  - [~] UVs limpias, sin solapamientos — UVTex está en 0–1 y la textura funciona; select_overlap marca las 20.990 caras de A380 y 13.032 de Wheels, con 708/2.699 polígonos degenerados.
+  - [~] Texturas PBR reales, no materiales horneados de un renderer específico — grafo Principled nativo y albedo JPG verificables; no hay mapas independientes Roughness/Metallic/Normal.
+  - [x] Escala y orientación correctas o corregibles sin romper la jerarquía — Exterior_Root aplica una sola rotación/traslación; bounds de trabajo 79,6807 × 24,6860 × 72,9999 m.
+- [x] Definir el texto de atribución CC-BY y diseñarlo dentro del footer — texto y ubicación definidos en ASSET_AUDIT.md.
 
-### Modelado del interior en Blender — puede arrancar ya, en paralelo
+### Modelado del interior en Blender
 
-- [ ] Definir el layout base del interior propio (pasillo, disposición de zonas) — no una réplica exacta
-- [ ] Modelar el asiento base para `InstancedMesh` (ver Fase 5)
-- [ ] Modelar pasillo y paneles de las 3 zonas de la v1 confirmada (§12.3)
-- [ ] Alinear el modelado con las dimensiones del exterior CC-BY elegido, para minimizar el trabajo de registración de la Fase 4
+- [x] Definir el layout base del interior propio — contrato paramétrico en INTERIOR_LAYOUT.md.
+- [x] Modelar el asiento base para InstancedMesh — Seat_Base y 250 copias enlazadas a la misma malla.
+- [x] Modelar pasillo y paneles de las 3 zonas de la v1 — cockpit, economy, escalera y upper deck en colecciones separadas; 353 meshes verificadas.
+- [x] **Alinear el modelado con las dimensiones del exterior CC-BY elegido** — registración gruesa completada con una sola transformación Interior_Registration_Root = (0, 3,2, 0,3) m; 352 meshes visibles dentro del envelope exterior. El encaje final de umbral/puertas sigue en la Fase 4.
 
----
+### Evidencia de cierre ejecutada en Blender — 2026-08-04
+
+- [x] La fuente A380.blend se abrió con Blender 5.2.0 LTS y se registraron escena, jerarquía, UVs, material e imagen.
+- [x] Se creó la copia phase0_exterior_working.blend, se empaquetó A380.JPG, se separó el tren en 115 nodos y se exportó phase0_exterior_working.glb.
+- [x] El BLEND se reabrió y pasó 10/10 checks; el GLB se reimportó con 119 objetos, 116 meshes y UVs presentes.
+- [x] La copia de trabajo se renderizó e inspeccionó visualmente.
+- [x] La escena registrada con interior se reabrió y pasó todos los checks de jerarquía, counts, transform y envelope.
+- [~] UV/PBR siguen condicionados y no se presentan como completos. Esta es una limitación de asset documentada, no un bloqueo de acceso.
+
+### Registro de sesiones
+
+| Fecha | Sesión | Qué se hizo | Qué quedó abierto |
+|---|---|---|---|
+| 2026-08-04 | Fase 0 — auditoría inicial | Se relevaron 9 candidatos, se auditaron licencias, se excluyó CC BY-NC-SA y Brout quedó como shortlist principal. Se definió atribución y layout del interior. | Faltaba el archivo fuente de Brout. |
+| 2026-08-04 | Fase 0 — ejecución Blender y blockout | Se instaló Blender 5.2.0 LTS, se generó y verificó el blockout, y se reabrieron BLEND/GLB del interior. | Faltaba inspeccionar el exterior y registrarlo. |
+| 2026-08-04 | Fase 0 — cierre de auditoría de fuente | Se validó y extrajo airbus-a380.zip, se abrió A380.blend, se verificaron jerarquía/UV/material/transforms, se creó la copia de trabajo con 115 piezas del tren, se exportó/reabrió GLB y se registró el interior con una transformación única. | Limpiar UV y decidir el tratamiento del material albedo-only antes del asset final; el umbral/puertas queda para Fase 4. |
 
 ## Fase 1 — Esqueleto ✅ COMPLETA
 
@@ -270,3 +287,4 @@ Convención: `[ ]` pendiente · `[~]` en curso · `[x]` completo · `[!]` bloque
 | 2026-08-04 | Planificación (continuación) | **Decisión de asset resuelta:** exterior CC-BY existente, interior modelado a medida en Blender desde cero (sin fidelidad exacta), nada comprado ni encargado a terceros. Actualizados §0, §11.1, §11.7, §12.2, §12.3, §13 de PLAN.md y Fase 0 de PROGRESS.md en consecuencia. | Las otras 5 decisiones de §12 (stack, alcance de zonas, librea, audio, longitud de scroll). El modelado del interior en Blender puede arrancar ya, en paralelo con Fases 1–2. |
 | 2026-08-04 | Planificación (cierre de §12) | **Las 5 preguntas abiertas restantes quedaron cerradas vía cuestionario**, todas en la opción recomendada: stack → R3F + drei; alcance interior → v1 con 3 zonas (cabina de mando, economy, escalera + piso superior); librea → ficticia/neutra; audio → sin audio en v1; longitud de scroll → ~800vh. §12 de PLAN.md reescrito de "Preguntas abiertas" a "Decisiones confirmadas" (6/6 resueltas), con ajustes de consistencia en §2.1, §3 (Sección 5), §9.1, §10.5, §11.6 y §13. PROGRESS.md Fase 0 y Fase 5 actualizadas en consecuencia. | Ninguna decisión fundacional pendiente. Sigue abierta la verificación de datos técnicos de §9 (Fase 9) y toda la ejecución de las Fases 1–9. |
 | 2026-08-05 | Implementación Fase 1 + Fase 2 | Proyecto Vite+React+TS scaffoldeado en la raíz del repo (stack de §2: R3F+drei, zustand, gsap+ScrollTrigger, lenis). Esqueleto completo (canvas, scroll, store, HUD, 7 secciones DOM) y rig de cámara con geometría placeholder implementados y verificados en navegador real con Playwright (14 capturas a lo largo del scroll + smoke test de la herramienta de autoría). Se encontraron y corrigieron 5 bugs reales durante la verificación — el más importante: usar el mismo `u` derivado de una curva para samplear la otra curva las desincroniza, porque cada `CatmullRomCurve3` tiene su propia distribución de longitud de arco; hace falta una tabla de `u` por curva. Detalle completo en las notas de Fase 1/2 arriba. `npm run build` y chequeo de tipos limpios. GATE del arco narrativo: **pasada**. | La Fase 3 (pipeline de assets exterior) sigue bloqueada por la auditoría de modelo CC-BY de Fase 0, que no se hizo en esta sesión. Verificación de performance/re-renders quedó a nivel de revisión de código, no de profiler en vivo. |
+| 2026-08-05 | Merge de dos sesiones concurrentes sobre `main` | Al pushear la Fase 1+2, `origin/main` ya tenía commits nuevos: otra sesión hizo exactamente el trabajo de auditoría/Blender de Fase 0 que esta sesión había dejado pendiente (`ASSET_AUDIT.md`, `INTERIOR_LAYOUT.md`, `blender/*.py`, con evidencia verificada de jerarquía, tren, UVs, material y registración gruesa exterior/interior). Los cambios no se pisaban salvo la línea de "Estado global" de `PROGRESS.md`, resuelta a mano combinando ambos estados; el resto mergeó limpio (`PLAN.md` incluido). Nada se descartó de ninguno de los dos lados. | Con el exterior auditado (aunque con UV/PBR condicionados) y el código del rig ya validado, la Fase 3 puede arrancar. Las limitaciones de UV solapada y material albedo-only quedan como trabajo de pipeline explícito, no oculto. |
