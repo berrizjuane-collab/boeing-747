@@ -1,6 +1,6 @@
 # Fase 0 — Layout base del interior propio
 
-**Estado:** layout narrativo y paramétrico definido; blockout Blender ejecutado, reabierto y verificado. La alineación con el exterior sigue pendiente.  
+**Estado:** layout narrativo y paramétrico definido; blockout Blender ejecutado, reabierto y verificado. La registración gruesa con el exterior ya está ejecutada y verificada; el ajuste fino del umbral y las puertas queda para la Fase 4.  
 **Fuentes reproducibles:** [`blender/interior_blockout.py`](./blender/interior_blockout.py), [`blender/verify_blockout.py`](./blender/verify_blockout.py) y [`blender/render_preview.py`](./blender/render_preview.py).  
 **Alcance:** v1 con tres zonas narrativas: cabina de mando, economy y escalera + piso superior. La última se divide en dos módulos geométricos porque necesita una transición vertical.
 
@@ -23,8 +23,9 @@ La geometría debe privilegiar lo que verá la cámara:
 - Eje X: izquierda/derecha de la cabina.
 - Eje Z: longitudinal; nariz en Z = 0 y parte trasera hacia Z positivo.
 - Origen del interior: centro del piso de la cabina de mando.
-- El exterior elegido se alineará posteriormente con una transformación única de escena: traslación, rotación y escala. No se ajustarán zonas individuales a ojo.
-- La transformación final sólo se puede cerrar después de inspeccionar el archivo exterior aprobado; por eso la alineación sigue pendiente.
+- El exterior elegido se registró con una transformación única de escena en Exterior_Root: rotación X = −90° y traslación (0, 0, 28,9781) m; no se ajustaron zonas individuales a ojo.
+- El blockout se registró con Interior_Registration_Root = (0, 3,2, 0,3) m. Los bounds visibles resultantes son 6,32 × 4,58 × 58,00 m y quedan dentro del envelope exterior.
+- Esta es una registración gruesa de Fase 0; el plano de umbral, puertas, decks y recorrido de cámara se validan en el spike de la Fase 4.
 
 ## Recorrido de cámara y módulos
 
@@ -100,6 +101,9 @@ La iluminación se resolverá en la implementación con luces de cabina y emisiv
 - Se generó una vista QA en Workbench y se inspeccionó visualmente: el pasillo, las filas, los paneles, las ventanillas y la escalera son legibles en el blockout.
 - El recorrido de cámara narrativo completo sigue siendo trabajo de la Fase 2; no se marca aquí como terminado.
 
-## Bloqueo actual
+## Estado al cierre de Fase 0
 
+El blockout propio está terminado y verificado. La escena registrada con el exterior se guardó, se reabrió y pasó los checks de conteo, jerarquía, transformación y envelope. La evidencia reproducible está en blender/register_interior.py y blender/verify_registration.py.
+
+El asset exterior conserva dos limitaciones explícitas: la UV original no es limpia/no solapada según select_overlap y el material sólo aporta albedo conectado a un Principled BSDF. Ninguna de las dos se marca como completa por inferencia. El ajuste final de umbral/puertas y la decisión sobre limpieza UV/PBR quedan trazados para las fases posteriores.
 El blockout propio de Fase 0 está terminado y verificado. La alineación final requiere el exterior CC-BY aprobado, pero Sketchfab exige autenticación para descargar el candidato Brout y no se recibió un archivo fuente autorizado. Por eso no se marcan como cerrados los checks de jerarquía del tren, UVs limpias, PBR, escala/orientación ni registración exterior/interior.
