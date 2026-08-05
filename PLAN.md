@@ -1,7 +1,7 @@
 # PLAN — Sitio Scrollytelling 3D de Presentación de Aeronave
 
 > Documento de planificación. Ninguna línea de este plan es código de implementación.
-> Estado: **todas las decisiones fundacionales de [§12](#12-decisiones-confirmadas) están cerradas y confirmadas por el usuario.** La Fase 0 ya tiene blockout interior ejecutado y verificado; el gate estructural del exterior Brout permanece bloqueado hasta obtener el archivo fuente por una ruta autorizada.
+> Estado: **todas las decisiones fundacionales de [§12](#12-decisiones-confirmadas) están cerradas y confirmadas por el usuario.** La Fase 0 tiene blockout interior, auditoría estructural del exterior y copia de trabajo verificados. El gate operativo del exterior está cerrado con dos condicionantes explícitos: UV original solapada y material albedo-only.
 
 ---
 
@@ -663,7 +663,7 @@ Razón: da respiro real a las dos secciones que más lo necesitan — el walkthr
 
 | Fase | Contenido | Dependencias |
 |---|---|---|
-| **0** | Decisiones cerradas; auditoría de licencia documentada; **blockout interior ejecutado y verificado en Blender** con cockpit, economy, escalera y upper deck. La aprobación estructural del exterior CC-BY y la alineación final siguen bloqueadas por la descarga autenticada del candidato. | No bloquea el inicio de 1–2; sí condiciona 3–5 |
+| **0** | Decisiones cerradas; auditoría de licencia documentada; **blockout interior ejecutado y verificado en Blender** con cockpit, economy, escalera y upper deck. La aprobación operativa del exterior CC-BY y la registración gruesa ya están verificadas con el archivo fuente autorizado. El ajuste fino del umbral/puertas y la limpieza UV/PBR siguen siendo trabajo posterior. | No bloquea el inicio de 1–2; sí condiciona 3–5 |
 | **1** | Esqueleto: Vite + TS, canvas, Lenis + ScrollTrigger, escalar de progreso, HUD de debug | — |
 | **2** | **Rig de cámara con placeholder a través de las 8 secciones.** Herramienta de autoría de keyframes. Validación del arco completo | 1 |
 | **3** | Pipeline de assets exterior. Secciones 1–3 con el modelo real | 0 (exterior auditado), 2 |
@@ -675,3 +675,10 @@ Razón: da respiro real a las dos secciones que más lo necesitan — el walkthr
 | **9** | **Verificación de datos (§9)** y redacción de copy final | — (paralelizable) |
 
 El seguimiento vive en [`PROGRESS.md`](./PROGRESS.md).
+
+
+## Registro de cierre de Fase 0 — 2026-08-04
+
+La ruta autorizada entregó A380.blend de Brout. La auditoría en Blender verificó la jerarquía A380_low → A380/Wheels, 115 componentes desconectados del tren, UVTex en 0–1, el grafo Principled con A380.JPG en Base Color y bounds fuente 79,6807 × 72,9999 × 24,6860 m. La copia de trabajo conserva la geometría, separa el tren en 115 nodos bajo LandingGear, empaqueta la imagen y aplica un único Exterior_Root para pasar a x lateral, y arriba, z longitudinal.
+
+La copia BLEND y el GLB fueron reabiertos; la escena combinada con el interior también se reabrió y confirmó el envelope global con Interior_Registration_Root = (0, 3,2, 0,3) m. La fase se considera cerrada a nivel de adquisición, auditoría y registración gruesa. No se afirma que la UV sea limpia ni que exista un set PBR multi-mapa: el asset fuente no los aporta y el pipeline debe resolverlo explícitamente.
