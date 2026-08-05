@@ -24,7 +24,7 @@ Convención de esta auditoría: [x] evidencia suficiente para el uso de Fase 0 �
 
 La condición operativa para continuar es [x] en tren y transformación, [~] documentado en UV/PBR. La limpieza de UV y la ampliación del material quedan como trabajo explícito de pipeline, no como supuestos ocultos.
 
-La vista previa sólo permite comprobarLa vista previa sólo permite comprobar la silueta y la presencia visual del tren. **No sustituye** la inspección del archivo fuente.
+La vista previa sólo permite comprobar la silueta y la presencia visual del tren. **No sustituye** la inspección del archivo fuente.
 
 ## Registro de verificación de esta sesión
 
@@ -40,7 +40,7 @@ La vista previa sólo permite comprobarLa vista previa sólo permite comprobar l
 - La escena combinada con el interior se guardó como phase0_registered_scene.blend. La copia de interior se registró con Interior_Registration_Root = (0, 3,2, 0,3) m; al reabrirla pasó todos los checks: 357 objetos de interior, 353 meshes, bounds visibles 6,32 × 4,58 × 58,00 m dentro de los bounds exteriores. El Seat_Base oculto se excluye sólo de bounds visibles.
 - Se renderizó e inspeccionó visualmente la copia de trabajo: silueta, librea, ventanillas, motores y tren son legibles. El render no prueba por sí solo la limpieza de UV ni un set PBR completo; por eso esos checks permanecen [~].
 
-## Candidatos auditados## Candidatos auditados
+## Candidatos auditados
 
 | Candidato individual | Licencia declarada | Geometría publicada | Evidencia adicional | Decisión |
 |---|---|---:|---|---|
@@ -92,11 +92,3 @@ La registración gruesa del interior está cerrada con una transformación únic
 
 La atribución prevista no cambia: el footer debe enlazar el modelo original de Brout, el autor, CC BY 4.0 y la nota de adaptación.
 
-La API y las páginas públicas permiten verificar licencia, descargabilidad declarada, conteos y metadatos de catálogo. La miniatura permite comprobar únicamente la silueta y la presencia visual del tren. En esta sesión se intentó la ruta oficial de descarga; el servidor devolvió HTTP 401 y no se usaron credenciales ni rutas no autorizadas.
-
-Para cerrar el gate exterior se necesita una de estas evidencias autorizadas:
-
-1. el archivo `.blend`, `.glb` o `.zip` descargado desde Sketchfab por el usuario y puesto a disposición del workspace; o
-2. una credencial/token de Sketchfab configurada en el conector correspondiente, sin pegar secretos en el repositorio o en el chat.
-
-Con el archivo disponible, el siguiente paso es abrirlo en Blender, inspeccionar árbol de nodos, UV Editor, materiales y dimensiones, exportar una copia GLB y registrar los hashes. Hasta entonces, Brout permanece **preseleccionado, no aprobado** y la alineación del interior queda bloqueada.
