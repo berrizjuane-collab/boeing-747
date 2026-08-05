@@ -6,15 +6,14 @@ repositorio es histórico/cosmético — ver la decisión de producto en
 
 **Documentación completa y estado real, fase por fase:** [`PLAN.md`](./PLAN.md)
 (arquitectura y decisiones) y [`PROGRESS.md`](./PROGRESS.md) (checklist y
-registro de sesiones — **leer el bloqueo 🔴 al principio de `PROGRESS.md`
-antes de tocar Fase 3 o Fase 4**).
+registro de sesiones).
 
 ## Estado actual
 
-Fases 0–2 completas. Fases 3–4 avanzadas hasta el límite de lo que se podía
-hacer sin el binario del exterior (bloqueado — ver `PROGRESS.md`), con un
-adelanto real de Fase 5: el interior ya es geometría real recorrida con la
-cámara, no un placeholder.
+Fases 0–3 completas, incluyendo el exterior real (ya no hay bloqueo: el
+binario fuente está en `blender/source/`, ver más abajo). Fase 4 (umbral) y
+un adelanto de Fase 5 (interior) funcionando con geometría real de ambos
+lados — exterior e interior — recorrida con la cámara, no placeholders.
 
 ## Desarrollo
 
@@ -32,9 +31,13 @@ portapapeles.
 ## Blender — assets fuente
 
 El interior de v1 es geometría propia y procedural (cockpit, economy,
-escalera, upper deck). El exterior es un asset CC BY de terceros (Brout,
-auditado en `ASSET_AUDIT.md`) que **no se redistribuye en este
-repositorio** — sólo los scripts reproducibles.
+escalera, upper deck). El exterior es un asset CC BY de terceros — “Airbus
+A380” por **Brout** ([modelo original](https://sketchfab.com/3d-models/airbus-a380-98d21f9c8104445f814cef47ef992889),
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)), auditado en
+`ASSET_AUDIT.md` — cuyo binario fuente **sí se redistribuye en este
+repositorio** en `blender/source/` (ver `blender/source/ATTRIBUTION.md`),
+junto con los scripts que lo transforman, para que el pipeline completo sea
+reproducible desde un clon limpio sin depender de un archivo externo.
 
 Fuentes reproducibles del interior (no dependen de ningún archivo externo):
 
@@ -42,8 +45,7 @@ Fuentes reproducibles del interior (no dependen de ningún archivo externo):
 - `blender/verify_blockout.py` — valida colecciones, bounds, asientos enlazados y metadatos de escena.
 - `blender/render_preview.py` — genera una vista de QA (necesita libEGL/mesa para renderizar).
 
-Fuentes reproducibles del exterior (**requieren un `A380.blend` autorizado
-como input** — ver el bloqueo en `PROGRESS.md` si no está disponible):
+Fuentes reproducibles del exterior (input: `blender/source/A380.blend` + `blender/source/A380.JPG`, ya en el repo):
 
 - `blender/audit_exterior.py` — inspecciona fuente, jerarquía, UVs, materiales, imágenes y bounds.
 - `blender/prepare_exterior.py` — crea una copia de trabajo, separa el tren, empaqueta la imagen y exporta GLB.
@@ -52,12 +54,13 @@ como input** — ver el bloqueo en `PROGRESS.md` si no está disponible):
 - `blender/verify_registration.py` — reabre la escena combinada y comprueba el envelope.
 - `blender/render_exterior.py` — genera la vista exterior de QA.
 
-Ejecución básica del exterior, con un archivo `A380.blend` autorizado ya disponible:
+Ejecución básica del exterior, desde la raíz del repo:
 
 ```
-blender --background --factory-startup /absolute/path/A380.blend --python blender/audit_exterior.py -- --output /absolute/path/exterior_audit.json
-blender --background --factory-startup /absolute/path/A380.blend --python blender/prepare_exterior.py -- --blend /absolute/path/exterior_working.blend --glb /absolute/path/exterior_working.glb
-blender --background --factory-startup --python blender/verify_exterior.py -- --blend /absolute/path/exterior_working.blend --glb /absolute/path/exterior_working.glb --output /absolute/path/exterior_verification.json
+blender --background --factory-startup blender/source/A380.blend --python blender/audit_exterior.py -- --output /tmp/exterior_audit.json
+blender --background --factory-startup blender/source/A380.blend --python blender/prepare_exterior.py -- --blend /tmp/exterior_working.blend --glb /tmp/exterior_working.glb
+blender --background --factory-startup --python blender/verify_exterior.py -- --blend /tmp/exterior_working.blend --glb /tmp/exterior_working.glb --output /tmp/exterior_verification.json
 ```
 
-El GLB resultante se procesa con `npm run process-glb` antes de usarse en la app.
+El GLB resultante se procesa con `npm run process-glb` antes de usarse en la
+app (así se generó el `public/models/exterior.glb` ya presente en el repo).

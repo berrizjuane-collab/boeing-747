@@ -19,6 +19,17 @@
 // KTX2/Basis compression is skipped automatically (with a clear log line, not
 // a silent no-op) when the source has no textures — the interior blockout is
 // solid-color materials only, so this stage has nothing to do for it today.
+//
+// KTX2/Basis also degrades gracefully (again with a clear log line, not a
+// silent no-op) when the external `ktx` CLI from KTX-Software isn't
+// installed — gltf-transform's etc1s/uastc commands shell out to it, there's
+// no pure-JS/WASM fallback. Confirmed first exercised against the real
+// exterior asset (2026-08-05): no apt/pip package provides it, and
+// installing from the upstream GitHub release wasn't reachable from this
+// session's network scope. Falls back to resize + JPEG recompression
+// instead, which needs no external binary (sharp is a JS dependency
+// already). That's a real, honest degradation, not equivalent to KTX2 —
+// see the comment above the fallback branch below for exactly what's lost.
 
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdtempSync, rmSync, statSync, copyFileSync } from 'node:fs'
@@ -100,8 +111,29 @@ async function main() {
       console.log('  -> KTX2/Basis skipped: source has no textures (nothing to compress)')
     } else {
       const ktxOut = join(workDir, '5-ktx2.glb')
-      run(`${ktxMode} (KTX2/Basis texture compression, ${nTextures} texture(s))`, [ktxMode, dracoOut, ktxOut])
-      finalFile = ktxOut
+      try {
+        run(`${ktxMode} (KTX2/Basis texture compression, ${nTextures} texture(s))`, [ktxMode, dracoOut, ktxOut])
+        finalFile = ktxOut
+      } catch {
+        // The real cause already printed above (stdio: 'inherit') — most
+        // likely the external `ktx` CLI not being installed, see the header
+        // comment. Not pattern-matching the error text: whatever broke this
+        // step, falling back to a resize+JPEG pass is the right universal
+        // response, and the live output already carries the specific cause.
+        console.log('  -> KTX2/Basis FAILED (see error above) — likely `ktx` CLI (KTX-Software) not installed')
+        console.log('     falling back to resize + JPEG recompression — NOT equivalent to KTX2:')
+        console.log('     the texture still fully decompresses in GPU memory at runtime (PLAN.md §6.2),')
+        console.log('     this only reduces the download/transmitted size, not the VRAM footprint.')
+        // Cap at 2048 — this source ships 7321x4677, wildly beyond anything
+        // this scene's camera distance needs (§6.1's LOD reasoning: no shot
+        // gets close enough to justify it) and beyond a sane budget on top
+        // of not even having KTX2 compression to offset it.
+        const resized = join(workDir, '5b-resized.glb')
+        const recompressed = join(workDir, '5c-jpeg.glb')
+        run('resize (cap textures at 2048px, fallback mitigation)', ['resize', '--width', '2048', '--height', '2048', dracoOut, resized])
+        run('jpeg (recompress, fallback mitigation)', ['jpeg', '--quality', '82', resized, recompressed])
+        finalFile = recompressed
+      }
     }
 
     copyFileSync(finalFile, output)

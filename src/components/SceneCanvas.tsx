@@ -1,9 +1,9 @@
 import { Canvas } from '@react-three/fiber'
 import { Suspense } from 'react'
 import { ACESFilmicToneMapping, SRGBColorSpace } from 'three'
-import { AircraftPlaceholder } from './AircraftPlaceholder'
 import { CameraRig } from './CameraRig'
 import { EnvironmentPlaceholder } from './EnvironmentPlaceholder'
+import { ExteriorAsset } from './ExteriorAsset'
 import { InteriorAsset } from './InteriorAsset'
 import { RunwayEnvironment } from './RunwayEnvironment'
 import { StatsCollector } from './StatsCollector'
@@ -44,7 +44,9 @@ export function SceneCanvas({ debugMode }: { debugMode: boolean }) {
     >
       <EnvironmentPlaceholder />
       <RunwayEnvironment />
-      <AircraftPlaceholder />
+      <Suspense fallback={null}>
+        <ExteriorAsset />
+      </Suspense>
       <InteriorGate />
       <CameraRig enabled={!debugMode} />
       {debugMode && <KeyframeAuthoringTool />}

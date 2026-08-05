@@ -11,7 +11,7 @@
 - Se excluyó explícitamente el modelo CC BY-NC-SA porque el proyecto puede publicarse como portfolio/producto.
 - **Candidato preliminar recomendado:** [Airbus A380 — Brout](https://sketchfab.com/3d-models/airbus-a380-98d21f9c8104445f814cef47ef992889).
 - **Estado de aprobación:** operativo para una copia de trabajo de Fase 0. La licencia, autoría, descargabilidad declarada, conteos y el archivo fuente autorizado ya están verificados. El gate de asset final queda condicionado por la UV original solapada y por el material albedo-only; ambas limitaciones están registradas explícitamente.
-- **El binario de terceros no se ha incorporado al repositorio.** Sólo se subieron scripts reproducibles; la copia de trabajo y los reportes permanecen como artefactos de sesión con atribución CC BY.
+- **Actualización 2026-08-05:** el binario de terceros (`A380.blend` + `A380.JPG`) se incorporó al repositorio en `blender/source/`, con atribución en `blender/source/ATTRIBUTION.md` — decisión e instrucción explícita del usuario, amparada por CC BY 4.0. SHA-256 idénticos a los verificados en esta auditoría (ver más abajo). La copia de trabajo derivada y los reportes de esta sesión de auditoría siguen siendo artefactos de sesión, no versionados — son regenerables desde la fuente ya committeada vía los scripts de `blender/`.
 
 ## Criterio de aceptación
 
@@ -81,7 +81,7 @@ La implementación visual real corresponde a la Fase 6; en Fase 0 queda definido
 
 ## Cierre y trabajo restante
 
-La ruta autorizada ya desbloqueó la inspección estructural del candidato Brout y permite continuar con el exterior de Fase 0. No se redistribuye el ZIP ni el BLEND de terceros dentro del repositorio.
+La ruta autorizada ya desbloqueó la inspección estructural del candidato Brout y permite continuar con el exterior de Fase 0. El BLEND y el JPG de terceros sí se redistribuyen dentro del repositorio (`blender/source/`, ver la actualización 2026-08-05 arriba); el ZIP contenedor no se versiona (no aporta nada sobre el contenido ya extraído).
 
 Quedan dos tareas declaradas, no ocultas:
 

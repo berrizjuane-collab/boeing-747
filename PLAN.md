@@ -1,7 +1,7 @@
 # PLAN — Sitio Scrollytelling 3D de Presentación de Aeronave
 
 > Documento de planificación. Ninguna línea de este plan es código de implementación.
-> Estado: **todas las decisiones fundacionales de [§12](#12-decisiones-confirmadas) están cerradas y confirmadas por el usuario.** La Fase 0 tiene blockout interior, auditoría estructural del exterior y copia de trabajo verificados — pero esa copia de trabajo **no persistió** a la sesión siguiente (ver §11.1, actualizado). Fases 1–2 completas y verificadas. Fases 3–4 avanzadas hasta el límite real de lo que se podía hacer sin el binario del exterior; ver el detalle y las opciones de desbloqueo en `PROGRESS.md`.
+> Estado: **todas las decisiones fundacionales de [§12](#12-decisiones-confirmadas) están cerradas y confirmadas por el usuario.** Fases 0–3 completas: blockout interior, exterior real (binario fuente en `blender/source/`, CC BY 4.0 — ver §11.1) y su integración en la app, todo verificado. Fase 4 (umbral) funciona con geometría real de ambos lados; el detalle fase por fase vive en `PROGRESS.md`.
 
 ---
 
@@ -573,9 +573,13 @@ Lo que arrojó la investigación sobre el exterior:
 
 Esto confirma algo que el plan ya sospechaba pero no había verificado: **cualquier asset de terceros que dependa de un archivo adjuntado manualmente en el chat necesita, además de la auditoría de licencia, un plan de persistencia** — o se sube al repo bajo una licencia que lo permita (con la atribución ya resuelta), o se documenta explícitamente que hay que volver a adjuntarlo cada vez que haga falta regenerar algo a partir de él. No hay una tercera opción silenciosa.
 
+**Resolución (2026-08-05):** se tomó la primera opción, no la segunda. El usuario volvió a adjuntar el archivo y autorizó explícitamente subirlo al repositorio (*"probablemente te convenga subirlo directamente al repo"*); dado que CC BY 4.0 permite redistribución con atribución, `A380.blend` + `A380.JPG` ahora viven en `blender/source/` con atribución en `blender/source/ATTRIBUTION.md`. Esto cierra el riesgo de raíz, no sólo para esta sesión: ninguna sesión futura depende de que alguien vuelva a adjuntar el archivo — el pipeline completo (`audit_exterior.py` → `prepare_exterior.py` → `verify_exterior.py` → `register_interior.py` → `verify_registration.py`) es reproducible desde un clon limpio del repo. `exterior.glb` real ya está integrado en la app (`ExteriorAsset.tsx`) y verificado en Playwright — ver `PROGRESS.md` Fase 3/4 para el detalle completo.
+
 ### 11.2 Registración espacial exterior/interior
 
 Si el exterior y el interior son assets distintos (lo más probable), tienen que **coincidir físicamente**: el tubo interior dentro del fuselaje, la puerta de entrada alineada con la puerta del exterior, escalas consistentes. Es alineación manual en Blender y está presupuestada en Fase 4. Si no coincide, el cruce de S4 se rompe justo en el momento que más importa.
+
+**Resuelto (2026-08-05):** coincide, verificado por dos caminos independientes. En Blender, `register_interior.py`/`verify_registration.py` corrieron contra el exterior real y el interior regenerado, con `all_checks_pass: true`. En la app, la colocación del exterior (`EXTERIOR_LOCAL_OFFSET` en `sceneLayout.ts`) se derivó empíricamente contra los bounds reales del GLB procesado, verificada contra los mismos anchors de interior que ya usaba la Fase 4 — no es la MISMA transformación literal en ambos casos (la app no lee el output de Blender en runtime), pero ambas colocan exterior e interior en el mismo envelope coherente, confirmado visualmente en Playwright: la cabina de mando y economy quedan dentro del fuselaje real, no flotando fuera de él.
 
 ### 11.3 Performance en mobile
 
@@ -667,12 +671,12 @@ Razón: da respiro real a las dos secciones que más lo necesitan — el walkthr
 
 | Fase | Estado | Contenido | Dependencias |
 |---|---|---|---|
-| **0** | 🟡 Parcial | Decisiones cerradas; auditoría de licencia documentada; **blockout interior ejecutado y verificado en Blender** con cockpit, economy, escalera y upper deck. La copia de trabajo del exterior se auditó y registró correctamente, pero **no persistió** entre sesiones (era un artefacto de sesión, contenido de terceros) — ver §11.1. | No bloquea el inicio de 1–2; sí condiciona 3–5 |
+| **0** | ✅ Completa | Decisiones cerradas; auditoría de licencia documentada; **blockout interior ejecutado y verificado en Blender** con cockpit, economy, escalera y upper deck. El binario fuente del exterior (`A380.blend`+`A380.JPG`) está en el repo (`blender/source/`, CC BY 4.0) desde 2026-08-05 — ver §11.1 | — |
 | **1** | ✅ Completa | Esqueleto: Vite + TS, canvas, Lenis + ScrollTrigger, escalar de progreso, HUD de debug | — |
 | **2** | ✅ Completa | **Rig de cámara con placeholder a través de las 8 secciones.** Herramienta de autoría de keyframes. Validación del arco completo | 1 |
-| **3** | 🟡 Parcial | Pipeline `gltf-transform` construido y probado (prune→dedup→weld→**instance**→Draco→KTX2 — `instance` se agregó sobre lo planeado en §6.3, ver PROGRESS.md). Entorno de Secciones 1–3 construido. **Bloqueado**: `exterior.glb` en sí, por §11.1 | 0 (exterior auditado — pero no disponible), 2 |
-| **4** | 🟡 Parcial | **Spike del umbral (S4) resuelto** contra exterior placeholder + interior real: disolución radial, cross-fade de luz, rampa de exposición, todo verificado. **Bloqueada**: la registración espacial real (aproximada a mano en código en su lugar) | 3 |
-| **5** | 🟡 Adelantada parcialmente | Interior (S5): las **3 zonas de v1** ya recorridas con geometría real (no placeholder) como efecto colateral de validar el spike de Fase 4 — instancing de asientos resuelto vía `EXT_mesh_gpu_instancing` en el pipeline, no vía código de la app. Iluminación de cabina, shadow map y LOD de corredor siguen pendientes | 4 |
+| **3** | ✅ Completa | Pipeline `gltf-transform` construido y probado (prune→dedup→weld→**instance**→Draco→KTX2 — `instance` se agregó sobre lo planeado en §6.3, ver PROGRESS.md). Entorno de Secciones 1–3 construido. `exterior.glb` real procesado e integrado en la app (2026-08-05) | 0, 2 |
+| **4** | 🟡 Parcial | **Spike del umbral (S4) resuelto y re-verificado contra geometría real** (exterior + interior, 2026-08-05): disolución radial, cross-fade de luz, rampa de exposición, registración espacial. Pendiente: geometría de detalle (puertas, marco del umbral) — ya no bloqueado por assets, es alcance no cubierto todavía | 3 |
+| **5** | 🟡 Adelantada parcialmente | Interior (S5): las **3 zonas de v1** ya recorridas con geometría real de ambos lados — interior e ahora también exterior — como efecto colateral de validar el spike de Fase 4. Instancing de asientos resuelto vía `EXT_mesh_gpu_instancing` en el pipeline, no vía código de la app. Iluminación de cabina, shadow map y LOD de corredor siguen pendientes | 4 |
 | **6** | ⬜ Sin empezar | S6, S7. Sistema de overlays, tipografía, hotspots | 5 |
 | **7** | ⬜ Sin empezar | Post-proceso y pasada de dirección de arte: grading por sección, tone mapping, bloom, DoF | 6 |
 | **8** | ⬜ Sin empezar | Tiering de performance, mobile, fallback estático, accesibilidad | 7 |
