@@ -3,7 +3,7 @@
 Checklist de seguimiento espejado a las fases de [`PLAN.md`](./PLAN.md).
 Sirve para retomar contexto entre sesiones: **antes de trabajar, leer las notas de la fase activa.**
 
-**Estado global: Fase 0 — las 6 decisiones de §12 están cerradas. Queda auditoría del asset exterior y modelado del interior; puede arrancar en paralelo con Fases 1–2.**
+**Estado global: Fases 1 y 2 implementadas y verificadas — el esqueleto scroll-driven y el rig de cámara con placeholder están andando y pasaron la revisión GATE. Fase 0 sigue con la auditoría de assets pendiente (no bloquea lo ya hecho, pero sí bloquea la Fase 3).**
 
 Convención: `[ ]` pendiente · `[~]` en curso · `[x]` completo · `[!]` bloqueado
 
@@ -43,32 +43,42 @@ Convención: `[ ]` pendiente · `[~]` en curso · `[x]` completo · `[!]` bloque
 
 ---
 
-## Fase 1 — Esqueleto
+## Fase 1 — Esqueleto ✅ COMPLETA
 
-- [ ] Proyecto Vite + TypeScript
-- [ ] Canvas WebGL a pantalla completa, renderer configurado (ACES Filmic, color space correcto)
-- [ ] Lenis integrado
-- [ ] GSAP + ScrollTrigger integrados con Lenis (`lenis.on('scroll', ScrollTrigger.update)` + `gsap.ticker`, `lagSmoothing(0)`)
-- [ ] Escalar de progreso de scroll en store mutable — **verificar que NO dispara re-renders de React**
-- [ ] HUD de debug: progreso, sección activa, fps, draw calls, triángulos
-- [ ] Estructura de secciones definiendo las alturas de scroll
+> **Dónde vive cada cosa** (para retomar sin releer todo el código): `src/App.tsx` monta todo. Store en `src/state/scrollStore.ts` (zustand) y `src/state/perfStats.ts` (objeto mutable plano). Scroll en `src/lib/scrollController.ts`. Secciones en `src/lib/sections.ts`. HUD en `src/components/DebugHud.tsx`. Track DOM en `src/components/ScrollTrack.tsx`.
 
----
+- [x] Proyecto Vite + TypeScript — React 19 + TS, template oficial `react-ts` de `create-vite`
+- [x] Canvas WebGL a pantalla completa, renderer configurado (ACES Filmic, color space correcto) — `SceneCanvas.tsx`. **Gotcha documentado en el código**: el wrapper que genera `<Canvas>` de R3F trae `position:relative` inline; hay que pisarlo vía el prop `style`, no `className` (una clase de hoja de estilos pierde contra un inline style) — costó un bug real (`.scroll-track` arrancaba a 1 viewport de altura del top) antes de encontrarlo
+- [x] Lenis integrado
+- [x] GSAP + ScrollTrigger integrados con Lenis (`lenis.on('scroll', ScrollTrigger.update)` + `gsap.ticker`, `lagSmoothing(0)`)
+- [x] Escalar de progreso de scroll en store mutable — **verificado que NO dispara re-renders de React**: `progress` sólo se lee vía `getState()` dentro de `useFrame`/rAF; el hook de React (`useScrollStore(s => s.activeIndex)`) sólo se usa para `activeIndex`, que cambia 6 veces en toda la página. Verificado por revisión de código contra el patrón documentado de zustand (selector + `Object.is`), no con un profiler de React en vivo — si hace falta la certeza empírica, correrlo con el React DevTools Profiler es el próximo paso, no hecho en esta sesión
+- [x] HUD de debug: progreso, sección activa, fps, draw calls, triángulos — visible en pantalla, valores leídos de `gl.info.render` vía `StatsCollector.tsx`
+- [x] Estructura de secciones definiendo las alturas de scroll — 7 secciones (S1–S7; S0 es un gate previo al scroll, no ocupa altura), ~800vh total. Verificado con Playwright: `document.documentElement.scrollHeight` = 8100px a 900px de viewport = 900vh totales (800vh de track + 100vh de nav/gate implícito), sin errores de consola
 
-## Fase 2 — Rig de cámara con placeholder · **HITO DE VALIDACIÓN**
+## Fase 2 — Rig de cámara con placeholder · **HITO DE VALIDACIÓN** ✅ COMPLETA — GATE pasado
 
-> **Contexto:** el objetivo es validar el recorrido narrativo completo con una caja como avión. Si el arco no funciona, hay que descubrirlo acá, antes de gastar en assets.
+> **Dónde vive cada cosa:** curvas y sampleo en `src/lib/cameraPath.ts`. Pose del avión en `src/lib/aircraftPose.ts`. Geometría placeholder en `src/components/AircraftPlaceholder.tsx` y `EnvironmentPlaceholder.tsx`. Herramienta de autoría en `src/dev/`.
 
-- [ ] Estructura de keyframes `{ camPos, camTarget, fov, roll }`
-- [ ] Doble `CatmullRomCurve3` — una de posiciones, otra de targets
-- [ ] **Usar `getPointAt`, no `getPoint`** (reparametrización por longitud de arco) — dejarlo comentado en el código
-- [ ] Override de roll / cuaternión por sección, aplicado después del `lookAt`
-- [ ] `scrub` numérico calibrado (arranque en `1`)
-- [ ] Verificar que hay **un solo** mecanismo de suavizado (scrub, sin damping encima)
-- [ ] **Herramienta de autoría de keyframes**: OrbitControls + volcado de posición/target actuales
-- [ ] Geometría placeholder para avión y entorno
-- [ ] Recorrido completo de las 8 secciones navegable de punta a punta
-- [ ] **Revisión del arco narrativo con placeholder — GATE antes de Fase 3**
+- [x] Estructura de keyframes `{ camPos, camTarget, fov, roll }` — 15 keyframes ordenados, repartidos por sección
+- [x] Doble `CatmullRomCurve3` — una de posiciones, otra de targets
+- [x] **Usa `getPointAt`, no `getPoint`** — comentado en el código con la razón (aceleración/desaceleración espuria con `getPoint`)
+- [x] Override de roll / cuaternión por sección, aplicado después del `lookAt` — `camera.rotateZ(rollRad)` tras `lookAt` en `CameraRig.tsx`, usado para el banco de S3
+- [x] `scrub` numérico calibrado (arranque en `1`)
+- [x] Verificado que hay **un solo** mecanismo de suavizado (scrub de GSAP; nada de damping adicional)
+- [x] **Herramienta de autoría de keyframes**: `OrbitControls` + volcado de posición/target/fov a consola y portapapeles, con selector de sección — activada con la tecla `D`, smoke-testeada con Playwright (toggle, dump, sin errores)
+- [x] Geometría placeholder para avión y entorno — caja de fuselaje + alas + estabilizador (silueta en cruz reconocible), suelo + color de fondo/niebla que cambia por sección siguiendo el arco de grading de §10.1
+- [x] Recorrido completo de las 8 secciones navegable de punta a punta — verificado con capturas de Playwright en 14 puntos de scroll
+- [x] **Revisión del arco narrativo con placeholder — GATE: PASADA.** Se lee de punta a punta: pista estática → tracking reconocible en despegue → giro a vista frontal en ascenso → entrada a túnel oscuro en el umbral → pasillo interior en perspectiva → salida con retroceso amplio → footer oscuro (bookend del loading)
+
+### Bugs reales encontrados y corregidos durante la verificación (documentados en el código, no sólo acá)
+
+1. **Wrapper de `<Canvas>` con `position:relative` inline** rompía la altura del documento — ver nota de Fase 1 arriba.
+2. **Desincronización cámara/avión**: samplear la curva global con `u = scrollProgress` directo (mapeo identidad) hacía que la cámara, indexada por longitud de arco, y el avión, indexado por progreso local de sección, avanzaran a ritmos distintos — la cámara terminaba atravesando el fuselaje a mitad de S2, antes de tiempo. Corregido remapeando `scrollProgress` a un tramo de `u` propio por sección (arco calculado con `getLengths`).
+3. **La corrección anterior reutilizaba el mismo `u` (derivado de `posCurve`) para samplear también `targetCurve`** — pero cada curva tiene su propia distribución de longitud de arco, así que ese `u` no caía sobre los keyframes de destino correctos (el target quedaba con Y≈24 en vez de 38 justo en el borde S2/S3). Corregido con una tabla de `u` independiente por curva (`POS_U` / `TARGET_U`).
+4. **Framing roto en S2/S3/S6**: la cámara quedaba a una distancia/altura donde el ala placeholder (80 unidades de envergadura) la llenaba de canto, leyéndose como un muro plano en vez de un avión. Corregido alejando esas tomas y subiendo la cámara claramente por encima del plano del ala.
+5. Un keyframe de S5 (economy) coincidía en Y exacto con el plano fino del ala — corregido con un offset menor.
+
+**Por qué importa para Fase 3+:** las coordenadas de los 15 keyframes son de validación, no arte final — van a cambiar por completo al entrar el modelo real. Pero la **arquitectura del rig** (doble curva, tablas de `u` por curva, remapeo por sección) ya está probada y no debería tocarse; sólo los valores numéricos de `KEYFRAMES` en `cameraPath.ts` se reemplazan.
 
 ---
 
@@ -259,3 +269,4 @@ Convención: `[ ]` pendiente · `[~]` en curso · `[x]` completo · `[!]` bloque
 | 2026-08-04 | Planificación | `PLAN.md` y `PROGRESS.md` creados. Investigación de specs y de disponibilidad de assets (fuentes primarias inaccesibles — 403). | Las 6 decisiones de Fase 0. La fuente del modelo 3D bloquea de Fase 3 en adelante. |
 | 2026-08-04 | Planificación (continuación) | **Decisión de asset resuelta:** exterior CC-BY existente, interior modelado a medida en Blender desde cero (sin fidelidad exacta), nada comprado ni encargado a terceros. Actualizados §0, §11.1, §11.7, §12.2, §12.3, §13 de PLAN.md y Fase 0 de PROGRESS.md en consecuencia. | Las otras 5 decisiones de §12 (stack, alcance de zonas, librea, audio, longitud de scroll). El modelado del interior en Blender puede arrancar ya, en paralelo con Fases 1–2. |
 | 2026-08-04 | Planificación (cierre de §12) | **Las 5 preguntas abiertas restantes quedaron cerradas vía cuestionario**, todas en la opción recomendada: stack → R3F + drei; alcance interior → v1 con 3 zonas (cabina de mando, economy, escalera + piso superior); librea → ficticia/neutra; audio → sin audio en v1; longitud de scroll → ~800vh. §12 de PLAN.md reescrito de "Preguntas abiertas" a "Decisiones confirmadas" (6/6 resueltas), con ajustes de consistencia en §2.1, §3 (Sección 5), §9.1, §10.5, §11.6 y §13. PROGRESS.md Fase 0 y Fase 5 actualizadas en consecuencia. | Ninguna decisión fundacional pendiente. Sigue abierta la verificación de datos técnicos de §9 (Fase 9) y toda la ejecución de las Fases 1–9. |
+| 2026-08-05 | Implementación Fase 1 + Fase 2 | Proyecto Vite+React+TS scaffoldeado en la raíz del repo (stack de §2: R3F+drei, zustand, gsap+ScrollTrigger, lenis). Esqueleto completo (canvas, scroll, store, HUD, 7 secciones DOM) y rig de cámara con geometría placeholder implementados y verificados en navegador real con Playwright (14 capturas a lo largo del scroll + smoke test de la herramienta de autoría). Se encontraron y corrigieron 5 bugs reales durante la verificación — el más importante: usar el mismo `u` derivado de una curva para samplear la otra curva las desincroniza, porque cada `CatmullRomCurve3` tiene su propia distribución de longitud de arco; hace falta una tabla de `u` por curva. Detalle completo en las notas de Fase 1/2 arriba. `npm run build` y chequeo de tipos limpios. GATE del arco narrativo: **pasada**. | La Fase 3 (pipeline de assets exterior) sigue bloqueada por la auditoría de modelo CC-BY de Fase 0, que no se hizo en esta sesión. Verificación de performance/re-renders quedó a nivel de revisión de código, no de profiler en vivo. |
