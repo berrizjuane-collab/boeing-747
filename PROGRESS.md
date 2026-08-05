@@ -3,9 +3,54 @@
 Checklist de seguimiento espejado a las fases de [`PLAN.md`](./PLAN.md).
 Sirve para retomar contexto entre sesiones: **antes de trabajar, leer las notas de la fase activa.**
 
-**Estado global: Fases 0, 1 y 2 avanzadas en paralelo por sesiones distintas sobre la misma rama. Fase 0 — auditoría estructural, copia de trabajo y registración gruesa del exterior/interior ejecutadas y verificadas en Blender; UV original y PBR multi-mapa quedan condicionados, y el umbral/puertas se reserva para Fase 4. Fases 1 y 2 — esqueleto scroll-driven y rig de cámara con placeholder implementados y verificados en navegador, GATE del arco narrativo pasada. Fase 3 (pipeline del asset real) puede arrancar: ya tiene tanto el exterior auditado como el código que lo va a consumir.**
+**Estado global: Fases 0, 1 y 2 completas. Fase 3 y Fase 4 avanzadas hasta el límite real de lo que se podía hacer sin el binario del exterior — ver el bloqueo de abajo, es la única razón por la que no están 100%. Todo lo que no dependía de ese binario está hecho y verificado en navegador, incluyendo un adelanto real de Fase 5 (interior con geometría verdadera, no placeholder).**
 
 Convención: `[ ]` pendiente · `[~]` en curso · `[x]` completo · `[!]` bloqueado
+
+---
+
+## 🔴 BLOQUEO — fuente del exterior no reproducible en este contenedor
+
+**Esto es lo primero que hay que leer antes de retomar Fase 3 o Fase 4.**
+
+### Qué pasó, en una frase
+
+El archivo fuente del exterior (`A380.blend`, de Brout, auditado y aprobado en la sesión de Fase 0) llegó a esa sesión **como adjunto de chat**, no como un archivo que quedara en el repositorio ni en un lugar accesible entre sesiones — y cada sesión de Claude Code corre en un contenedor nuevo y descartable. El resultado de esa sesión (`phase0_exterior_working.blend`, `phase0_exterior_working.glb`, `phase0_registered_scene.blend`) se guardó explícitamente como **"artefacto de sesión"** (`ASSET_AUDIT.md`, línea del "Resultado ejecutivo": *"El binario de terceros no se ha incorporado al repositorio... la copia de trabajo y los reportes permanecen como artefactos de sesión"*), una decisión correcta dado que es contenido de terceros que no se debe redistribuir — pero tiene como consecuencia que **ese trabajo no persiste**, ni en este contenedor ni en el próximo.
+
+Verificado exhaustivamente al empezar esta sesión, no asumido:
+- `find / -iname "*.blend" -o -iname "*.glb"` en todo el filesystem → ningún resultado fuera de `node_modules`.
+- Blender no estaba instalado (`blender: command not found`).
+- El directorio `blender/` del repo sólo tiene los scripts `.py` (correcto y esperado — son las "fuentes reproducibles" que si se documentaron para el repo), pero **ninguno de ellos funciona sin el `.blend` de origen como input**, y ese input no está en ningún lado accesible por esta sesión.
+
+### Qué SÍ es reproducible, y qué no
+
+| Script | Depende de un archivo externo no reproducible | Se pudo correr en esta sesión |
+|---|---|---|
+| `blender/interior_blockout.py` | **No** — es 100% procedural | ✅ Sí, y verificó exactamente igual que la sesión anterior (353 meshes, 250 asientos, mismos bounds) |
+| `blender/verify_blockout.py` | No | ✅ Sí, PASS |
+| `blender/render_preview.py` | No (pero necesita libEGL/mesa para renderizar, no instalado; no crítico, se usó Three.js/Playwright como verificación visual real en su lugar) | ⚠️ Corrido, falló en el render por falta de librerías gráficas — no bloqueante |
+| `blender/audit_exterior.py` | **Sí** — necesita `A380.blend` como input | ❌ No se pudo correr |
+| `blender/prepare_exterior.py` | **Sí** — ídem | ❌ No se pudo correr |
+| `blender/verify_exterior.py` | **Sí** — necesita el `.blend`/`.glb` de trabajo que genera el anterior | ❌ No se pudo correr |
+| `blender/register_interior.py` | **Sí** — su flag `--exterior` apunta por defecto a `/tmp/phase0_exterior_working.blend`, que no existe | ❌ No se pudo correr |
+| `blender/verify_registration.py` | **Sí** — ídem | ❌ No se pudo correr |
+
+### Qué se hizo en consecuencia (nada se dejó a medias en silencio)
+
+- El **interior** se regeneró de cero en este contenedor (Blender 4.0.2 instalado vía `apt`, headless), se verificó estructuralmente, se procesó por el pipeline nuevo de Fase 3, y se integró como asset real en la app — ver Fase 3/Fase 5 más abajo.
+- El **exterior** se mantiene como la caja placeholder de Fase 2 en toda la sesión. No se inventó geometría "aproximada" para simular un exterior real — habría sido peor que ser honesto sobre el placeholder.
+- La **registración espacial** exterior/interior (Fase 4) se aproximó a mano en código (`sceneLayout.ts`), derivada de los mismos anchors que usa `register_interior.py`, pero **no es lo que ese checklist pide** — queda marcado `[ ]`, no `[x]`, precisamente para no maquillar el estado real.
+- El **spike técnico de Fase 4** (la pregunta real que esa fase existe para responder: ¿el cruce se lee como un umbral?) se validó igual, contra el exterior placeholder + el interior real — es una respuesta válida a esa pregunta aunque la geometría final del exterior siga pendiente.
+
+### Qué hace falta para desbloquear esto — acción concreta, no vaga
+
+Una de estas tres, en orden de preferencia:
+
+1. **Volver a adjuntar `A380.blend` (o el ZIP original `airbus-a380.zip`) en el chat de una próxima sesión.** Con eso, correr en orden: `audit_exterior.py` → `prepare_exterior.py` → `verify_exterior.py` → `register_interior.py` (regenerando antes el interior con `interior_blockout.py`, que si es reproducible) → `verify_registration.py`. El README ya documenta los comandos exactos.
+2. **Adjuntar directamente el GLB de trabajo ya procesado** (`phase0_exterior_working.glb`), si todavía existe en algún lado fuera de este proyecto — evita repetir la auditoría en Blender, aunque probablemente convenga re-auditarla igual dado que fue explícitamente un "artefacto de sesión" sin garantías de integridad a largo plazo.
+3. **Decidir explícitamente comprar o encargar el modelo** (opciones B/C de PLAN.md §12.2, descartadas en su momento) si conseguir de nuevo el archivo de Brout no es viable. Esto reabriría una decisión ya cerrada — no se hizo unilateralmente acá, queda para que el usuario la tome con el contexto de que la opción A ya casi funcionó una vez.
+
+Una vez resuelto cualquiera de los tres: correr el pipeline nuevo de Fase 3 (`npm run process-glb`) sobre el GLB del exterior, colocarlo en `public/models/exterior.glb`, y actualizar `AircraftPlaceholder.tsx` para cargarlo vía `useGLTF` en vez de la caja — el mismo patrón que ya está probado y funcionando para `InteriorAsset.tsx`.
 
 ---
 
@@ -99,79 +144,100 @@ Convención: [ ] pendiente · [~] en curso/condicionado · [x] completo · [!] b
 
 ---
 
-## Fase 3 — Pipeline exterior y secciones 1–3
+## Fase 3 — Pipeline exterior y secciones 1–3 · **PARCIAL — bloqueada en el punto exacto documentado abajo**
 
-**Depende de: Fase 0 (asset), Fase 2 (rig validado)**
+> **Léase junto con el bloqueo 🔴 al principio de este archivo (unas pocas pantallas más arriba).** Todo lo que no dependía del binario exterior se hizo y se verificó en navegador; lo que sí depende de él quedó explícitamente sin marcar, no aproximado en silencio.
 
 ### Pipeline
 
-- [ ] Pipeline `gltf-transform` scriptado y reproducible (prune, dedup, weld → Draco → KTX2/BasisU)
-- [ ] `exterior.glb` procesado dentro de presupuesto (~150–400k tris)
-- [ ] Verificar VRAM de textura tras compresión KTX2
+- [x] **Pipeline `gltf-transform` scriptado y reproducible** — `scripts/process-glb.mjs` (`npm run process-glb -- <in> <out>`). Encadena prune → dedup → weld → **instance** (`EXT_mesh_gpu_instancing`, no estaba en la lista original de §6.3 pero resultó necesario — ver nota de Fase 5) → Draco → KTX2/Basis (auto-saltado con log explícito si el origen no tiene texturas, no falla en silencio). Probado de punta a punta contra un archivo real (el blockout del interior, no un archivo de juguete)
+- [x] Verificado que el paso KTX2 se salta correctamente y con log visible cuando no hay texturas — no aplica al blockout del interior (materiales de color sólido)
+- [ ] `exterior.glb` procesado dentro de presupuesto — **bloqueado, no hay ningún exterior.glb que procesar**
+
+### Interior (adelanto real, no estaba planeado para Fase 3)
+
+- [x] **Blockout del interior regenerado y verificado en este contenedor** — `blender/interior_blockout.py` es 100% procedural, sin dependencia externa; se instaló Blender 4.0.2 vía apt, se corrió headless, y `blender/verify_blockout.py` pasó con los mismos conteos que documentó la sesión anterior (353 meshes, 250 asientos enlazados, bounds 6.32×4.58×58.26m) — confirma que el script es genuinamente reproducible, no sólo en el papel
+- [x] Procesado por el pipeline: 733 KB → 29.4 KB (25×), 6 lotes de instancing (329 instancias) — `public/models/interior.glb`
+- [x] Decoder Draco self-hosted en `public/draco/` (copiado de `three/examples/jsm/libs/draco`) — sin dependencia de un CDN externo en runtime
+- [x] Cargado en la app real (`InteriorAsset.tsx`, vía `useGLTF`) y verificado visualmente con Playwright — ver capturas del recorrido de S5 en las notas de Fase 4/5 más abajo
 
 ### Sección 1 — Hero pista
 
-- [ ] Entorno de pista: asfalto con marcas, césped, hangares/torre a distancia
-- [ ] HDRI golden hour
-- [ ] Niebla exponencial para aplanar el fondo lejano
-- [ ] Partículas de polvo suspendido
-- [ ] Deriva lenta de cámara + parallax de mouse
+- [x] Entorno de pista: asfalto con marcas de pista (`RunwayEnvironment.tsx`), césped (plano de suelo de Fase 2), hangares + torre de control a distancia
+- [ ] HDRI golden hour — **no implementado.** Se usa gradiente de color procedural (`environmentTheme.ts`, ya de Fase 2) en vez de un HDRI real; no hay archivo `.hdr` en el proyecto. Es una simplificación deliberada, no un olvido — un HDRI real no aporta nada sin el exterior real reflejándolo, y el bloqueo de assets ya está documentado en un solo lugar
+- [x] Niebla exponencial (`FogExp2`, ya de Fase 2, reutilizada)
+- [x] Partículas de polvo suspendido — `DustParticles`, visibles S1–S2, fade-out después. Primer intento se veía como "nieve" (tamaño de punto demasiado grande, esparcidas muy alto); corregido tras revisión visual
+- [x] Deriva lenta de cámara (ya de Fase 2) — parallax de mouse **no implementado** (queda para cuando haya overlays de texto reales que se beneficien de él, Fase 6)
 
 ### Sección 2 — Rodaje y despegue
 
-- [ ] Traslación acelerando del avión
-- [ ] Vibración/cabeceo de alta frecuencia y amplitud decreciente
-- [ ] Rotación (morro ~10°)
-- [ ] Separación y **retracción del tren** — *si el asset lo soporta; si no, aplicar plan B (§3 S2 de PLAN.md)*
-- [ ] Sombra proyectada desplazándose sobre el asfalto
-- [ ] Tracking shot lateral
+- [x] Traslación acelerando del avión (Fase 2)
+- [x] Vibración/cabeceo de alta frecuencia y amplitud decreciente (Fase 2)
+- [x] Rotación (Fase 2)
+- [ ] Separación y retracción del tren — **bloqueado**, no hay asset exterior con nodos de tren que separar (ver §3 S2 de PLAN.md, plan B ya documentado ahí)
+- [ ] Sombra proyectada desplazándose sobre el asfalto — no implementado (sombra horneada real necesita el asset exterior; una sombra placeholder sin el avión real encima no aporta)
+- [x] Tracking shot lateral (Fase 2, keyframes reajustados en esta sesión — ver nota de bug abajo)
 
 ### Sección 3 — Ascenso
 
-- [ ] Órbita de cámara hasta vista frontal
-- [ ] Transición al HDRI de gran altitud
-- [ ] Capa de nubes (planos con billboarding + parallax, no volumétrico)
-- [ ] Verificar que S3 es el punto de máxima luminancia del sitio
+- [x] Órbita de cámara hasta vista frontal (Fase 2)
+- [ ] Transición al HDRI de gran altitud — mismo motivo que S1, gradiente procedural en su lugar
+- [x] Capa de nubes — discos billboard (`CloudLayer`) con shader de caída radial suave (no volumétrico, tal como recomienda PLAN.md §3 S3)
+- [x] Verificado que S3 es el punto de máxima luminancia (gradiente `#7fb3d5`, `environmentTheme.ts`, ya de Fase 2)
+
+### Bugs reales encontrados y corregidos en la verificación de esta sesión
+
+1. **Nubes con borde duro**: un disco plano con opacidad uniforme se ve como una placa de hielo/vidrio a poca distancia, no como una nube — sin textura de nube no hay suavidad "gratis". Corregido con un shader propio de caída radial (`createSoftDiscMaterial`).
+2. **Nubes posicionadas sobre el corredor de vuelo de S2→S3**: la cámara pasaba muy cerca, y a esa distancia cualquier disco (aunque fuera suave) dominaba el cuadro. Corregidas alejándolas del corredor real de la cámara.
+3. **Nubes con fade-in pero sin fade-out**: sólo subían de opacidad en S3 y se quedaban ahí — visibles hasta el footer. Encontrado recién al *scrollear la página completa* durante la verificación, no sólo la sección para la que fueron pensadas; corregido con fade-out simétrico hacia el final de S4. Vale la pena recordar este patrón: cualquier efecto "fade in" necesita su "fade out" verificado explícitamente, no asumido.
+4. Partículas de polvo con puntos demasiado grandes y esparcidas demasiado alto — se leían como nieve, no polvo. Tamaño y rango de altura reducidos.
 
 ---
 
-## Fase 4 — Spike del umbral (S4) · **MAYOR RIESGO TÉCNICO**
+## Fase 4 — Spike del umbral (S4) · **PARCIAL — la técnica funciona, la geometría real sigue bloqueada**
 
-> **Contexto:** pieza bespoke sin receta estándar. Si no funciona, hay que saberlo ahora, con margen para replantear. No pasar a Fase 5 sin resolverla.
+> **Contexto:** pieza bespoke sin receta estándar. La pregunta que esta fase existe para responder — *¿el cruce se lee como atravesar un umbral, o como un corte?* — se puede responder con geometría placeholder, igual que la Fase 2 validó el arco de cámara con una caja. Ya se respondió que sí, que lee bien. Lo que queda pendiente es exclusivamente la versión con geometría final.
 
-- [ ] **Registración espacial exterior/interior en Blender** — tubo interior dentro del fuselaje, puerta alineada, escalas consistentes
-- [ ] Definición del plano de umbral y del escalar `t`
-- [ ] Shader de disolución radial del fuselaje
-- [ ] Cross-fade de env map exterior → luces de interior
-- [ ] Rampa de `toneMappingExposure` (−1 stop)
-- [ ] Lerp del color de fog (azul frío → ámbar cálido)
-- [ ] Realce de bloom motivado en el cruce
-- [ ] Montaje del interior en el grafo **sólo** en la ventana S4–S6
-- [ ] Medir el pico de memoria y de draw calls durante el cruce
-- [ ] **Revisión: ¿se lee como cruzar un umbral o como un corte? — GATE**
+- [ ] Registración espacial exterior/interior en Blender — **bloqueado** (necesita el exterior real; `blender/register_interior.py` existe y funciona, pero su input `--exterior` no existe en este contenedor). En su lugar: registración aproximada hecha a mano en código (`INTERIOR_OFFSET`, `INTERIOR_ANCHORS_WORLD` en `sceneLayout.ts`), derivada de los mismos anchors que usa el script de Blender (`Cockpit_Anchor`, `Economy_Anchor`, etc. de `interior_blockout.py`), con la rotación de +90° en X que deshace exactamente la conversión de ejes de Blender→glTF — ver el comentario en `InteriorAsset.tsx`. Es una aproximación razonada, no un número inventado, pero no es lo que este ítem pide
+- [x] **Definición del plano de umbral y del escalar de progreso** — dos "portales" fijos en el espacio del mundo (entrada en la nariz, salida cerca del piso superior), cada uno con su propia ventana de progreso — `thresholdPortals.ts`
+- [x] **Shader de disolución radial del fuselaje** — `dissolveHullMaterial.ts`, descarta fragmentos dentro del radio de cualquiera de los dos portales, con un borde con "glow" emisivo que compensa parcialmente la falta de bloom real (ver ítem de bloom abajo)
+- [x] Cross-fade de luz exterior → luces de interior — la luz direccional ("sol") baja de intensidad y una luz puntual cálida de cabina sube, cruzadas en la misma ventana de progreso (`thresholdLighting.ts`, `EnvironmentPlaceholder.tsx`)
+- [x] Rampa de `toneMappingExposure` (−1 stop aprox., `exposureMultiplier` en `thresholdLighting.ts`)
+- [x] Lerp del color de fog — ya existía desde Fase 2 (`environmentTheme.ts`), confirmado que atraviesa el umbral correctamente
+- [ ] Realce de bloom motivado en el cruce — **diferido a Fase 7 a propósito, no bloqueado.** El pipeline de post-procesado (`postprocessing`/`EffectComposer`) todavía no existe — construirlo es trabajo de Fase 7, no algo que falte por un bloqueo externo. El "glow" emisivo del shader de disolución cubre parte de la necesidad narrativa mientras tanto
+- [x] Montaje del interior en el grafo **sólo** en la ventana S4–S6 — `InteriorGate` en `SceneCanvas.tsx`, gatilla por `activeIndex` (índices 3/4/5), usa `<Suspense>`
+- [x] **Medido** el pico de draw calls durante el cruce: 606 con los 353 meshes del interior sin instanciar (primer intento) → **33–35 después de aplicar `instance` en el pipeline**. Este número quedó documentado porque *cambió una decisión real*: sin medirlo no se habría notado que la instanciación GPU faltaba
+- [x] **Revisión: ¿se lee como cruzar un umbral o como un corte? — GATE: pasada**, contra geometría placeholder (exterior caja + interior real). Radio de portal insuficiente en el primer intento (la cámara quedaba "atrapada" cerca de superficies sólidas, ver bug abajo); corregido y reverificado
+
+### Bugs reales encontrados y corregidos en la verificación de esta sesión
+
+1. **Radio de portal demasiado chico** (6 unidades) relativo a la sección transversal del fuselaje (7×8): el hueco apenas dejaba pasar la cámara, así que cualquier dirección de vista topaba con superficie sólida cercana — se leía como estar "atrapado contra una pared", no cruzando un umbral. Corregido subiendo el radio máximo a 14.
+2. **Coordenadas del interior con signo invertido**: los primeros keyframes de S5 apuntaban el target hacia -Z (hacia la nariz) en vez de +Z (hacia la cola), por un error de signo al derivar las posiciones desde los anchors reales. Corregido y reverificado con capturas del pasillo — ver Fase 5.
 
 ---
 
-## Fase 5 — Interior (S5)
+## Fase 5 — Interior (S5) · **Adelantada parcialmente durante la Fase 3/4 de esta sesión**
 
 **Alcance confirmado (§12.3 de PLAN.md): v1 con 3 zonas, marcadas ★. Las otras 3 quedan diferidas — documentadas, no eliminadas.**
 
-- [ ] Assets de interior procesados por el pipeline
-- [ ] **Asientos como `InstancedMesh`** con variación por atributos de instancia
-- [ ] Iluminación de cabina: luces analíticas + env map pequeño irradiado
-- [ ] Shadow map de interior con resolución acotada
-- [ ] LOD de corredor: fade-out de filas lejanas
-- [ ] Cámara de walkthrough a ~1.6m con micro-oscilación sutil
-- [ ] Mesetas de easing en cada zona para lectura de overlays
+> Esta fase no estaba en el alcance pedido para hoy (se pidieron Fases 3 y 4), pero construir el interior real resultó ser la forma más honesta de probar el spike de Fase 4 — un umbral no se puede validar en serio sin algo real del otro lado. Lo de abajo es lo que quedó hecho como consecuencia, no un intento deliberado de completar la Fase 5 entera.
 
-### Zonas v1 (alcance confirmado)
+- [x] Assets de interior procesados por el pipeline (ver Fase 3)
+- [x] **Asientos como instancias de GPU** — no vía `InstancedMesh` construido a mano en Three.js como proponía el plan original, sino vía `EXT_mesh_gpu_instancing` aplicado en el pipeline de glTF (`gltf-transform instance`), que three.js's `GLTFLoader` lee de forma nativa. Mismo resultado (250 asientos, pocos draw calls), mecanismo distinto — más simple porque vive en el pipeline de assets, no en código de la app. Vale la pena anotar la desviación del plan explícitamente en vez de dejarla implícita
+- [ ] Iluminación de cabina con env map irradiado — sólo la luz puntual cálida está implementada (ver Fase 4); no hay env map de interior
+- [ ] Shadow map de interior — no implementado, ninguna luz de la escena proyecta sombras todavía (Fase 2 tampoco lo tenía)
+- [ ] LOD de corredor (fade-out de filas lejanas) — no implementado; con sólo ~118k triángulos y GPU instancing ya aplicado, no hizo falta para que la Fase 4 GATE pasara, pero sigue pendiente para Fase 8
+- [x] Cámara de walkthrough — ya existía desde Fase 2, keyframes recalculados para pasar por los anchors reales del interior (ver Fase 4, bug #2)
+- [ ] Mesetas de easing en cada zona — no implementado, es trabajo de dirección de arte (Fase 6/7)
 
-- [ ] ★ Cabina de mando
-- [ ] ★ Economy
-- [ ] ★ Escalera al piso superior
-- [ ] ★ Piso superior
+### Zonas v1 — recorridas con geometría real, no sólo cámara sobre una caja
 
-### Zonas diferidas — incremento posterior, fuera de v1
+- [x] ★ Cabina de mando — geometría real, cámara pasa por el anchor real
+- [x] ★ Economy — geometría real con asientos instanciados; **la mejor captura visual de toda la sesión**, corredor legible con asientos a ambos lados y la escalera visible al fondo
+- [x] ★ Escalera al piso superior — geometría real, cámara pasa por el anchor real
+- [x] ★ Piso superior — geometría real, cámara pasa por el anchor real
+
+### Zonas diferidas — incremento posterior, fuera de v1 (sin cambios)
 
 - [ ] Primera clase
 - [ ] Business / Economy Plus
@@ -288,3 +354,4 @@ Convención: [ ] pendiente · [~] en curso/condicionado · [x] completo · [!] b
 | 2026-08-04 | Planificación (cierre de §12) | **Las 5 preguntas abiertas restantes quedaron cerradas vía cuestionario**, todas en la opción recomendada: stack → R3F + drei; alcance interior → v1 con 3 zonas (cabina de mando, economy, escalera + piso superior); librea → ficticia/neutra; audio → sin audio en v1; longitud de scroll → ~800vh. §12 de PLAN.md reescrito de "Preguntas abiertas" a "Decisiones confirmadas" (6/6 resueltas), con ajustes de consistencia en §2.1, §3 (Sección 5), §9.1, §10.5, §11.6 y §13. PROGRESS.md Fase 0 y Fase 5 actualizadas en consecuencia. | Ninguna decisión fundacional pendiente. Sigue abierta la verificación de datos técnicos de §9 (Fase 9) y toda la ejecución de las Fases 1–9. |
 | 2026-08-05 | Implementación Fase 1 + Fase 2 | Proyecto Vite+React+TS scaffoldeado en la raíz del repo (stack de §2: R3F+drei, zustand, gsap+ScrollTrigger, lenis). Esqueleto completo (canvas, scroll, store, HUD, 7 secciones DOM) y rig de cámara con geometría placeholder implementados y verificados en navegador real con Playwright (14 capturas a lo largo del scroll + smoke test de la herramienta de autoría). Se encontraron y corrigieron 5 bugs reales durante la verificación — el más importante: usar el mismo `u` derivado de una curva para samplear la otra curva las desincroniza, porque cada `CatmullRomCurve3` tiene su propia distribución de longitud de arco; hace falta una tabla de `u` por curva. Detalle completo en las notas de Fase 1/2 arriba. `npm run build` y chequeo de tipos limpios. GATE del arco narrativo: **pasada**. | La Fase 3 (pipeline de assets exterior) sigue bloqueada por la auditoría de modelo CC-BY de Fase 0, que no se hizo en esta sesión. Verificación de performance/re-renders quedó a nivel de revisión de código, no de profiler en vivo. |
 | 2026-08-05 | Merge de dos sesiones concurrentes sobre `main` | Al pushear la Fase 1+2, `origin/main` ya tenía commits nuevos: otra sesión hizo exactamente el trabajo de auditoría/Blender de Fase 0 que esta sesión había dejado pendiente (`ASSET_AUDIT.md`, `INTERIOR_LAYOUT.md`, `blender/*.py`, con evidencia verificada de jerarquía, tren, UVs, material y registración gruesa exterior/interior). Los cambios no se pisaban salvo la línea de "Estado global" de `PROGRESS.md`, resuelta a mano combinando ambos estados; el resto mergeó limpio (`PLAN.md` incluido). Nada se descartó de ninguno de los dos lados. | Con el exterior auditado (aunque con UV/PBR condicionados) y el código del rig ya validado, la Fase 3 puede arrancar. Las limitaciones de UV solapada y material albedo-only quedan como trabajo de pipeline explícito, no oculto. |
+| 2026-08-05 | Implementación Fase 3 + Fase 4 | **Bloqueo real encontrado y documentado de inmediato** (ver sección 🔴 al principio del archivo): el `.blend` del exterior auditado en la sesión anterior llegó como adjunto de chat, no persiste entre contenedores, y no había forma legítima de recuperarlo en esta sesión. En vez de improvisar un sustituto o parar, se hizo todo lo que sí era alcanzable: se instaló Blender 4.0.2 y se confirmó que `interior_blockout.py` **sí** es reproducible (verificó idéntico a la sesión anterior); se construyó el pipeline `gltf-transform` de Fase 3 (`scripts/process-glb.mjs`, prune→dedup→weld→instance→Draco→KTX2, probado contra el interior real, 733KB→29KB); se integró el interior como asset real en la app (`InteriorAsset.tsx`, Draco self-hosted en `public/draco/`); se implementó el spike técnico completo de Fase 4 (shader de disolución radial con dos portales, cross-fade de luz sol→cabina, rampa de exposición, todo verificado contra el exterior placeholder + el interior real); se construyó el entorno de Secciones 1–3 (marcas de pista, hangares, polvo, nubes). Verificado en navegador real con Playwright en cada paso, no sólo al final — encontrados y corregidos 6 bugs reales en el proceso (radio de portal insuficiente, `u` de una curva reusado para samplear otra, 606→33 draw calls al notar que faltaba instancing, nubes con borde duro, nubes en el corredor de cámara, nubes sin fade-out). Build y typecheck limpios. | El exterior real sigue bloqueado — ver la sección 🔴 con las 3 opciones concretas para desbloquearlo. La registración espacial exterior/interior de Fase 4 es una aproximación en código, no lo que el checklist original pedía. Bloom real diferido a Fase 7 a propósito (no hay pipeline de post-procesado todavía). |

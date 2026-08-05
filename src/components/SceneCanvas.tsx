@@ -1,10 +1,29 @@
 import { Canvas } from '@react-three/fiber'
+import { Suspense } from 'react'
 import { ACESFilmicToneMapping, SRGBColorSpace } from 'three'
 import { AircraftPlaceholder } from './AircraftPlaceholder'
 import { CameraRig } from './CameraRig'
 import { EnvironmentPlaceholder } from './EnvironmentPlaceholder'
+import { InteriorAsset } from './InteriorAsset'
+import { RunwayEnvironment } from './RunwayEnvironment'
 import { StatsCollector } from './StatsCollector'
 import { KeyframeAuthoringTool } from '../dev/KeyframeAuthoringTool'
+import { useScrollStore } from '../state/scrollStore'
+
+// S4, S5, S6 — mounted only in this window per PLAN.md Fase 4 ("montaje del
+// interior en el grafo sólo en la ventana S4-S6"), so the real interior
+// asset isn't resident in memory/draw calls for the rest of the journey.
+const INTERIOR_ACTIVE_INDICES = new Set([3, 4, 5])
+
+function InteriorGate() {
+  const activeIndex = useScrollStore((s) => s.activeIndex)
+  if (!INTERIOR_ACTIVE_INDICES.has(activeIndex)) return null
+  return (
+    <Suspense fallback={null}>
+      <InteriorAsset />
+    </Suspense>
+  )
+}
 
 export function SceneCanvas({ debugMode }: { debugMode: boolean }) {
   return (
@@ -24,7 +43,9 @@ export function SceneCanvas({ debugMode }: { debugMode: boolean }) {
       }}
     >
       <EnvironmentPlaceholder />
+      <RunwayEnvironment />
       <AircraftPlaceholder />
+      <InteriorGate />
       <CameraRig enabled={!debugMode} />
       {debugMode && <KeyframeAuthoringTool />}
       <StatsCollector />

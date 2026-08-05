@@ -1,5 +1,6 @@
 import { CatmullRomCurve3, Vector3 } from 'three'
 import { SECTIONS, getActiveSectionIndex, localProgress } from './sections'
+import { INTERIOR_ANCHORS_WORLD } from './sceneLayout'
 
 export interface CameraKeyframe {
   sectionIndex: number
@@ -39,23 +40,52 @@ export const KEYFRAMES: CameraKeyframe[] = [
   { sectionIndex: 2, camPos: [0, 60, -220], camTarget: [0, 40, -80], fov: 38, roll: 0 },
 
   // S4 — threshold: continues head-on, crosses the nose skin (world z=-115)
-  // and ends just inside the fuselage envelope.
-  { sectionIndex: 3, camPos: [0, 41, -114], camTarget: [0, 40, -95], fov: 42, roll: 0 },
-  { sectionIndex: 3, camPos: [0, 40, -95], camTarget: [0, 40, -60], fov: 55, roll: 0 },
+  // and ends just past it, approaching the real cockpit (world z=-106, from
+  // INTERIOR_ANCHORS_WORLD — see sceneLayout.ts).
+  { sectionIndex: 3, camPos: [0, 41, -114], camTarget: [0, 39, -102], fov: 42, roll: 0 },
+  { sectionIndex: 3, camPos: [0, 39, -110], camTarget: [0, 38.5, -98], fov: 50, roll: 0 },
 
   // S5 — interior walkthrough, v1 scope (§12.3): cockpit → economy →
-  // staircase → upper deck. Fuselage interior spans world z [-115, -45].
-  // Y kept off 40 (economy/mid) — the wing placeholder sits paper-thin
-  // right at y=40, and the walkthrough path would clip through it there.
-  { sectionIndex: 4, camPos: [0, 41, -108], camTarget: [0, 41, -95], fov: 50, roll: 0 },
-  { sectionIndex: 4, camPos: [0, 41, -80], camTarget: [0, 41, -55], fov: 48, roll: 0 },
-  { sectionIndex: 4, camPos: [1, 44, -60], camTarget: [1, 48, -50], fov: 46, roll: 0 },
-  { sectionIndex: 4, camPos: [0, 49, -50], camTarget: [0, 49, -45], fov: 45, roll: 0 },
+  // staircase → upper deck, routed through the real anchor points from
+  // interior_blockout.py (INTERIOR_ANCHORS_WORLD), not hand-guessed
+  // placeholder stops — this asset is real geometry as of Fase 3, no longer
+  // a box. Eye height ~1.6 above each zone's floor anchor. +Z is "toward the
+  // tail" throughout (see sceneLayout.ts), so every target below is a
+  // small positive offset past its own position — looking ahead down the
+  // cabin, never back toward the nose.
+  {
+    sectionIndex: 4,
+    camPos: [0, 38.5, INTERIOR_ANCHORS_WORLD.cockpit[2] + 4],
+    camTarget: [0, 38.5, INTERIOR_ANCHORS_WORLD.economy[2] + 5],
+    fov: 50,
+    roll: 0,
+  },
+  {
+    sectionIndex: 4,
+    camPos: [0, 38.5, INTERIOR_ANCHORS_WORLD.economy[2] + 13],
+    camTarget: [0, 38.5, INTERIOR_ANCHORS_WORLD.stair[2] + 3],
+    fov: 48,
+    roll: 0,
+  },
+  {
+    sectionIndex: 4,
+    camPos: [0.6, 39.5, INTERIOR_ANCHORS_WORLD.stair[2] + 3],
+    camTarget: [0.6, 40.9, INTERIOR_ANCHORS_WORLD.upperDeck[2] + 9],
+    fov: 46,
+    roll: 0,
+  },
+  {
+    sectionIndex: 4,
+    camPos: [0, 40.95, INTERIOR_ANCHORS_WORLD.upperDeck[2] + 9],
+    camTarget: [0, 40.95, INTERIOR_ANCHORS_WORLD.upperDeck[2] + 14],
+    fov: 45,
+    roll: 0,
+  },
 
-  // S6 — exit + pull back: breaks back outside near the tail/upper deck,
+  // S6 — exit + pull back: breaks back outside near the upper deck exit,
   // then retreats to a wide cinematic shot of the aircraft in flight —
   // same generous-distance reasoning as S2/S3 above.
-  { sectionIndex: 5, camPos: [40, 65, -20], camTarget: [0, 49, -48], fov: 42, roll: 0 },
+  { sectionIndex: 5, camPos: [20, 50, -45], camTarget: [0, 40.95, -58], fov: 42, roll: 0 },
   { sectionIndex: 5, camPos: [190, 90, 90], camTarget: [0, 40, -80], fov: 35, roll: 0 },
 
   // S7 — footer: holds near the wide shot, a touch further back so the

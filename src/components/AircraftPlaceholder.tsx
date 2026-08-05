@@ -1,21 +1,32 @@
 import { useFrame } from '@react-three/fiber'
-import { useRef } from 'react'
-import { DoubleSide, Group } from 'three'
+import { useMemo, useRef } from 'react'
+import { DoubleSide, Group, Mesh } from 'three'
 import { getAircraftPose } from '../lib/aircraftPose'
+import { createDissolveHullMaterial } from '../lib/dissolveHullMaterial'
 import { FUSELAGE } from '../lib/sceneLayout'
 import { SECTIONS } from '../lib/sections'
+import { EXIT_PORTAL, NOSE_PORTAL, portalRadius } from '../lib/thresholdPortals'
 import { useScrollStore } from '../state/scrollStore'
 
 const TAXI_SECTION = SECTIONS[1]
 
 /**
- * Box-and-wings stand-in for the A380. `DoubleSide` so the camera can fly
- * straight through the hull for the S4 threshold crossing and the S5
- * walkthrough without a separate interior mesh — good enough to validate
- * the camera arc, not a stand-in for the Fase 4 dissolve VFX.
+ * Box-and-wings stand-in for the A380. The fuselage uses the Fase 4 dissolve
+ * shader (see dissolveHullMaterial.ts) so the camera can fly through two
+ * fixed "portals" — the S4 nose entry and the S6 exit — instead of the whole
+ * hull being permanently see-through. Wings/tail stay opaque plain
+ * DoubleSide boxes; they aren't part of the threshold narrative.
+ *
+ * The portal centers are fixed world-space points. That only stays correct
+ * because the aircraft itself is frozen from S3 onward (see
+ * aircraftPose.ts) — the portals only ever open at progress >= 0.40, well
+ * inside that frozen window, so there's no case where a moving fuselage
+ * would carry the hole away from where the camera expects it.
  */
 export function AircraftPlaceholder() {
   const groupRef = useRef<Group>(null)
+  const fuselageRef = useRef<Mesh>(null)
+  const dissolveMaterial = useMemo(() => createDissolveHullMaterial(), [])
 
   useFrame(({ clock }) => {
     const group = groupRef.current
@@ -33,13 +44,15 @@ export function AircraftPlaceholder() {
 
     group.position.set(position.x, position.y + jitter, position.z)
     group.rotation.x = pitchRad
+
+    dissolveMaterial.uniforms.portal1Radius.value = portalRadius(progress, NOSE_PORTAL)
+    dissolveMaterial.uniforms.portal2Radius.value = portalRadius(progress, EXIT_PORTAL)
   })
 
   return (
     <group ref={groupRef}>
-      <mesh>
+      <mesh ref={fuselageRef} material={dissolveMaterial}>
         <boxGeometry args={[FUSELAGE.width, FUSELAGE.height, FUSELAGE.length]} />
-        <meshStandardMaterial color="#d8dbe0" side={DoubleSide} roughness={0.6} metalness={0.1} />
       </mesh>
       <mesh position={[0, 0, -5]}>
         <boxGeometry args={[80, 1, 9]} />

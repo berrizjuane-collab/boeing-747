@@ -1,7 +1,7 @@
 # PLAN — Sitio Scrollytelling 3D de Presentación de Aeronave
 
 > Documento de planificación. Ninguna línea de este plan es código de implementación.
-> Estado: **todas las decisiones fundacionales de [§12](#12-decisiones-confirmadas) están cerradas y confirmadas por el usuario.** La Fase 0 tiene blockout interior, auditoría estructural del exterior y copia de trabajo verificados. El gate operativo del exterior está cerrado con dos condicionantes explícitos: UV original solapada y material albedo-only.
+> Estado: **todas las decisiones fundacionales de [§12](#12-decisiones-confirmadas) están cerradas y confirmadas por el usuario.** La Fase 0 tiene blockout interior, auditoría estructural del exterior y copia de trabajo verificados — pero esa copia de trabajo **no persistió** a la sesión siguiente (ver §11.1, actualizado). Fases 1–2 completas y verificadas. Fases 3–4 avanzadas hasta el límite real de lo que se podía hacer sin el binario del exterior; ver el detalle y las opciones de desbloqueo en `PROGRESS.md`.
 
 ---
 
@@ -569,6 +569,10 @@ Lo que arrojó la investigación sobre el exterior:
 
 > **Sobre la licencia:** CC-BY exige **atribución visible**. Eso se **diseña dentro del footer desde el principio** (§ Sección 6/7), no se pega al final como un parche. Y **CC-BY-NC sería inutilizable** si esto llega a funcionar como pieza de portfolio con cualquier connotación comercial. Cada candidato se audita individualmente — la licencia declarada en un listado de búsqueda no es suficiente.
 
+**Manifestación concreta del riesgo (2026-08-05):** esto dejó de ser hipotético. La sesión de Fase 0 recibió el `.blend` de Brout como **adjunto de chat**, lo auditó correctamente en Blender, y guardó el resultado (copia de trabajo BLEND/GLB, escena registrada con el interior) como *"artefacto de sesión"* — una decisión correcta, dado que es contenido de terceros que no debe redistribuirse en el repositorio. Pero cada sesión de Claude Code corre en un **contenedor nuevo y descartable**, así que ese artefacto no llegó a la sesión de Fase 3/4: no había `.blend` en ningún lado del filesystem, y Blender ni siquiera estaba instalado. El detalle completo — qué se intentó, qué scripts sí son reproducibles (el blockout del interior, que no depende de ningún archivo externo) y las tres opciones concretas para desbloquearlo — está documentado en el bloqueo 🔴 al principio de `PROGRESS.md`, no repetido acá.
+
+Esto confirma algo que el plan ya sospechaba pero no había verificado: **cualquier asset de terceros que dependa de un archivo adjuntado manualmente en el chat necesita, además de la auditoría de licencia, un plan de persistencia** — o se sube al repo bajo una licencia que lo permita (con la atribución ya resuelta), o se documenta explícitamente que hay que volver a adjuntarlo cada vez que haga falta regenerar algo a partir de él. No hay una tercera opción silenciosa.
+
 ### 11.2 Registración espacial exterior/interior
 
 Si el exterior y el interior son assets distintos (lo más probable), tienen que **coincidir físicamente**: el tubo interior dentro del fuselaje, la puerta de entrada alineada con la puerta del exterior, escalas consistentes. Es alineación manual en Blender y está presupuestada en Fase 4. Si no coincide, el cruce de S4 se rompe justo en el momento que más importa.
@@ -661,20 +665,20 @@ Razón: da respiro real a las dos secciones que más lo necesitan — el walkthr
 >
 > **Ajuste tras la decisión de §12.2:** como el interior se modela a medida y es la tarea más larga del proyecto, **conviene arrancarla ya, en paralelo con las Fases 1–2**, en vez de esperar a que el rig de cámara esté validado. El riesgo de "modelar algo que después no encaja con la cámara" se mitiga con la herramienta de autoría de keyframes de la Fase 2 (permite ajustar el recorrido a la geometría real, no sólo al revés) y con el criterio de registración espacial de [§11.2](#112-registración-espacial-exteriorinterior) aplicado desde el modelado mismo.
 
-| Fase | Contenido | Dependencias |
-|---|---|---|
-| **0** | Decisiones cerradas; auditoría de licencia documentada; **blockout interior ejecutado y verificado en Blender** con cockpit, economy, escalera y upper deck. La aprobación operativa del exterior CC-BY y la registración gruesa ya están verificadas con el archivo fuente autorizado. El ajuste fino del umbral/puertas y la limpieza UV/PBR siguen siendo trabajo posterior. | No bloquea el inicio de 1–2; sí condiciona 3–5 |
-| **1** | Esqueleto: Vite + TS, canvas, Lenis + ScrollTrigger, escalar de progreso, HUD de debug | — |
-| **2** | **Rig de cámara con placeholder a través de las 8 secciones.** Herramienta de autoría de keyframes. Validación del arco completo | 1 |
-| **3** | Pipeline de assets exterior. Secciones 1–3 con el modelo real | 0 (exterior auditado), 2 |
-| **4** | **Spike del umbral (S4).** Registración espacial exterior/interior | 3 |
-| **5** | Interior (S5): **3 zonas de v1** (cabina de mando, economy, escalera + piso superior — §12.3), instancing de asientos, iluminación de cabina | 4 |
-| **6** | S6, S7. Sistema de overlays, tipografía, hotspots | 5 |
-| **7** | Post-proceso y pasada de dirección de arte: grading por sección, tone mapping, bloom, DoF | 6 |
-| **8** | Tiering de performance, mobile, fallback estático, accesibilidad | 7 |
-| **9** | **Verificación de datos (§9)** y redacción de copy final | — (paralelizable) |
+| Fase | Estado | Contenido | Dependencias |
+|---|---|---|---|
+| **0** | 🟡 Parcial | Decisiones cerradas; auditoría de licencia documentada; **blockout interior ejecutado y verificado en Blender** con cockpit, economy, escalera y upper deck. La copia de trabajo del exterior se auditó y registró correctamente, pero **no persistió** entre sesiones (era un artefacto de sesión, contenido de terceros) — ver §11.1. | No bloquea el inicio de 1–2; sí condiciona 3–5 |
+| **1** | ✅ Completa | Esqueleto: Vite + TS, canvas, Lenis + ScrollTrigger, escalar de progreso, HUD de debug | — |
+| **2** | ✅ Completa | **Rig de cámara con placeholder a través de las 8 secciones.** Herramienta de autoría de keyframes. Validación del arco completo | 1 |
+| **3** | 🟡 Parcial | Pipeline `gltf-transform` construido y probado (prune→dedup→weld→**instance**→Draco→KTX2 — `instance` se agregó sobre lo planeado en §6.3, ver PROGRESS.md). Entorno de Secciones 1–3 construido. **Bloqueado**: `exterior.glb` en sí, por §11.1 | 0 (exterior auditado — pero no disponible), 2 |
+| **4** | 🟡 Parcial | **Spike del umbral (S4) resuelto** contra exterior placeholder + interior real: disolución radial, cross-fade de luz, rampa de exposición, todo verificado. **Bloqueada**: la registración espacial real (aproximada a mano en código en su lugar) | 3 |
+| **5** | 🟡 Adelantada parcialmente | Interior (S5): las **3 zonas de v1** ya recorridas con geometría real (no placeholder) como efecto colateral de validar el spike de Fase 4 — instancing de asientos resuelto vía `EXT_mesh_gpu_instancing` en el pipeline, no vía código de la app. Iluminación de cabina, shadow map y LOD de corredor siguen pendientes | 4 |
+| **6** | ⬜ Sin empezar | S6, S7. Sistema de overlays, tipografía, hotspots | 5 |
+| **7** | ⬜ Sin empezar | Post-proceso y pasada de dirección de arte: grading por sección, tone mapping, bloom, DoF | 6 |
+| **8** | ⬜ Sin empezar | Tiering de performance, mobile, fallback estático, accesibilidad | 7 |
+| **9** | ⬜ Sin empezar | **Verificación de datos (§9)** y redacción de copy final | — (paralelizable) |
 
-El seguimiento vive en [`PROGRESS.md`](./PROGRESS.md).
+El seguimiento fase por fase, con checklists detallados y notas de sesión, vive en [`PROGRESS.md`](./PROGRESS.md) — es la fuente de verdad para "qué está hecho exactamente"; esta tabla es sólo el resumen de alto nivel.
 
 
 ## Registro de cierre de Fase 0 — 2026-08-04
