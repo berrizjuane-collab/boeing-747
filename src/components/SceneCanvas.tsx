@@ -32,8 +32,8 @@ function InteriorGate() {
 export function SceneCanvas({ debugMode }: { debugMode: boolean }) {
   return (
     <Canvas
-      // Runtime shadows are limited to the runway pass for Fase 3. Other
-      // shadow budgets remain explicit Fase 5/8 work.
+      // Runtime shadows cover the runway and the bounded interior Fase 5
+      // lights; any broader shadow budget remains explicit future work.
       shadows
       // R3F's Canvas wrapper div ships its own inline `position: relative`;
       // passing `className` alone loses to that (inline beats stylesheet),
