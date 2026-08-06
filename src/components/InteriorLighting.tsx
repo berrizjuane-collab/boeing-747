@@ -21,6 +21,7 @@ function clamp01(value: number) {
 }
 
 function smoothstep(edge0: number, edge1: number, value: number) {
+  if (edge1 <= edge0) return value < edge0 ? 0 : 1
   const t = clamp01((value - edge0) / (edge1 - edge0))
   return t * t * (3 - 2 * t)
 }
