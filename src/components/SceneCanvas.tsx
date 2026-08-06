@@ -7,6 +7,7 @@ import { ExteriorAsset } from './ExteriorAsset'
 import { InteriorAsset } from './InteriorAsset'
 import { RunwayEnvironment } from './RunwayEnvironment'
 import { StatsCollector } from './StatsCollector'
+import { ThresholdFrame } from './ThresholdFrame'
 import { KeyframeAuthoringTool } from '../dev/KeyframeAuthoringTool'
 import { useScrollStore } from '../state/scrollStore'
 
@@ -45,12 +46,15 @@ export function SceneCanvas({ debugMode }: { debugMode: boolean }) {
         gl.outputColorSpace = SRGBColorSpace
       }}
     >
-      <EnvironmentPlaceholder />
+      <Suspense fallback={null}>
+        <EnvironmentPlaceholder />
+      </Suspense>
       <RunwayEnvironment />
       <Suspense fallback={null}>
         <ExteriorAsset />
       </Suspense>
       <InteriorGate />
+      <ThresholdFrame />
       <CameraRig enabled={!debugMode} />
       {debugMode && <KeyframeAuthoringTool />}
       <StatsCollector />
