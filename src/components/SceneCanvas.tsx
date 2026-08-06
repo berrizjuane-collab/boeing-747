@@ -15,7 +15,7 @@ import { useScrollStore } from '../state/scrollStore'
 // asset isn't resident in memory/draw calls for the rest of the journey.
 const INTERIOR_ACTIVE_INDICES = new Set([3, 4, 5])
 
-function InteriorGate() {
+export function InteriorGate() {
   const activeIndex = useScrollStore((s) => s.activeIndex)
   if (!INTERIOR_ACTIVE_INDICES.has(activeIndex)) return null
   return (
@@ -28,6 +28,9 @@ function InteriorGate() {
 export function SceneCanvas({ debugMode }: { debugMode: boolean }) {
   return (
     <Canvas
+      // Runtime shadows are limited to the runway pass for Fase 3. Other
+      // shadow budgets remain explicit Fase 5/8 work.
+      shadows
       // R3F's Canvas wrapper div ships its own inline `position: relative`;
       // passing `className` alone loses to that (inline beats stylesheet),
       // so the fixed-fullscreen override has to go through `style`, which
