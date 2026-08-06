@@ -10,6 +10,8 @@ const INTERIOR_LOD_DISTANCE = 42
 
 interface LodNode {
   mesh: Mesh
+  // Computed after the loaded scene is attached to the transformed group.
+  // Box3 therefore stores a world-space center for the camera distance test.
   center: Vector3
 }
 
