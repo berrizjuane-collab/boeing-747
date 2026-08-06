@@ -10,10 +10,12 @@ registro de sesiones).
 
 ## Estado actual
 
-Fases 0–3 completas, incluyendo el exterior real (ya no hay bloqueo: el
-binario fuente está en `blender/source/`, ver más abajo). Fase 4 (umbral) y
-un adelanto de Fase 5 (interior) funcionando con geometría real de ambos
-lados — exterior e interior — recorrida con la cámara, no placeholders.
+Fases 0–2 completas y núcleo de Fase 3 implementado, incluyendo el
+exterior real (ya no hay bloqueo: el binario fuente está en `blender/source/`,
+ver más abajo). Fase 3 conserva dos condiciones explícitas: HDRI reales para
+S1/S3 y KTX2/Basis en el artefacto exterior final. Fase 4 (umbral) y un
+adelanto de Fase 5 (interior) funcionan con geometría real de ambos lados —
+exterior e interior — recorrida con la cámara, no placeholders.
 
 ## Desarrollo
 
