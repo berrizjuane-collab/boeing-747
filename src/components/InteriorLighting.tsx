@@ -28,7 +28,15 @@ function smoothstep(edge0: number, edge1: number, value: number) {
 
 function cabinFactor(progress: number) {
   const entry = smoothstep(SECTIONS[3].start, SECTIONS[4].start, progress)
-  const exit = 1 - smoothstep(SECTIONS[4].end, SECTIONS[5].start, progress)
+  // Not smoothstep(SECTIONS[4].end, SECTIONS[5].start, ...): S5 ends exactly
+  // where S6 begins (sections are contiguous, both are 0.82), so that window
+  // has zero width and smoothstep's own degenerate-range fallback collapses
+  // it into a hard step — the cabin lights would cut instantly at 82%
+  // instead of fading out, unlike the symmetric entry ramp above which spans
+  // all of S4. Fading across all of S6 instead mirrors the entry ramp and
+  // matches EnvironmentPlaceholder's own THRESHOLD_OUT sun fade-back-in,
+  // which already uses the full S6 span for the same reason.
+  const exit = 1 - smoothstep(SECTIONS[5].start, SECTIONS[5].end, progress)
   return Math.min(entry, exit)
 }
 

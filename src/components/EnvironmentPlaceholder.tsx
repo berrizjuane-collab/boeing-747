@@ -1,18 +1,16 @@
 import { Environment } from '@react-three/drei'
 import { useFrame, useLoader, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
-import { Color, DirectionalLight, EquirectangularReflectionMapping, FogExp2, Mesh, PointLight } from 'three'
+import { Color, DirectionalLight, EquirectangularReflectionMapping, FogExp2, Mesh } from 'three'
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
 import { sampleEnvironmentColor } from '../lib/environmentTheme'
 import { activeHdriSectionSlot, goldenHourWeight, highAltitudeWeight } from '../lib/hdriTheme'
 import { exposureMultiplier, sunIntensityMultiplier } from '../lib/thresholdLighting'
-import { INTERIOR_ANCHORS_WORLD } from '../lib/sceneLayout'
 import { SECTIONS } from '../lib/sections'
 import { createSkyDomeMaterial } from '../lib/skyDomeMaterial'
 import { useScrollStore } from '../state/scrollStore'
 
 const SUN_INTENSITY = 2
-const CABIN_LIGHT_INTENSITY = 3.5
 const SHADOW_SECTION_END = SECTIONS[1].end + 0.04
 
 // Comfortably inside the camera's far=3000 (SceneCanvas.tsx) and comfortably
@@ -24,17 +22,22 @@ const SKY_RADIUS = 1200
 /**
  * Ground, per-section fog/background color (environmentTheme.ts), the real
  * S1/S3 HDRI sky dome (skyDomeMaterial.ts, hdriTheme.ts — Fase 3 closure
- * condition, see PROGRESS.md), and the Fase 4 threshold crossfade: the "sun"
- * directional light fades out and a warm cabin point light fades in across
- * S4, so the light source itself changes at the crossing — not just the fog
- * tint. Renderer exposure ramps down in the same window (thresholdLighting.ts)
- * for the "contained cabin" feel described in PLAN.md §3 S4.
+ * condition, see PROGRESS.md), and the exterior side of the Fase 4 threshold
+ * crossfade: the "sun" directional light fades out across S4 so the light
+ * source reads as changing at the crossing — not just the fog tint. Renderer
+ * exposure ramps down in the same window (thresholdLighting.ts) for the
+ * "contained cabin" feel described in PLAN.md §3 S4. The interior side of
+ * that same crossfade (the warm cabin light growing to replace it) lives in
+ * InteriorLighting.tsx, mounted only for S4-S6 — this component used to also
+ * carry a simple placeholder cabin point light for that, from before
+ * InteriorLighting existed; removed once InteriorLighting's own
+ * shadow-casting spotlights (timed to the identical S4 window) made it
+ * redundant, so the cabin isn't double-lit during S4-S5.
  */
 export function EnvironmentPlaceholder() {
   const { scene, gl } = useThree()
   const colorRef = useRef(new Color('#c9895b'))
   const sunRef = useRef<DirectionalLight>(null)
-  const cabinLightRef = useRef<PointLight>(null)
   const skyDomeRef = useRef<Mesh>(null)
 
   // §6.4: the golden-hour HDRI is a *blocking* S0 asset, same tier as
@@ -73,7 +76,6 @@ export function EnvironmentPlaceholder() {
       // once the aircraft has left the runway.
       sunRef.current.castShadow = progress < SHADOW_SECTION_END
     }
-    if (cabinLightRef.current) cabinLightRef.current.intensity = CABIN_LIGHT_INTENSITY * (1 - sunFactor)
 
     const golden = goldenHourWeight(progress)
     const highAlt = highAltitudeWeight(progress)
@@ -82,8 +84,6 @@ export function EnvironmentPlaceholder() {
     skyMaterial.uniforms.mixFactor.value = skyOpacity > 1e-4 ? highAlt / (golden + highAlt) : 0
     if (skyDomeRef.current) skyDomeRef.current.visible = skyOpacity > 1e-4
   })
-
-  const cabinMid: [number, number, number] = [0, 40, (INTERIOR_ANCHORS_WORLD.cockpit[2] + INTERIOR_ANCHORS_WORLD.upperDeck[2]) / 2]
 
   const activeIndex = useScrollStore((s) => s.activeIndex)
   const hdriSlot = activeHdriSectionSlot(activeIndex)
@@ -129,7 +129,6 @@ export function EnvironmentPlaceholder() {
         shadow-bias={-0.0005}
         shadow-normalBias={0.02}
       />
-      <pointLight ref={cabinLightRef} position={cabinMid} intensity={0} distance={90} decay={1.4} color="#ffcf8f" />
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
         <planeGeometry args={[4000, 4000]} />
         <meshStandardMaterial color="#3c4a3a" roughness={1} />
