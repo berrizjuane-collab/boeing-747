@@ -3,7 +3,7 @@
 Checklist de seguimiento espejado a las fases de [`PLAN.md`](./PLAN.md).
 Sirve para retomar contexto entre sesiones: **antes de trabajar, leer las notas de la fase activa.**
 
-**Estado global: Fases 0, 1 y 2 completas; el núcleo de Fase 3 está implementado y verificado. El bloqueo del exterior (más abajo, ahora marcado RESUELTO) se destrabó el 2026-08-05: el usuario adjuntó `A380.blend` de nuevo y autorizó subirlo al repo. Fase 4 (umbral) funciona con geometría real de ambos lados — exterior e interior —, con un adelanto real de Fase 5 (interior recorrido con geometría verdadera). Fase 3 conserva dos condiciones de cierre explícitas: HDRI reales para S1/S3 y KTX2/Basis en el artefacto exterior final; no se presentan como completadas.**
+**Estado global: Fases 0, 1 y 2 completas; el núcleo de Fase 3 está implementado y verificado. El bloqueo del exterior (más abajo, ahora marcado RESUELTO) se destrabó el 2026-08-05: el usuario adjuntó `A380.blend` de nuevo y autorizó subirlo al repo. Fase 4 (umbral) funciona con geometría real de ambos lados — exterior e interior —. Fase 5 ya tiene implementados y verificados sus gates técnicos de iluminación irradiada, sombras interiores, recorrido y easing; el fade de opacidad del LOD y la verificación visual post-cambio siguen explícitamente abiertos. Fase 3 conserva dos condiciones de cierre explícitas: HDRI reales para S1/S3 y KTX2/Basis en el artefacto exterior final; no se presentan como completadas.**
 
 Convención: `[ ]` pendiente · `[~]` en curso · `[x]` completo · `[!]` bloqueado
 
@@ -240,19 +240,19 @@ Convención: [ ] pendiente · [~] en curso/condicionado · [x] completo · [!] b
 
 ---
 
-## Fase 5 — Interior (S5) · **Adelantada parcialmente durante la Fase 3/4 de esta sesión**
+## Fase 5 — Interior (S5) · **Gates técnicos implementados; cierre de arte pendiente**
 
 **Alcance confirmado (§12.3 de PLAN.md): v1 con 3 zonas, marcadas ★. Las otras 3 quedan diferidas — documentadas, no eliminadas.**
 
-> Esta fase no estaba en el alcance pedido para hoy (se pidieron Fases 3 y 4), pero construir el interior real resultó ser la forma más honesta de probar el spike de Fase 4 — un umbral no se puede validar en serio sin algo real del otro lado. Lo de abajo es lo que quedó hecho como consecuencia, no un intento deliberado de completar la Fase 5 entera.
+> En esta sesión se avanzó deliberadamente sobre los puntos técnicos que faltaban: iluminación de relleno irradiada, sombras interiores, LOD de protección y mesetas de recorrido. La implementación queda verificada por compilación, lint e invariantes estáticas. La fase global no se marca como cerrada porque el requisito original pide un *fade-out* de opacidad para el LOD y esta pasada implementa culling duro por distancia; además, la verificación visual post-cambio requiere disponer del navegador y del binario GLB en el entorno de ejecución.
 
 - [x] Assets de interior procesados por el pipeline (ver Fase 3)
-- [x] **Asientos como instancias de GPU** — no vía `InstancedMesh` construido a mano en Three.js como proponía el plan original, sino vía `EXT_mesh_gpu_instancing` aplicado en el pipeline de glTF (`gltf-transform instance`), que three.js's `GLTFLoader` lee de forma nativa. Mismo resultado (250 asientos, pocos draw calls), mecanismo distinto — más simple porque vive en el pipeline de assets, no en código de la app. Vale la pena anotar la desviación del plan explícitamente en vez de dejarla implícita
-- [ ] Iluminación de cabina con env map irradiado — sólo la luz puntual cálida está implementada (ver Fase 4); no hay env map de interior
-- [ ] Shadow map de interior — no implementado, ninguna luz de la escena proyecta sombras todavía (Fase 2 tampoco lo tenía)
-- [ ] LOD de corredor (fade-out de filas lejanas) — no implementado; con sólo ~118k triángulos y GPU instancing ya aplicado, no hizo falta para que la Fase 4 GATE pasara, pero sigue pendiente para Fase 8
+- [x] **Asientos como instancias de GPU** — no vía `InstancedMesh` construido a mano en Three.js como proponía el plan original, sino vía `EXT_mesh_gpu_instancing` aplicado en el pipeline de glTF (`gltf-transform instance`), que three.js's `GLTFLoader` lee de forma nativa. Mismo resultado (250 asientos, pocos draw calls), mecanismo distinto — más simple porque vive en el pipeline de assets, no en código de la app
+- [x] **Iluminación de cabina con env map irradiado** — `InteriorLighting.tsx` genera un fill equirectangular procedural de 64×32 y lo prefiltra mediante `PMREMGenerator`; se suman dos spots analíticos (cálido/frío) con entrada y salida suaves en S4/S6. Es un env map irradiado de bajo coste, no un HDRI externo
+- [x] **Shadow map de interior** — ambos spots tienen shadow map de 1024×1024, bias/normalBias y distancia acotada; la geometría interior hace cast y receive shadow. La iluminación se monta sólo en la ventana S4–S6
+- [~] **LOD de corredor** — se implementó culling duro por distancia (centro mundial de cada mesh, umbral 42 unidades) y se desactiva su shadow casting fuera del rango. Protege draw calls y sombras, pero todavía no es el *fade-out* de opacidad pedido; queda pendiente esa transición visual
 - [x] Cámara de walkthrough — ya existía desde Fase 2, keyframes recalculados para pasar por los anchors reales del interior (ver Fase 4, bug #2)
-- [ ] Mesetas de easing en cada zona — no implementado, es trabajo de dirección de arte (Fase 6/7)
+- [x] **Mesetas de easing por zona** — `walkthroughProgress` mantiene la cámara en los anchors de cockpit, economy y escalera, y suaviza la llegada al piso superior; posición, target, FOV y roll usan el mismo progreso, sin desincronización
 
 ### Zonas v1 — recorridas con geometría real, no sólo cámara sobre una caja
 
@@ -266,7 +266,13 @@ Convención: [ ] pendiente · [~] en curso/condicionado · [x] completo · [!] b
 - [ ] Primera clase
 - [ ] Business / Economy Plus
 
----
+### Verificación de Fase 5 — 2026-08-06
+
+- [x] `npm run build` — `tsc -b` + Vite, 598 módulos transformados, salida de producción generada
+- [x] `oxlint src` — sin diagnósticos
+- [x] Invariantes estáticas — PMREM y shadow maps 1024 configurados; meshes interiores con cast/receive; LOD y montaje dentro de `InteriorGate`; posición, target, FOV y roll comparten `pathT`
+- [x] Prueba de anchors de easing — muestras `0, 0, 1/3, 1/3, 2/3, 2/3, 1` en los límites de las mesetas
+- [ ] Verificación visual post-cambio — no ejecutada en esta pasada: el entorno de verificación no tenía navegador ni `public/models/interior.glb` montados; no se presenta como validada
 
 ## Fase 6 — Cierre, overlays y hotspots
 
@@ -381,3 +387,4 @@ Convención: [ ] pendiente · [~] en curso/condicionado · [x] completo · [!] b
 | 2026-08-05 | Implementación Fase 3 + Fase 4 | **Bloqueo real encontrado y documentado de inmediato** (ver sección al principio del archivo): el `.blend` del exterior auditado en la sesión anterior llegó como adjunto de chat, no persiste entre contenedores, y no había forma legítima de recuperarlo en esta sesión. En vez de improvisar un sustituto o parar, se hizo todo lo que sí era alcanzable: se instaló Blender 4.0.2 y se confirmó que `interior_blockout.py` **sí** es reproducible (verificó idéntico a la sesión anterior); se construyó el pipeline `gltf-transform` de Fase 3 (`scripts/process-glb.mjs`, prune→dedup→weld→instance→Draco→KTX2, probado contra el interior real, 733KB→29KB); se integró el interior como asset real en la app (`InteriorAsset.tsx`, Draco self-hosted en `public/draco/`); se implementó el spike técnico completo de Fase 4 (shader de disolución radial con dos portales, cross-fade de luz sol→cabina, rampa de exposición, todo verificado contra el exterior placeholder + el interior real); se construyó el entorno de Secciones 1–3 (marcas de pista, hangares, polvo, nubes). Verificado en navegador real con Playwright en cada paso, no sólo al final — encontrados y corregidos 6 bugs reales en el proceso (radio de portal insuficiente, `u` de una curva reusado para samplear otra, 606→33 draw calls al notar que faltaba instancing, nubes con borde duro, nubes en el corredor de cámara, nubes sin fade-out). Build y typecheck limpios. | El exterior real seguía bloqueado (resuelto en la sesión siguiente). La registración espacial exterior/interior de Fase 4 era una aproximación en código. Bloom real diferido a Fase 7 a propósito. |
 | 2026-08-05 | Exterior real: bloqueo resuelto, integrado y verificado | El usuario adjuntó de nuevo `airbus-a380.zip` y autorizó subirlo al repo. Se reprodujo el pipeline completo de Blender contra el archivo real (`audit_exterior.py` → `prepare_exterior.py` → `verify_exterior.py` → `register_interior.py` → `verify_registration.py`), confirmando en cada paso los mismos hallazgos que la auditoría original (checksums idénticos). Se procesó `exterior.glb` con el pipeline de Fase 3 (4472.5→2184.9 KB; KTX2 no disponible en este contenedor, degradó con gracia a resize+JPEG, ver Fase 3). Se construyó `ExteriorAsset.tsx`, reemplazando `AircraftPlaceholder.tsx`: colocación derivada empíricamente componiendo matrices reales del GLB (un primer intento con sólo traslaciones ignoró la rotación real de `Exterior_Root` y dio números sin sentido físico — corregido antes de escribir código, no después), dirección nariz/cola confirmada de forma independiente cuatro veces, shader de disolución aplicado al mesh real, tren de aterrizaje real (115 nodos) con retracción animada. Verificación en Playwright de punta a punta encontró y corrigió un bug real (retracción del tren comparaba progreso global contra un umbral pensado en progreso local de S2). Se subió el binario fuente al repo (`blender/source/`, CC BY 4.0, decisión explícita del usuario) con atribución propia. Build y typecheck limpios en todo momento. | Geometría de detalle del umbral (puertas, marco) y bloom real quedan para Fase 6/7, ya no por bloqueo de asset sino por alcance no cubierto todavía. Atribución visible en el sitio (footer) sigue pendiente de Fase 6. |
 | 2026-08-06 | Cierre incremental de Fase 3 | Se implementaron y verificaron por compilación el parallax de hero respetuoso de movimiento reducido y la sombra proyectada real de pista; se revisó el árbol completo desde GitHub y pasó tsc -b + build Vite. | HDRI reales S1/S3 y KTX2/Basis del artefacto exterior siguen pendientes y explícitos; falta verificación visual post-cambio en navegador con binarios montados. |
+| 2026-08-06 | Implementación Fase 5 | Se añadieron fill irradiado procedural mediante PMREM, dos spots interiores con shadow map 1024², cast/receive de sombras del interior, culling LOD por distancia y mesetas de easing sincronizadas para posición/target/FOV/roll; build, lint e invariantes verificados. | El LOD todavía es culling duro, no fade de opacidad; la verificación visual post-cambio requiere navegador y `interior.glb` montados. Primera clase y Business/Economy Plus siguen diferidas por decisión v1. |
