@@ -168,19 +168,47 @@ export interface SampledCamera {
  * section-local progress (the same value driving the aircraft) maps 1:1 to
  * how far through that stretch both the position and the target are.
  */
+const WALKTHROUGH_PLATEAUS = [
+  { start: 0, end: 0.12, from: 0, to: 0 },
+  { start: 0.12, end: 0.38, from: 0, to: 1 / 3 },
+  { start: 0.38, end: 0.5, from: 1 / 3, to: 1 / 3 },
+  { start: 0.5, end: 0.76, from: 1 / 3, to: 2 / 3 },
+  { start: 0.76, end: 0.88, from: 2 / 3, to: 2 / 3 },
+  { start: 0.88, end: 1, from: 2 / 3, to: 1 },
+] as const
+
+function smoothstep01(value: number) {
+  const t = Math.min(1, Math.max(0, value))
+  return t * t * (3 - 2 * t)
+}
+
+/**
+ * Gives S5 extra scroll dwell at cockpit, stair and upper-deck anchors.
+ * Movement still starts and ends at exactly the same keyframes; only the
+ * local time spent at each zone changes.
+ */
+export function walkthroughProgress(progress: number) {
+  const band = WALKTHROUGH_PLATEAUS.find((candidate) => progress <= candidate.end) ?? WALKTHROUGH_PLATEAUS[WALKTHROUGH_PLATEAUS.length - 1]
+  const span = band.end - band.start
+  const local = span > 0 ? (progress - band.start) / span : 0
+  const eased = smoothstep01(local)
+  return band.from + (band.to - band.from) * eased
+}
+
 export function sampleCamera(progress: number): SampledCamera {
   const sectionIndex = getActiveSectionIndex(progress)
   const section = SECTIONS[sectionIndex]
   const span = SECTION_SPANS[sectionIndex]
   const t = localProgress(progress, section)
+  const pathT = sectionIndex === 4 ? walkthroughProgress(t) : t
 
   const posU = POS_U[span.firstIndex] + (POS_U[span.lastIndex] - POS_U[span.firstIndex]) * t
-  const targetU = TARGET_U[span.firstIndex] + (TARGET_U[span.lastIndex] - TARGET_U[span.firstIndex]) * t
+  const targetU = TARGET_U[span.firstIndex] + (TARGET_U[span.lastIndex] - TARGET_U[span.firstIndex]) * pathT
 
   const position = posCurve.getPointAt(posU)
   const target = targetCurve.getPointAt(targetU)
-  const fov = span.first.fov + (span.last.fov - span.first.fov) * t
-  const rollDeg = span.first.roll + (span.last.roll - span.first.roll) * t
+  const fov = span.first.fov + (span.last.fov - span.first.fov) * pathT
+  const rollDeg = span.first.roll + (span.last.roll - span.first.roll) * pathT
 
   return { position, target, fov, rollRad: (rollDeg * Math.PI) / 180 }
 }
