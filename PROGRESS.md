@@ -1,9 +1,9 @@
-# PROGRESS — Sitio Scrollytelling 3D de Presentación de Aeronave
+| 2026-08-06 | Cierre incremental de Fase 3 | Se implementaron y verificaron por compilación el parallax de hero respetuoso de movimiento reducido y la sombra proyectada real de pista; se revisó el árbol completo desde GitHub y pasó tsc -b + build Vite. | HDRI reales S1/S3 y KTX2/Basis del artefacto exterior siguen pendientes y explícitos; falta verificación visual post-cambio en navegador con binarios montados. |# PROGRESS — Sitio Scrollytelling 3D de Presentación de Aeronave
 
 Checklist de seguimiento espejado a las fases de [`PLAN.md`](./PLAN.md).
 Sirve para retomar contexto entre sesiones: **antes de trabajar, leer las notas de la fase activa.**
 
-**Estado global: Fases 0, 1, 2 y 3 completas. El bloqueo del exterior (más abajo, ahora marcado RESUELTO) se destrabó el 2026-08-05: el usuario adjuntó `A380.blend` de nuevo y autorizó subirlo al repo. Fase 4 (umbral) funciona con geometría real de ambos lados — exterior e interior —, con un adelanto real de Fase 5 (interior recorrido con geometría verdadera). Lo que queda pendiente en Fase 4/5 ya no es "bloqueado por assets", son ítems de dirección de arte/pulido explícitamente diferidos a Fase 6/7/8.**
+**Estado global: Fases 0, 1 y 2 completas; el núcleo de Fase 3 está implementado y verificado. El bloqueo del exterior (más abajo, ahora marcado RESUELTO) se destrabó el 2026-08-05: el usuario adjuntó `A380.blend` de nuevo y autorizó subirlo al repo. Fase 4 (umbral) funciona con geometría real de ambos lados — exterior e interior —, con un adelanto real de Fase 5 (interior recorrido con geometría verdadera). Fase 3 conserva dos condiciones de cierre explícitas: HDRI reales para S1/S3 y KTX2/Basis en el artefacto exterior final; no se presentan como completadas.**
 
 Convención: `[ ]` pendiente · `[~]` en curso · `[x]` completo · `[!]` bloqueado
 
@@ -143,7 +143,7 @@ Convención: [ ] pendiente · [~] en curso/condicionado · [x] completo · [!] b
 
 ---
 
-## Fase 3 — Pipeline exterior y secciones 1–3 · ✅ COMPLETA
+## Fase 3 — Pipeline exterior y secciones 1–3 · ✅ NÚCLEO IMPLEMENTADO / CONDICIONADA
 
 > El bloqueo ✅ RESUELTO al principio de este archivo cubre el contexto completo. Todo lo que dependía del binario exterior — procesar `exterior.glb`, cargarlo real en la app, tren de aterrizaje real — se completó el 2026-08-05.
 
@@ -162,7 +162,16 @@ Convención: [ ] pendiente · [~] en curso/condicionado · [x] completo · [!] b
 
 - [x] **Pipeline `gltf-transform` scriptado y reproducible** — `scripts/process-glb.mjs` (`npm run process-glb -- <in> <out>`). Encadena prune → dedup → weld → **instance** (`EXT_mesh_gpu_instancing`, no estaba en la lista original de §6.3 pero resultó necesario — ver nota de Fase 5) → Draco → KTX2/Basis (auto-saltado con log explícito si el origen no tiene texturas, no falla en silencio). Probado de punta a punta contra un archivo real (el blockout del interior, no un archivo de juguete)
 - [x] Verificado que el paso KTX2 se salta correctamente y con log visible cuando no hay texturas — no aplica al blockout del interior (materiales de color sólido)
-- [x] `exterior.glb` procesado dentro de presupuesto — 4472.5 KB → 2184.9 KB (2×). **Limitación real y distinta del bloqueo ya resuelto**: la compresión KTX2/Basis (`gltf-transform etc1s`) necesita el binario externo `ktx` (KTX-Software), que no tiene paquete apt/pip en este contenedor y cuya descarga desde GitHub releases está bloqueada por el scoping de red de la sesión (403 explícito, no un fallback silencioso). `scripts/process-glb.mjs` degrada con gracia a resize (cap 2048px) + recompresión JPEG cuando esto pasa — reduce el peso de transmisión pero **no** el footprint en VRAM en runtime como sí lo haría KTX2 real (la textura se descomprime completa igual, ver PLAN.md §6.2). Queda documentado como limitación de infraestructura de esta sesión, no como algo a resolver en código — si una sesión futura corre en un contenedor con acceso a GitHub o con `ktx` instalable, el pipeline ya lo usa automáticamente sin cambios.
+- [~] `exterior.glb` procesado dentro de presupuesto de descarga — 4472.5 KB → 2184.9 KB (2×). **Limitación real y distinta del bloqueo ya resuelto**: la compresión KTX2/Basis (`gltf-transform etc1s`) necesita el binario externo `ktx` (KTX-Software), que no tiene paquete apt/pip en este contenedor y cuya descarga desde GitHub releases está bloqueada por el scoping de red de la sesión (403 explícito, no un fallback silencioso). `scripts/process-glb.mjs` degrada con gracia a resize (cap 2048px) + recompresión JPEG cuando esto pasa — reduce el peso de transmisión pero **no** el footprint en VRAM en runtime como sí lo haría KTX2 real (la textura se descomprime completa igual, ver PLAN.md §6.2). Queda documentado como limitación de infraestructura de esta sesión, no como algo a resolver en código — si una sesión futura corre en un contenedor con acceso a GitHub o con `ktx` instalable, el pipeline ya lo usa automáticamente sin cambios.
+
+### Verificación de cierre de esta pasada — 2026-08-06
+
+- [x] Parallax y sombras compilados contra el árbol TypeScript actual reconstruido desde main: tsc -b completo, PASS.
+- [x] Build de producción Vite con las dependencias declaradas, PASS (597 módulos transformados).
+- [x] Relectura remota posterior a los commits confirma los cuatro archivos de runtime actualizados: CameraRig.tsx, EnvironmentPlaceholder.tsx, SceneCanvas.tsx y ExteriorAsset.tsx.
+- [ ] Verificación visual post-cambio con Playwright en el exterior real — no ejecutable en este contenedor porque el binario/modelos y un navegador no están montados localmente. La verificación visual integral anterior del exterior real sigue registrada arriba; esta pasada no la sobre-reclama.
+- [ ] HDRI golden hour de S1 y HDRI de gran altitud de S3 — no hay archivos HDR/HDRI en el repositorio; se mantiene pendiente.
+- [~] KTX2/Basis del exterior final — el pipeline lo intenta automáticamente, pero el artefacto verificado sigue siendo fallback JPEG por falta del binario externo ktx; el impacto de VRAM no se declara resuelto.
 
 ### Interior (adelanto real, no estaba planeado para Fase 3)
 
@@ -177,7 +186,7 @@ Convención: [ ] pendiente · [~] en curso/condicionado · [x] completo · [!] b
 - [ ] HDRI golden hour — **no implementado.** Se usa gradiente de color procedural (`environmentTheme.ts`, ya de Fase 2) en vez de un HDRI real; no hay archivo `.hdr` en el proyecto. Es una simplificación deliberada, no un olvido — un HDRI real no aporta nada sin el exterior real reflejándolo, y el bloqueo de assets ya está documentado en un solo lugar
 - [x] Niebla exponencial (`FogExp2`, ya de Fase 2, reutilizada)
 - [x] Partículas de polvo suspendido — `DustParticles`, visibles S1–S2, fade-out después. Primer intento se veía como "nieve" (tamaño de punto demasiado grande, esparcidas muy alto); corregido tras revisión visual
-- [x] Deriva lenta de cámara (ya de Fase 2) — parallax de mouse **no implementado** (queda para cuando haya overlays de texto reales que se beneficien de él, Fase 6)
+- [x] Deriva lenta de cámara (ya de Fase 2) — parallax de mouse implementado en CameraRig.tsx, limitado al hero, con fade-out en el borde S1/S2 y desactivado para prefers-reduced-motion
 
 ### Sección 2 — Rodaje y despegue
 
@@ -185,7 +194,7 @@ Convención: [ ] pendiente · [~] en curso/condicionado · [x] completo · [!] b
 - [x] Vibración/cabeceo de alta frecuencia y amplitud decreciente (Fase 2)
 - [x] Rotación (Fase 2)
 - [x] Separación y retracción del tren — el asset real trae 115 nodos `LandingGear_Part_###` bajo un grupo `LandingGear` (Fase 0). `ExteriorAsset.tsx` los sube y oculta sobre la mitad final del progreso local de S2. **Bug real encontrado y corregido**: el primer intento comparaba el umbral de retracción contra el progreso *global* de scroll en vez del progreso *local* de S2 — con S2 en el rango global [0.12, 0.28], el tren no empezaba a subir hasta el 50% global (bien entrado en el interior) en vez del ~20%. Detectado instrumentando `gear.visible`/`gear.position.y` directamente vía Playwright (no a simple vista); corregido envolviendo el umbral con `localProgress(progress, TAXI_SECTION)`. Verificado tras el fix: sube y desaparece entre global 20%–26%, se mantiene oculto el resto del recorrido.
-- [ ] Sombra proyectada desplazándose sobre el asfalto — sigue sin implementar (ninguna luz de la escena proyecta sombras todavía, ver Fase 5 más abajo; ya no es un bloqueo de asset, es alcance no cubierto aún)
+- [x] Sombra proyectada desplazándose sobre el asfalto — Canvas shadows, shadow map ortográfico de la luz direccional (2048², bias/normalBias acotados), aeronave marcada castShadow y pista receiveShadow; el shadow map se desactiva después de S2 para no pagar ese coste en vuelo
 - [x] Tracking shot lateral (Fase 2, keyframes reajustados en esta sesión — ver nota de bug abajo)
 
 ### Sección 3 — Ascenso
