@@ -1,17 +1,31 @@
 import { Environment } from '@react-three/drei'
 import { useFrame, useLoader, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
-import { Color, DirectionalLight, EquirectangularReflectionMapping, FogExp2, Mesh } from 'three'
+import { BackSide, Color, DirectionalLight, EquirectangularReflectionMapping, FogExp2, Mesh, MeshBasicMaterial } from 'three'
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
 import { sampleEnvironmentColor } from '../lib/environmentTheme'
-import { activeHdriSectionSlot, goldenHourWeight, highAltitudeWeight } from '../lib/hdriTheme'
-import { exposureMultiplier, sunIntensityMultiplier } from '../lib/thresholdLighting'
+import { activeHdriSectionSlot, goldenHourWeight, highAltitudeWeight, sunsetWeight } from '../lib/hdriTheme'
+import { duskColorMix, exposureMultiplier, sunIntensityMultiplier } from '../lib/thresholdLighting'
 import { SECTIONS } from '../lib/sections'
 import { createSkyDomeMaterial } from '../lib/skyDomeMaterial'
+import { loadingState } from '../state/loadingState'
 import { useScrollStore } from '../state/scrollStore'
+
+// PLAN.md §10.4: the scene reveals like a photo, exposure ramping 0 -> target
+// over ~1.2s once loading finishes, instead of popping in the instant each
+// asset's own Suspense boundary happens to resolve (exterior.glb and the
+// HDRIs are *separate* Suspense boundaries — see SceneCanvas.tsx — so
+// without this they could visibly pop in at different moments).
+const LOAD_REVEAL_DURATION = 1.2
+const clamp01Reveal = (x: number) => Math.min(1, Math.max(0, x))
 
 const SUN_INTENSITY = 2
 const SHADOW_SECTION_END = SECTIONS[1].end + 0.04
+const SUN_COLOR_DAY = new Color('#ffd6ad')
+// PLAN.md §10.1 S6 key/acento, used verbatim — the point is the returning
+// sun reads as a *different*, cooler-accented light, not a re-tinted S1 sun.
+const SUN_COLOR_DUSK = new Color('#e89b6c')
+const sunColorScratch = new Color()
 
 // Comfortably inside the camera's far=3000 (SceneCanvas.tsx) and comfortably
 // outside every keyframe/anchor in the scene (aircraft span ~80m, camera
@@ -33,28 +47,57 @@ const SKY_RADIUS = 1200
  * InteriorLighting existed; removed once InteriorLighting's own
  * shadow-casting spotlights (timed to the identical S4 window) made it
  * redundant, so the cabin isn't double-lit during S4-S5.
+ *
+ * S6 gets its own HDRI too (PLAN.md §5's third: "atardecer") — a *second*,
+ * separate sky dome mesh rather than a third slot in the golden/high-altitude
+ * dome's shader: that shader's whole reason to exist is blending exactly two
+ * textures cheaply in one pass (skyDomeMaterial.ts), and golden/high-altitude
+ * never overlap in time with sunset (they're fully faded out by S4, sunset
+ * doesn't start fading in until S6), so there's nothing to blend between the
+ * two domes at runtime — just one fading out long before the other fades in.
+ * A single-texture MeshBasicMaterial is the simplest thing that's correct.
  */
 export function EnvironmentPlaceholder() {
   const { scene, gl } = useThree()
   const colorRef = useRef(new Color('#c9895b'))
   const sunRef = useRef<DirectionalLight>(null)
   const skyDomeRef = useRef<Mesh>(null)
+  const sunsetDomeRef = useRef<Mesh>(null)
 
   // §6.4: the golden-hour HDRI is a *blocking* S0 asset, same tier as
   // exterior.glb — loading it through useLoader (Suspense) registers it with
   // the same THREE.DefaultLoadingManager useProgress reads, so it correctly
   // counts toward the S0 load gate once that's built (Fase 6), not just a
-  // convenient way to fetch it.
-  const [goldenHourMap, highAltitudeMap] = useLoader(RGBELoader, [
+  // convenient way to fetch it. Sunset joins the same blocking call for
+  // simplicity — it's a similarly small file (~1.2MB, see public/hdri/) and
+  // splitting it into its own lazily-loaded Suspense boundary would be new
+  // architecture for a budget that's nowhere close to being a problem: all
+  // three HDRIs together are still well under §6.4's 15MB S0 ceiling.
+  const [goldenHourMap, highAltitudeMap, sunsetMap] = useLoader(RGBELoader, [
     '/hdri/golden-hour.hdr',
     '/hdri/high-altitude.hdr',
+    '/hdri/sunset.hdr',
   ])
   const skyMaterial = useMemo(() => createSkyDomeMaterial(goldenHourMap, highAltitudeMap), [goldenHourMap, highAltitudeMap])
+  const sunsetMaterial = useMemo(
+    () =>
+      new MeshBasicMaterial({
+        map: sunsetMap,
+        side: BackSide,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        fog: false,
+        toneMapped: true,
+      }),
+    [sunsetMap],
+  )
 
   useEffect(() => {
     goldenHourMap.mapping = EquirectangularReflectionMapping
     highAltitudeMap.mapping = EquirectangularReflectionMapping
-  }, [goldenHourMap, highAltitudeMap])
+    sunsetMap.mapping = EquirectangularReflectionMapping
+  }, [goldenHourMap, highAltitudeMap, sunsetMap])
 
   useEffect(() => {
     scene.background = colorRef.current
@@ -68,13 +111,19 @@ export function EnvironmentPlaceholder() {
       scene.fog.color.copy(colorRef.current)
     }
 
-    gl.toneMappingExposure = exposureMultiplier(progress)
+    const revealStart = loadingState.revealStartSeconds
+    const loadReveal = revealStart === null ? 0 : clamp01Reveal((performance.now() / 1000 - revealStart) / LOAD_REVEAL_DURATION)
+    gl.toneMappingExposure = exposureMultiplier(progress) * loadReveal
     const sunFactor = sunIntensityMultiplier(progress)
     if (sunRef.current) {
       sunRef.current.intensity = SUN_INTENSITY * sunFactor
       // Shadow maps are useful for S1-S2's runway cue and needlessly expensive
       // once the aircraft has left the runway.
       sunRef.current.castShadow = progress < SHADOW_SECTION_END
+      // See duskColorMix's doc comment: the returning S6 sun is a cooler,
+      // dimmer-reading accent color, not literally the S1 golden-hour hue.
+      sunColorScratch.copy(SUN_COLOR_DAY).lerp(SUN_COLOR_DUSK, duskColorMix(progress))
+      sunRef.current.color.copy(sunColorScratch)
     }
 
     const golden = goldenHourWeight(progress)
@@ -83,11 +132,16 @@ export function EnvironmentPlaceholder() {
     skyMaterial.uniforms.opacity.value = skyOpacity
     skyMaterial.uniforms.mixFactor.value = skyOpacity > 1e-4 ? highAlt / (golden + highAlt) : 0
     if (skyDomeRef.current) skyDomeRef.current.visible = skyOpacity > 1e-4
+
+    const sunsetOpacity = sunsetWeight(progress)
+    sunsetMaterial.opacity = sunsetOpacity
+    if (sunsetDomeRef.current) sunsetDomeRef.current.visible = sunsetOpacity > 1e-4
   })
 
   const activeIndex = useScrollStore((s) => s.activeIndex)
   const hdriSlot = activeHdriSectionSlot(activeIndex)
-  const reflectionMap = hdriSlot === 'golden' ? goldenHourMap : hdriSlot === 'high-altitude' ? highAltitudeMap : null
+  const reflectionMap =
+    hdriSlot === 'golden' ? goldenHourMap : hdriSlot === 'high-altitude' ? highAltitudeMap : hdriSlot === 'sunset' ? sunsetMap : null
 
   return (
     <>
@@ -134,6 +188,9 @@ export function EnvironmentPlaceholder() {
         <meshStandardMaterial color="#3c4a3a" roughness={1} />
       </mesh>
       <mesh ref={skyDomeRef} renderOrder={-10} material={skyMaterial}>
+        <sphereGeometry args={[SKY_RADIUS, 32, 32]} />
+      </mesh>
+      <mesh ref={sunsetDomeRef} renderOrder={-10} material={sunsetMaterial}>
         <sphereGeometry args={[SKY_RADIUS, 32, 32]} />
       </mesh>
       {/* Reflection-only: background stays the sky dome above, this just feeds

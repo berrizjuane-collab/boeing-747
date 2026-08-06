@@ -168,7 +168,9 @@ export interface SampledCamera {
  * section-local progress (the same value driving the aircraft) maps 1:1 to
  * how far through that stretch both the position and the target are.
  */
-const WALKTHROUGH_PLATEAUS = [
+// Exported so InteriorOverlay.tsx can detect which zone is under a dwell
+// plateau right now, without hardcoding a second copy of these boundaries.
+export const WALKTHROUGH_PLATEAUS = [
   { start: 0, end: 0.12, from: 0, to: 0 },
   { start: 0.12, end: 0.38, from: 0, to: 1 / 3 },
   { start: 0.38, end: 0.5, from: 1 / 3, to: 1 / 3 },
@@ -194,6 +196,33 @@ export function walkthroughProgress(progress: number) {
   const local = span > 0 ? (progress - band.start) / span : 0
   const eased = smoothstep01(local)
   return band.from + (band.to - band.from) * eased
+}
+
+export type InteriorZoneKey = 'cockpit' | 'economy' | 'stair' | 'upperDeck'
+
+/**
+ * Maps S5-local progress (0..1) to the zone under its dwell plateau right
+ * now — shared by InteriorOverlay.tsx (per-zone narrative content) and
+ * Hotspots.tsx (per-zone dwell-band gating), both of which need to agree on
+ * exactly the same windows the camera itself dwells in. Plateau indices:
+ * 0 cockpit dwell, 1 transit, 2 economy dwell, 3 transit, 4 stair dwell,
+ * 5 transit into upper deck.
+ *
+ * Index 5 is folded into 'upperDeck' rather than treated as another
+ * transit gap: the rig gives the upper deck no dwell plateau of its own —
+ * the walkthrough reaches it exactly as S5 ends, then S6 immediately breaks
+ * the camera back outside. Treating that final approach as "upper deck
+ * active" is the only way this ★ zone — PLAN.md §3 calls it "la carga
+ * narrativa del doble piso completo" — gets any screen time at all, short
+ * of adding a dwell plateau to the rig itself, which is out of Fase 6 scope.
+ */
+export function zoneForLocalProgress(t: number): InteriorZoneKey | null {
+  if (t <= WALKTHROUGH_PLATEAUS[0].end) return 'cockpit'
+  if (t < WALKTHROUGH_PLATEAUS[2].start) return null
+  if (t <= WALKTHROUGH_PLATEAUS[2].end) return 'economy'
+  if (t < WALKTHROUGH_PLATEAUS[4].start) return null
+  if (t <= WALKTHROUGH_PLATEAUS[4].end) return 'stair'
+  return 'upperDeck'
 }
 
 export function sampleCamera(progress: number): SampledCamera {

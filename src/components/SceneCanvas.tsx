@@ -4,6 +4,7 @@ import { ACESFilmicToneMapping, SRGBColorSpace } from 'three'
 import { CameraRig } from './CameraRig'
 import { EnvironmentPlaceholder } from './EnvironmentPlaceholder'
 import { ExteriorAsset } from './ExteriorAsset'
+import { Hotspots } from './Hotspots'
 import { InteriorAsset } from './InteriorAsset'
 import { InteriorLighting } from './InteriorLighting'
 import { RunwayEnvironment } from './RunwayEnvironment'
@@ -58,6 +59,7 @@ export function SceneCanvas({ debugMode }: { debugMode: boolean }) {
         <ExteriorAsset />
       </Suspense>
       <InteriorGate />
+      <Hotspots />
       <ThresholdFrame />
       <CameraRig enabled={!debugMode} />
       {debugMode && <KeyframeAuthoringTool />}

@@ -1,8 +1,7 @@
-"""Generate the two real HDRIs Fase 3 needs, procedurally, with Cycles' Nishita sky.
-
-PLAN.md §5 calls for three HDRIs (golden hour S1-S2, high altitude S3, sunset
-S6); PROGRESS.md's Fase 3 closure conditions only block on the first two (S6
-is Fase 6 scope, not started). This script produces exactly those two.
+"""Generate the three real HDRIs PLAN.md §5 calls for, procedurally, with
+Cycles' Nishita sky: golden hour (S1-S2), high altitude (S3), sunset (S6).
+The first two shipped with Fase 3; sunset was deferred to Fase 6 at the time
+(S6's overlay/environment work hadn't started) and is added here.
 
 Why procedural instead of downloading a real-world HDRI (e.g. Poly Haven):
 this session's network gateway blocks polyhaven.com/dl.polyhaven.org (403),
@@ -13,8 +12,8 @@ problem for a licensing question. Cycles' Nishita sky model is a physically
 based atmosphere simulation (Rayleigh/Mie scattering), not a photo — it is
 generated content with no third-party rights to audit, and it is exactly the
 same toolchain (Blender, headless/background) already used for every other
-asset in this repo. Both presets below are tuned to this project's specific
-narrative requirements (PLAN.md §3 S1/S3, §10.1 grading table) rather than
+asset in this repo. Every preset below is tuned to this project's specific
+narrative requirements (PLAN.md §3 S1/S3/S6, §10.1 grading table) rather than
 picked from a catalog of whatever happens to exist.
 
 Usage:
@@ -25,6 +24,10 @@ Usage:
     blender --background --factory-startup --python blender/generate_hdri.py -- \
         --preset high-altitude --output public/hdri/high-altitude.hdr \
         [--preview /tmp/high-altitude-preview.png]
+
+    blender --background --factory-startup --python blender/generate_hdri.py -- \
+        --preset sunset --output public/hdri/sunset.hdr \
+        [--preview /tmp/sunset-preview.png]
 """
 
 import math
@@ -71,6 +74,33 @@ PRESETS = {
         "sun_intensity": 1.3,
         "sun_size": math.radians(0.545),
         "background_strength": 1.35,
+    },
+    # sunset (S6 salida): PLAN.md §10.1 is explicit that this must *not* read
+    # as S1/S3 repeated — "Frío al atardecer", base `#2B3A55` (cool blue-gray)
+    # with the warm tone (`#E89B6C`) demoted to an accent, not the overall
+    # key. A negative sun_elevation (sun a few degrees *below* the horizon,
+    # true "blue hour" rather than golden-hour's low-but-above-horizon sun)
+    # gets this from the same physical model rather than a color grade: with
+    # the disc gone, Rayleigh scattering no longer has a bright direct source
+    # to wash the sky warm, so the zenith reads deep blue while Mie
+    # scattering + the raised dust_density still glow warm low on the
+    # horizon, right where the vanished sun was — cool overall, warm accent
+    # only, exactly the split §10.1 asks for. Raised ozone_density deepens
+    # that blue-to-violet falloff (ozone's absorption bands are what make
+    # real blue-hour skies read blue rather than grey). Lower
+    # background_strength than either daylight preset — dusk, not noon —
+    # without going as dark as S7's near-black bookend, which is a flat
+    # fog/background color change (environmentTheme.ts), not this HDRI.
+    "sunset": {
+        "sun_elevation": math.radians(-3.0),
+        "sun_rotation": math.radians(250.0),
+        "altitude": 3000.0,
+        "air_density": 1.2,
+        "dust_density": 1.3,
+        "ozone_density": 1.3,
+        "sun_intensity": 1.0,
+        "sun_size": math.radians(0.545),
+        "background_strength": 0.55,
     },
 }
 

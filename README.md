@@ -10,13 +10,18 @@ registro de sesiones).
 
 ## Estado actual
 
-Fases 0–4 completas, incluyendo el exterior real (el binario fuente está en
-`blender/source/`, ver más abajo), HDRI reales para S1/S3 (generadas
-proceduralmente con el cielo físico de Cycles, no descargadas — ver
-`blender/generate_hdri.py`), KTX2/Basis genuino en el artefacto exterior
-final, y el umbral (Fase 4) con geometría real de ambos lados — exterior e
-interior — más marco de puerta en los dos portales. Un adelanto de Fase 5
-(interior) ya se recorre con la cámara, no placeholders.
+Fases 0–6 completas. Exterior real (el binario fuente está en
+`blender/source/`, ver más abajo), tres HDRI reales — golden hour, gran
+altitud y atardecer, las tres generadas proceduralmente con el cielo físico
+de Cycles, no descargadas (`blender/generate_hdri.py`) —, KTX2/Basis genuino
+en el artefacto exterior final, umbral (Fase 4) con geometría real de ambos
+lados y marco de puerta en los dos portales, recorrido interior completo
+(Fase 5: iluminación de cabina, sombras, LOD de corredor con *fade-out* real,
+mesetas de easing por zona), y la capa DOM completa de Fase 6: overlays
+narrativos y por zona, hotspots con gating por banda de dwell, pantalla de
+carga con progreso ponderado, y nav fijo con salto a sección. Quedan
+Fases 7–9: post-proceso y dirección de arte, performance/mobile/fallback
+estático, y verificación de datos primarios.
 
 ## Desarrollo
 
