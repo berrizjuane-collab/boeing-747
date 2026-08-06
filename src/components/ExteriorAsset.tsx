@@ -40,8 +40,8 @@ const GEAR_RETRACT_RISE = 3
  * file's real node hierarchy with three.js's own Matrix4 composition
  * (translations DO carry through nested rotations in ways that aren't safe
  * to eyeball — first-pass hand algebra on this got the composition wrong),
- * confirming it lands the model exactly where the already-tuned camera
- * path, dissolve portals, and interior anchors expect it: nose at world
+ * confirming it lands the model exactly where the already-tuned camera path,
+ * dissolve portals, and interior anchors expect it: nose at world
  * z=-115, main deck floor at world y=37, both at FLYING_POSE.
  */
 export function ExteriorAsset() {
@@ -57,11 +57,11 @@ export function ExteriorAsset() {
       if (obj.name === 'A380' && (obj as Mesh).isMesh) {
         const mesh = obj as Mesh
         mesh.material = dissolveMaterial
-        mesh.castShadow = false
+        mesh.castShadow = true
         mesh.receiveShadow = true
       } else if ((obj as Mesh).isMesh) {
         const mesh = obj as Mesh
-        mesh.castShadow = false
+        mesh.castShadow = true
         mesh.receiveShadow = true
       }
       if (obj.name === 'LandingGear') gear = obj
