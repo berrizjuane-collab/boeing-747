@@ -5,6 +5,7 @@ import { CameraRig } from './CameraRig'
 import { EnvironmentPlaceholder } from './EnvironmentPlaceholder'
 import { ExteriorAsset } from './ExteriorAsset'
 import { InteriorAsset } from './InteriorAsset'
+import { InteriorLighting } from './InteriorLighting'
 import { RunwayEnvironment } from './RunwayEnvironment'
 import { StatsCollector } from './StatsCollector'
 import { KeyframeAuthoringTool } from '../dev/KeyframeAuthoringTool'
@@ -19,9 +20,12 @@ function InteriorGate() {
   const activeIndex = useScrollStore((s) => s.activeIndex)
   if (!INTERIOR_ACTIVE_INDICES.has(activeIndex)) return null
   return (
-    <Suspense fallback={null}>
-      <InteriorAsset />
-    </Suspense>
+    <>
+      <InteriorLighting />
+      <Suspense fallback={null}>
+        <InteriorAsset />
+      </Suspense>
+    </>
   )
 }
 
