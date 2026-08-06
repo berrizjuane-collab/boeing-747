@@ -202,7 +202,7 @@ export function sampleCamera(progress: number): SampledCamera {
   const t = localProgress(progress, section)
   const pathT = sectionIndex === 4 ? walkthroughProgress(t) : t
 
-  const posU = POS_U[span.firstIndex] + (POS_U[span.lastIndex] - POS_U[span.firstIndex]) * t
+  const posU = POS_U[span.firstIndex] + (POS_U[span.lastIndex] - POS_U[span.firstIndex]) * pathT
   const targetU = TARGET_U[span.firstIndex] + (TARGET_U[span.lastIndex] - TARGET_U[span.firstIndex]) * pathT
 
   const position = posCurve.getPointAt(posU)
