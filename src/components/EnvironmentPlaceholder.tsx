@@ -56,20 +56,6 @@ export function EnvironmentPlaceholder() {
   useEffect(() => {
     scene.background = colorRef.current
     scene.fog = new FogExp2(colorRef.current.getHex(), 0.0035)
-
-    const sun = sunRef.current
-    if (sun) {
-      sun.castShadow = true
-      sun.shadow.mapSize.set(2048, 2048)
-      sun.shadow.camera.near = 1
-      sun.shadow.camera.far = 500
-      sun.shadow.camera.left = -220
-      sun.shadow.camera.right = 220
-      sun.shadow.camera.top = 220
-      sun.shadow.camera.bottom = -220
-      sun.shadow.bias = -0.0005
-      sun.shadow.normalBias = 0.02
-    }
   }, [scene])
 
   useFrame(() => {
@@ -106,7 +92,43 @@ export function EnvironmentPlaceholder() {
   return (
     <>
       <hemisphereLight args={['#ffffff', '#3a3a3a', 1.2]} />
-      <directionalLight ref={sunRef} position={[80, 100, 40]} color="#ffd6ad" intensity={SUN_INTENSITY} />
+      {/*
+        Shadow config as JSX props, not imperative sunRef.current.shadow.* in
+        a useEffect (how a previous session had it): THREE.WebGLShadowMap
+        lazily creates the light's shadow map render target at whatever
+        shadow.mapSize is the *first* time this light actually needs to cast
+        a frame, which can happen before a useEffect on the ref runs.
+        Confirmed empirically (readRenderTargetPixels against a clean
+        production build, not just the dev server) — setting mapSize to
+        2048x2048 imperatively left the real render target stuck at the
+        default 512x512 forever after, with every shadow map texel reading
+        pure white (no caster ever recorded), while `sun.shadow.mapSize`
+        itself correctly reported 2048x2048 — every property *looked*
+        configured right, and nothing rendered. Static JSX props are applied
+        during React's commit phase, strictly before R3F's first gl.render()
+        call, so the render target is created at the right size from frame
+        one. Same reasoning extends to the camera-* bounds: as imperative
+        mutation they'd need an explicit updateProjectionMatrix() call too
+        (OrthographicCamera doesn't recompute it on property assignment) —
+        moot here since R3F's own prop-setter calls that for camera-typed
+        targets, but noted because it's the same class of bug either way.
+      */}
+      <directionalLight
+        ref={sunRef}
+        position={[80, 100, 40]}
+        color="#ffd6ad"
+        intensity={SUN_INTENSITY}
+        castShadow
+        shadow-mapSize={[2048, 2048]}
+        shadow-camera-near={1}
+        shadow-camera-far={500}
+        shadow-camera-left={-220}
+        shadow-camera-right={220}
+        shadow-camera-top={220}
+        shadow-camera-bottom={-220}
+        shadow-bias={-0.0005}
+        shadow-normalBias={0.02}
+      />
       <pointLight ref={cabinLightRef} position={cabinMid} intensity={0} distance={90} decay={1.4} color="#ffcf8f" />
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
         <planeGeometry args={[4000, 4000]} />

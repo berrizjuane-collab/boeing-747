@@ -1,7 +1,8 @@
 import { useGLTF } from '@react-three/drei'
-import { useFrame } from '@react-three/fiber'
-import { useEffect, useMemo, useRef } from 'react'
+import { useFrame, useThree } from '@react-three/fiber'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { Group, Mesh, Object3D } from 'three'
+import { KTX2Loader, type GLTFLoader } from 'three-stdlib'
 import { getAircraftPose } from '../lib/aircraftPose'
 import { createDissolveHullMaterial } from '../lib/dissolveHullMaterial'
 import { EXTERIOR_LOCAL_OFFSET } from '../lib/sceneLayout'
@@ -45,7 +46,20 @@ const GEAR_RETRACT_RISE = 3
  * z=-115, main deck floor at world y=37, both at FLYING_POSE.
  */
 export function ExteriorAsset() {
-  const { scene } = useGLTF('/models/exterior.glb')
+  const { gl } = useThree()
+  // exterior.glb's albedo texture is now real KTX2/Basis (scripts/process-glb.mjs,
+  // PROGRESS.md Fase 3) — GLTFLoader throws "setKTX2Loader must be called
+  // before loading KTX2 textures" without this, it doesn't fail silently.
+  // Self-hosted transcoder in public/basis/, same reasoning as /draco/ below:
+  // no runtime CDN dependency.
+  const extendLoader = useCallback(
+    (loader: GLTFLoader) => {
+      const ktx2Loader = new KTX2Loader().setTranscoderPath('/basis/').detectSupport(gl)
+      loader.setKTX2Loader(ktx2Loader)
+    },
+    [gl],
+  )
+  const { scene } = useGLTF('/models/exterior.glb', true, true, extendLoader)
   const groupRef = useRef<Group>(null)
   const dissolveMaterialRef = useRef(createDissolveHullMaterial())
   const gearRef = useRef<Object3D | null>(null)
@@ -108,4 +122,10 @@ export function ExteriorAsset() {
   )
 }
 
-useGLTF.preload('/models/exterior.glb')
+// No useGLTF.preload() here: preloading runs at module scope, before any
+// <Canvas> (and its WebGLRenderer) exists, and the KTX2Loader extendLoader
+// above needs a live renderer for detectSupport(gl) — preloading without it
+// would hit the exact "setKTX2Loader must be called" error this component
+// works around. The Suspense boundary in SceneCanvas.tsx around
+// <ExteriorAsset /> still covers the load; this only gives up the head start
+// preload would have provided.

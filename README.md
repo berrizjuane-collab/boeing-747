@@ -10,12 +10,13 @@ registro de sesiones).
 
 ## Estado actual
 
-Fases 0–2 completas y núcleo de Fase 3 implementado, incluyendo el
-exterior real (ya no hay bloqueo: el binario fuente está en `blender/source/`,
-ver más abajo). Fase 3 conserva dos condiciones explícitas: HDRI reales para
-S1/S3 y KTX2/Basis en el artefacto exterior final. Fase 4 (umbral) y un
-adelanto de Fase 5 (interior) funcionan con geometría real de ambos lados —
-exterior e interior — recorrida con la cámara, no placeholders.
+Fases 0–4 completas, incluyendo el exterior real (el binario fuente está en
+`blender/source/`, ver más abajo), HDRI reales para S1/S3 (generadas
+proceduralmente con el cielo físico de Cycles, no descargadas — ver
+`blender/generate_hdri.py`), KTX2/Basis genuino en el artefacto exterior
+final, y el umbral (Fase 4) con geometría real de ambos lados — exterior e
+interior — más marco de puerta en los dos portales. Un adelanto de Fase 5
+(interior) ya se recorre con la cámara, no placeholders.
 
 ## Desarrollo
 
@@ -66,3 +67,19 @@ blender --background --factory-startup --python blender/verify_exterior.py -- --
 
 El GLB resultante se procesa con `npm run process-glb` antes de usarse en la
 app (así se generó el `public/models/exterior.glb` ya presente en el repo).
+Ese pipeline produce texturas KTX2/Basis reales cuando el binario externo
+`ktx` (KTX-Software) está instalado — si no, degrada con gracia a JPEG (ver
+comentarios en `scripts/process-glb.mjs`). El transcoder Basis en tiempo de
+ejecución está self-hosted en `public/basis/`, igual que el decoder Draco en
+`public/draco/` — sin dependencia de un CDN externo.
+
+### HDRI
+
+`blender/generate_hdri.py` genera las HDRI reales de S1 (golden hour) y S3
+(gran altitud) proceduralmente con el modelo de cielo físico Nishita de
+Cycles, en vez de depender de una descarga externa (p. ej. Poly Haven):
+
+```
+blender --background --factory-startup --python blender/generate_hdri.py -- --preset golden-hour --output public/hdri/golden-hour.hdr
+blender --background --factory-startup --python blender/generate_hdri.py -- --preset high-altitude --output public/hdri/high-altitude.hdr
+```

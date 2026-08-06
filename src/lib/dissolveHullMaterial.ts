@@ -17,6 +17,7 @@ import { Color, ShaderMaterial, Vector3, DoubleSide } from 'three'
 export function createDissolveHullMaterial() {
   return new ShaderMaterial({
     side: DoubleSide,
+    shadowSide: DoubleSide,
     uniforms: {
       color: { value: new Color('#d8dbe0') },
       edgeGlow: { value: new Color('#8fd8ff') },
