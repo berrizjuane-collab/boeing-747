@@ -1,7 +1,7 @@
 # PLAN — Sitio Scrollytelling 3D de Presentación de Aeronave
 
 > Documento de planificación. Ninguna línea de este plan es código de implementación.
-> Estado: **todas las decisiones fundacionales de [§12](#12-decisiones-confirmadas) están cerradas y confirmadas por el usuario.** Fases 0–3 completas: blockout interior, exterior real (binario fuente en `blender/source/`, CC BY 4.0 — ver §11.1) y su integración en la app, todo verificado. Fase 4 (umbral) funciona con geometría real de ambos lados; el detalle fase por fase vive en `PROGRESS.md`.
+> Estado: **todas las decisiones fundacionales de [§12](#12-decisiones-confirmadas) están cerradas y confirmadas por el usuario.** Fases 0–2 completas y núcleo de Fase 3 implementado/verificado: blockout interior, exterior real (binario fuente en `blender/source/`, CC BY 4.0 — ver §11.1), pipeline y secciones 1–3. El cierre de Fase 3 conserva dos condiciones explícitas — HDRI reales para S1/S3 y KTX2/Basis en el artefacto exterior final —; Fase 4 (umbral) funciona con geometría real de ambos lados. El detalle fase por fase vive en `PROGRESS.md`.
 
 ---
 
