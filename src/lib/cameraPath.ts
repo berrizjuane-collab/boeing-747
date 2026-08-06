@@ -183,9 +183,10 @@ function smoothstep01(value: number) {
 }
 
 /**
- * Gives S5 extra scroll dwell at cockpit, stair and upper-deck anchors.
- * Movement still starts and ends at exactly the same keyframes; only the
- * local time spent at each zone changes.
+ * Gives S5 extra scroll dwell at the cockpit, economy and stair anchors,
+ * followed by an eased arrival at the upper deck. Movement still starts and
+ * ends at exactly the same keyframes; only the local time spent at each zone
+ * changes.
  */
 export function walkthroughProgress(progress: number) {
   const band = WALKTHROUGH_PLATEAUS.find((candidate) => progress <= candidate.end) ?? WALKTHROUGH_PLATEAUS[WALKTHROUGH_PLATEAUS.length - 1]
