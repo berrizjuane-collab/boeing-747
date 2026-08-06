@@ -15,7 +15,7 @@ import { useScrollStore } from '../state/scrollStore'
 // asset isn't resident in memory/draw calls for the rest of the journey.
 const INTERIOR_ACTIVE_INDICES = new Set([3, 4, 5])
 
-export function InteriorGate() {
+function InteriorGate() {
   const activeIndex = useScrollStore((s) => s.activeIndex)
   if (!INTERIOR_ACTIVE_INDICES.has(activeIndex)) return null
   return (
