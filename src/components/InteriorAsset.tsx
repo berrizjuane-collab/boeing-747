@@ -1,8 +1,17 @@
 import { useGLTF } from '@react-three/drei'
-import { useEffect } from 'react'
+import { useFrame, useThree } from '@react-three/fiber'
+import { useEffect, useRef } from 'react'
+import { Box3, Group, Mesh, Vector3 } from 'three'
 import { INTERIOR_OFFSET } from '../lib/sceneLayout'
 
 useGLTF.setDecoderPath('/draco/')
+
+const INTERIOR_LOD_DISTANCE = 42
+
+interface LodNode {
+  mesh: Mesh
+  center: Vector3
+}
 
 /**
  * Real procedural interior blockout (Fase 0, `blender/interior_blockout.py`,
@@ -15,24 +24,52 @@ useGLTF.setDecoderPath('/draco/')
  * the cockpit->tail length axis (i.e. already "Three.js-shaped" internally),
  * but Blender's own glTF export always converts FROM Blender's native Z-up
  * convention, which swaps those two axes on the way out. Rotating +90° about
- * X on load undoes exactly that swap, so this group's local space matches
- * the interior_blockout.py source coordinates directly — see the anchor
- * math in cameraPath.ts, which relies on that.
+ * X on load undoes exactly that swap, so this group's local space matches the
+ * interior_blockout.py source coordinates directly — see the anchor math in
+ * cameraPath.ts, which relies on that.
  */
 export function InteriorAsset() {
   const { scene } = useGLTF('/models/interior.glb')
+  const { camera } = useThree()
+  const groupRef = useRef<Group>(null)
+  const lodNodesRef = useRef<LodNode[]>([])
 
   useEffect(() => {
+    scene.updateWorldMatrix(true, true)
+    groupRef.current?.updateWorldMatrix(true, true)
+
+    const lodNodes: LodNode[] = []
     scene.traverse((obj) => {
-      if ('isMesh' in obj && obj.isMesh) {
-        obj.castShadow = false
-        obj.receiveShadow = true
-      }
+      if (!('isMesh' in obj) || !obj.isMesh) return
+      const mesh = obj as Mesh
+      mesh.castShadow = true
+      mesh.receiveShadow = true
+
+      const center = new Box3().setFromObject(mesh).getCenter(new Vector3())
+      lodNodes.push({ mesh, center })
     })
+    lodNodesRef.current = lodNodes
+
+    return () => {
+      for (const { mesh } of lodNodes) {
+        mesh.visible = true
+        mesh.castShadow = true
+      }
+      lodNodesRef.current = []
+    }
   }, [scene])
 
+  useFrame(() => {
+    for (const { mesh, center } of lodNodesRef.current) {
+      const distance = camera.position.distanceTo(center)
+      const inCorridorRange = distance <= INTERIOR_LOD_DISTANCE
+      mesh.visible = inCorridorRange
+      mesh.castShadow = inCorridorRange
+    }
+  })
+
   return (
-    <group rotation={[Math.PI / 2, 0, 0]} position={INTERIOR_OFFSET}>
+    <group ref={groupRef} rotation={[Math.PI / 2, 0, 0]} position={INTERIOR_OFFSET}>
       <primitive object={scene} />
     </group>
   )
