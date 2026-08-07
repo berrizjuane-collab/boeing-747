@@ -10,31 +10,55 @@ registro de sesiones).
 
 ## Estado actual
 
-Fases 0–6 completas. Exterior real (el binario fuente está en
-`blender/source/`, ver más abajo), tres HDRI reales — golden hour, gran
-altitud y atardecer, las tres generadas proceduralmente con el cielo físico
-de Cycles, no descargadas (`blender/generate_hdri.py`) —, KTX2/Basis genuino
-en el artefacto exterior final, umbral (Fase 4) con geometría real de ambos
-lados y marco de puerta en los dos portales, recorrido interior completo
-(Fase 5: iluminación de cabina, sombras, LOD de corredor con *fade-out* real,
-mesetas de easing por zona), y la capa DOM completa de Fase 6: overlays
-narrativos y por zona, hotspots con gating por banda de dwell, pantalla de
-carga con progreso ponderado, y nav fijo con salto a sección. Quedan
-Fases 7–9: post-proceso y dirección de arte, performance/mobile/fallback
-estático, y verificación de datos primarios.
+Las 10 fases de [`PLAN.md`](./PLAN.md) §13 (0–9) están completas. Exterior
+real (el binario fuente está en `blender/source/`, ver más abajo), tres HDRI
+reales — golden hour, gran altitud y atardecer, las tres generadas
+proceduralmente con el cielo físico de Cycles, no descargadas
+(`blender/generate_hdri.py`) —, KTX2/Basis genuino en el artefacto exterior
+final, umbral (Fase 4) con geometría real de ambos lados y marco de puerta en
+los dos portales, recorrido interior completo (Fase 5: iluminación de
+cabina, sombras, LOD de corredor con *fade-out* real, mesetas de easing por
+zona), la capa DOM completa de Fase 6 (overlays narrativos y por zona,
+hotspots con gating por banda de dwell, pantalla de carga con progreso
+ponderado, nav fijo con salto a sección), post-proceso y dirección de arte
+(Fase 7), tiering/accesibilidad/fallback estático (Fase 8), y datos técnicos
+verificados contra fuentes primarias con copy final (Fase 9). Detalle
+completo, fase por fase, en [`PROGRESS.md`](./PROGRESS.md).
 
 ## Desarrollo
 
 ```
 npm install
-npm run dev       # servidor de desarrollo
+npm run dev       # servidor de desarrollo — abre en /boeing-747/, no en la raíz (ver "Deploy" más abajo)
 npm run build     # build de producción (tsc + vite build)
+npm run preview   # sirve dist/ localmente, mismo base path que producción
 npm run process-glb -- <in.glb> <out.glb>   # pipeline de assets: prune/dedup/weld/instance/Draco/KTX2
 ```
 
 Modo de autoría de keyframes de cámara: tecla **D** dentro del sitio en
 desarrollo, con `OrbitControls` y volcado de posición/target a consola y
 portapapeles.
+
+## Deploy
+
+El sitio se publica en GitHub Pages vía `.github/workflows/deploy-pages.yml`:
+cada push a `main` corre `npm ci && npm run build` y publica `dist/`
+automáticamente. No hace falta ningún token ni cuenta externa — usa el
+permiso `pages: write` que GitHub Actions ya tiene sobre este repo.
+
+**Antes del primer deploy, una sola vez:** en GitHub, `Settings → Pages →
+Build and deployment → Source`, elegir **GitHub Actions** (no "Deploy from a
+branch"). Eso no lo puede hacer el workflow por sí solo — es un ajuste de
+configuración del repositorio, no del código.
+
+`vite.config.ts` fija `base: '/boeing-747/'` porque Pages sirve este
+repositorio como *project site* en
+`https://<usuario>.github.io/boeing-747/`, no en la raíz del dominio — todas
+las rutas de asset en tiempo de ejecución (modelos `.glb`, HDRI, decoders
+Draco/KTX2) están escritas con `import.meta.env.BASE_URL` en vez de rutas
+absolutas por esto mismo. Si el repo cambia de nombre, o se sirve desde un
+dominio propio (agregando un `CNAME`), ese valor de `base` hay que
+actualizarlo para que coincida.
 
 ## Blender — assets fuente
 

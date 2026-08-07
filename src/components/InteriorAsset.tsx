@@ -4,7 +4,8 @@ import { useEffect, useRef } from 'react'
 import { Box3, Group, Material, Mesh, Vector3 } from 'three'
 import { INTERIOR_OFFSET } from '../lib/sceneLayout'
 
-useGLTF.setDecoderPath('/draco/')
+// import.meta.env.BASE_URL, not a bare '/': see vite.config.ts's `base` comment.
+useGLTF.setDecoderPath(`${import.meta.env.BASE_URL}draco/`)
 
 // Opaque below FADE_START, smoothstep opacity fade FADE_START -> FADE_END,
 // invisible (and shadow-casting off) beyond FADE_END — PLAN.md §6.1 asks for
@@ -42,7 +43,7 @@ interface LodNode {
  * cameraPath.ts, which relies on that.
  */
 export function InteriorAsset() {
-  const { scene } = useGLTF('/models/interior.glb')
+  const { scene } = useGLTF(`${import.meta.env.BASE_URL}models/interior.glb`)
   const { camera } = useThree()
   const groupRef = useRef<Group>(null)
   const lodNodesRef = useRef<LodNode[]>([])
@@ -110,4 +111,4 @@ export function InteriorAsset() {
   )
 }
 
-useGLTF.preload('/models/interior.glb')
+useGLTF.preload(`${import.meta.env.BASE_URL}models/interior.glb`)

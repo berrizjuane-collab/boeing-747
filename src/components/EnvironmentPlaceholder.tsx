@@ -74,10 +74,11 @@ export function EnvironmentPlaceholder() {
   // splitting it into its own lazily-loaded Suspense boundary would be new
   // architecture for a budget that's nowhere close to being a problem: all
   // three HDRIs together are still well under §6.4's 15MB S0 ceiling.
+  // import.meta.env.BASE_URL, not bare '/hdri/...': see vite.config.ts's `base` comment.
   const [goldenHourMap, highAltitudeMap, sunsetMap] = useLoader(RGBELoader, [
-    '/hdri/golden-hour.hdr',
-    '/hdri/high-altitude.hdr',
-    '/hdri/sunset.hdr',
+    `${import.meta.env.BASE_URL}hdri/golden-hour.hdr`,
+    `${import.meta.env.BASE_URL}hdri/high-altitude.hdr`,
+    `${import.meta.env.BASE_URL}hdri/sunset.hdr`,
   ])
   const skyMaterial = useMemo(() => createSkyDomeMaterial(goldenHourMap, highAltitudeMap), [goldenHourMap, highAltitudeMap])
   const sunsetMaterial = useMemo(

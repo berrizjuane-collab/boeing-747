@@ -11,7 +11,8 @@ import { EXIT_PORTAL, NOSE_PORTAL, portalRadius } from '../lib/thresholdPortals'
 import { reducedMotionState } from '../state/reducedMotion'
 import { useScrollStore } from '../state/scrollStore'
 
-useGLTF.setDecoderPath('/draco/')
+// import.meta.env.BASE_URL, not a bare '/': see vite.config.ts's `base` comment.
+useGLTF.setDecoderPath(`${import.meta.env.BASE_URL}draco/`)
 
 const TAXI_SECTION = SECTIONS[1]
 
@@ -55,12 +56,12 @@ export function ExteriorAsset() {
   // no runtime CDN dependency.
   const extendLoader = useCallback(
     (loader: GLTFLoader) => {
-      const ktx2Loader = new KTX2Loader().setTranscoderPath('/basis/').detectSupport(gl)
+      const ktx2Loader = new KTX2Loader().setTranscoderPath(`${import.meta.env.BASE_URL}basis/`).detectSupport(gl)
       loader.setKTX2Loader(ktx2Loader)
     },
     [gl],
   )
-  const { scene } = useGLTF('/models/exterior.glb', true, true, extendLoader)
+  const { scene } = useGLTF(`${import.meta.env.BASE_URL}models/exterior.glb`, true, true, extendLoader)
   const groupRef = useRef<Group>(null)
   const dissolveMaterialRef = useRef(createDissolveHullMaterial())
   const gearRef = useRef<Object3D | null>(null)
