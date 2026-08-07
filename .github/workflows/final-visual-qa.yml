@@ -57,17 +57,21 @@ jobs:
 
       - name: Cut short MP4 clips
         run: |
-          ffmpeg -y -i artifacts/final-visuals/meridian-complete-tour.webm -ss 00:00:02 -t 00:00:06 -an -c:v libx264 -pix_fmt yuv420p -movflags +faststart artifacts/final-visuals/clip-01-exterior.mp4
-          ffmpeg -y -i artifacts/final-visuals/meridian-complete-tour.webm -ss 00:00:09 -t 00:00:06 -an -c:v libx264 -pix_fmt yuv420p -movflags +faststart artifacts/final-visuals/clip-02-threshold.mp4
-          ffmpeg -y -i artifacts/final-visuals/meridian-complete-tour.webm -ss 00:00:16 -t 00:00:07 -an -c:v libx264 -pix_fmt yuv420p -movflags +faststart artifacts/final-visuals/clip-03-interior-outro.mp4
+          ffmpeg -y -i artifacts/final-visuals/meridian-complete-tour.webm -ss 00:00:02 -t 00:00:06 -an -c:v libx264 -crf 22 -pix_fmt yuv420p -movflags +faststart artifacts/final-visuals/clip-01-exterior.mp4
+          ffmpeg -y -i artifacts/final-visuals/meridian-complete-tour.webm -ss 00:00:09 -t 00:00:06 -an -c:v libx264 -crf 22 -pix_fmt yuv420p -movflags +faststart artifacts/final-visuals/clip-02-threshold.mp4
+          ffmpeg -y -i artifacts/final-visuals/meridian-complete-tour.webm -ss 00:00:16 -t 00:00:07 -an -c:v libx264 -crf 22 -pix_fmt yuv420p -movflags +faststart artifacts/final-visuals/clip-03-interior-outro.mp4
+
+      - name: Archive preview log
+        if: always()
+        run: |
+          mkdir -p artifacts/final-visuals
+          cp /tmp/meridian-preview.log artifacts/final-visuals/preview.log
 
       - name: Upload screenshots and clips
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: meridian-final-visuals
-          path: |
-            artifacts/final-visuals
-            /tmp/meridian-preview.log
+          path: artifacts/final-visuals
           if-no-files-found: error
           retention-days: 30
