@@ -110,7 +110,7 @@ export const INTERIOR_ZONES: Record<'cockpit' | 'economy' | 'stair' | 'upperDeck
   cockpit: {
     eyebrow: 'S5 — Cabina de mando',
     title: 'El puesto de pilotaje',
-    body: 'La primera parada del recorrido interior: instrumentación de vuelo integrada, a metros del umbral que acabás de cruzar.',
+    body: 'La primera parada del recorrido interior: instrumentación de vuelo integrada, a metros del umbral que acabas de cruzar.',
     data: [],
   },
   economy: {
