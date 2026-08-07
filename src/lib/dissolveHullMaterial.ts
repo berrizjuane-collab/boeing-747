@@ -1,80 +1,100 @@
-import { Color, ShaderMaterial, Vector3, DoubleSide } from 'three'
+import { Color, DoubleSide, type Material, MeshStandardMaterial, Vector3 } from 'three'
+
+export interface DissolveUniforms {
+  edgeGlow: { value: Color }
+  portal1Center: { value: Vector3 }
+  portal1Radius: { value: number }
+  portal2Center: { value: Vector3 }
+  portal2Radius: { value: number }
+}
+
+export type DissolveHullMaterial = MeshStandardMaterial & {
+  userData: Record<string, unknown> & { dissolveUniforms: DissolveUniforms }
+}
 
 /**
- * Fase 4 threshold spike: radially dissolves the fuselage skin around a
- * fixed world-space point, opening a "portal" the camera can fly through.
- * Two independent portals share one material — the S4 nose entry and the
- * S6 upper-deck exit — each with its own center and radius, so the hole
- * opens and closes at a specific hull location rather than chasing the
- * camera around. See CameraRig.tsx / ThresholdController.tsx for how the
- * radii are driven from scroll progress.
+ * Adds the two threshold portals to the GLB's real MeshStandardMaterial.
  *
- * `edgeGlow` fakes the "motivated bloom" the plan calls for at the crossing
- * instant — real bloom is Fase 7 (the postprocessing pipeline isn't built
- * yet), but an emissive rim right at the dissolve edge gets most of the
- * visual read for a fraction of the cost.
+ * The first implementation replaced that material with a bare ShaderMaterial,
+ * which made the KTX2 albedo and all PBR response unreachable even though the
+ * asset pipeline loaded them correctly. Patching the standard shader keeps the
+ * original map, roughness, lighting and tone-mapping path, then applies only
+ * the world-space discard and emissive edge that the transition needs.
  */
-export function createDissolveHullMaterial() {
-  return new ShaderMaterial({
-    side: DoubleSide,
-    shadowSide: DoubleSide,
-    uniforms: {
-      color: { value: new Color('#d8dbe0') },
-      edgeGlow: { value: new Color('#8fd8ff') },
-      portal1Center: { value: new Vector3(0, 40, -114) },
-      portal1Radius: { value: 0 },
-      portal2Center: { value: new Vector3(0, 44, -52) },
-      portal2Radius: { value: 0 },
-    },
-    vertexShader: /* glsl */ `
-      varying vec3 vWorldPosition;
-      void main() {
-        vec4 worldPos = modelMatrix * vec4(position, 1.0);
-        vWorldPosition = worldPos.xyz;
-        gl_Position = projectionMatrix * viewMatrix * worldPos;
-      }
-    `,
-    fragmentShader: /* glsl */ `
-      uniform vec3 color;
-      uniform vec3 edgeGlow;
-      uniform vec3 portal1Center;
-      uniform float portal1Radius;
-      uniform vec3 portal2Center;
-      uniform float portal2Radius;
-      varying vec3 vWorldPosition;
+export function createDissolveHullMaterial(baseMaterial: Material): DissolveHullMaterial {
+  if (!(baseMaterial as MeshStandardMaterial).isMeshStandardMaterial) {
+    throw new Error('The A380 hull must use a MeshStandardMaterial before applying the dissolve portal.')
+  }
 
-      const float EDGE_BAND = 0.7;
+  const material = (baseMaterial as MeshStandardMaterial).clone() as DissolveHullMaterial
+  const uniforms: DissolveUniforms = {
+    edgeGlow: { value: new Color('#8fd8ff') },
+    portal1Center: { value: new Vector3(0, 40, -114) },
+    portal1Radius: { value: 0 },
+    portal2Center: { value: new Vector3(0, 44, -52) },
+    portal2Radius: { value: 0 },
+  }
 
-      // 0 inside the hole (fully dissolved), 1 well outside it, smooth band between.
-      float portalMask(vec3 p, vec3 center, float radius) {
-        if (radius < 0.001) return 1.0;
-        float d = distance(p, center);
-        return smoothstep(radius, radius + EDGE_BAND, d);
-      }
+  material.side = DoubleSide
+  material.shadowSide = DoubleSide
+  material.userData = { ...material.userData, dissolveUniforms: uniforms }
+  material.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, uniforms)
 
-      float portalGlow(vec3 p, vec3 center, float radius) {
-        if (radius < 0.001) return 0.0;
-        float d = distance(p, center);
-        float band = 1.0 - smoothstep(radius, radius + EDGE_BAND, d);
-        float inside = 1.0 - smoothstep(radius - EDGE_BAND, radius, d);
-        return band * inside;
-      }
+    shader.vertexShader = shader.vertexShader
+      .replace(
+        '#include <common>',
+        `#include <common>
+varying vec3 vDissolveWorldPosition;`,
+      )
+      .replace(
+        '#include <worldpos_vertex>',
+        `#include <worldpos_vertex>
+vDissolveWorldPosition = ( modelMatrix * vec4( transformed, 1.0 ) ).xyz;`,
+      )
 
-      void main() {
-        float mask = min(
-          portalMask(vWorldPosition, portal1Center, portal1Radius),
-          portalMask(vWorldPosition, portal2Center, portal2Radius)
-        );
-        if (mask < 0.02) discard;
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        '#include <common>',
+        `#include <common>
+uniform vec3 edgeGlow;
+uniform vec3 portal1Center;
+uniform float portal1Radius;
+uniform vec3 portal2Center;
+uniform float portal2Radius;
+varying vec3 vDissolveWorldPosition;
 
-        float glow = max(
-          portalGlow(vWorldPosition, portal1Center, portal1Radius),
-          portalGlow(vWorldPosition, portal2Center, portal2Radius)
-        );
+const float DISSOLVE_EDGE_BAND = 0.7;
 
-        vec3 finalColor = mix(color, edgeGlow, glow);
-        gl_FragColor = vec4(finalColor, 1.0);
-      }
-    `,
-  })
+float dissolvePortalMask(vec3 point, vec3 center, float radius) {
+  if (radius < 0.001) return 1.0;
+  return smoothstep(radius, radius + DISSOLVE_EDGE_BAND, distance(point, center));
+}
+
+float dissolvePortalGlow(vec3 point, vec3 center, float radius) {
+  if (radius < 0.001) return 0.0;
+  float distanceFromCenter = distance(point, center);
+  return 1.0 - smoothstep(radius, radius + DISSOLVE_EDGE_BAND, distanceFromCenter);
+}`,
+      )
+      .replace(
+        '#include <opaque_fragment>',
+        `float dissolveMask = min(
+  dissolvePortalMask(vDissolveWorldPosition, portal1Center, portal1Radius),
+  dissolvePortalMask(vDissolveWorldPosition, portal2Center, portal2Radius)
+);
+if (dissolveMask < 0.02) discard;
+
+float dissolveGlow = max(
+  dissolvePortalGlow(vDissolveWorldPosition, portal1Center, portal1Radius),
+  dissolvePortalGlow(vDissolveWorldPosition, portal2Center, portal2Radius)
+);
+outgoingLight = mix(outgoingLight, edgeGlow, dissolveGlow);
+
+#include <opaque_fragment>`,
+      )
+  }
+  material.customProgramCacheKey = () => 'a380-dissolve-pbr-v2'
+  material.needsUpdate = true
+  return material
 }
