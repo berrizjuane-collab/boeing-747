@@ -12,6 +12,8 @@ import { ScrollTrack } from './components/ScrollTrack'
 import { SceneCanvas } from './components/SceneCanvas'
 import { SiteNav } from './components/SiteNav'
 
+const DEV_TOOLS_ENABLED = import.meta.env.DEV
+
 export default function App() {
   const trackRef = useRef<HTMLDivElement>(null)
   const controllerRef = useRef<ScrollController | null>(null)
@@ -32,6 +34,7 @@ export default function App() {
   }, [])
 
   useEffect(() => {
+    if (!DEV_TOOLS_ENABLED) return
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() === 'd') setDebugMode((v) => !v)
     }
@@ -46,7 +49,7 @@ export default function App() {
   return (
     <>
       <ReducedMotionCrossfade>
-        <SceneCanvas debugMode={debugMode} />
+        <SceneCanvas debugMode={DEV_TOOLS_ENABLED && debugMode} />
       </ReducedMotionCrossfade>
       <ScrollTrack containerRef={trackRef} />
       {/* Split head/tail, InteriorOverlay sandwiched between: DOM order here
@@ -56,8 +59,8 @@ export default function App() {
       <InteriorOverlay />
       <NarrativeOverlayTail />
       <SiteNav onJump={jumpToSection} />
-      <DebugHud />
-      <AuthoringPanel active={debugMode} onToggle={() => setDebugMode((v) => !v)} />
+      {DEV_TOOLS_ENABLED && <DebugHud />}
+      {DEV_TOOLS_ENABLED && <AuthoringPanel active={debugMode} onToggle={() => setDebugMode((v) => !v)} />}
       <InteriorLoadGuardrail controllerRef={controllerRef} />
       <LoadingScreen onComplete={() => controllerRef.current?.start()} />
     </>
