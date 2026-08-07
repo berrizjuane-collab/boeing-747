@@ -10,18 +10,22 @@ registro de sesiones).
 
 ## Estado actual
 
-Fases 0–6 completas. Exterior real (el binario fuente está en
-`blender/source/`, ver más abajo), tres HDRI reales — golden hour, gran
-altitud y atardecer, las tres generadas proceduralmente con el cielo físico
-de Cycles, no descargadas (`blender/generate_hdri.py`) —, KTX2/Basis genuino
-en el artefacto exterior final, umbral (Fase 4) con geometría real de ambos
-lados y marco de puerta en los dos portales, recorrido interior completo
-(Fase 5: iluminación de cabina, sombras, LOD de corredor con *fade-out* real,
-mesetas de easing por zona), y la capa DOM completa de Fase 6: overlays
-narrativos y por zona, hotspots con gating por banda de dwell, pantalla de
-carga con progreso ponderado, y nav fijo con salto a sección. Quedan
-Fases 7–9: post-proceso y dirección de arte, performance/mobile/fallback
-estático, y verificación de datos primarios.
+Fases 0–9 implementadas. El recorrido integra exterior e interior reales,
+tres HDRI procedurales, KTX2/Basis, cruce de umbral, postproceso por tier,
+overlays narrativos, hotspots, fallback sin WebGL2, accesibilidad y copy
+técnica verificada contra fuentes primarias de Airbus y Rolls-Royce.
+
+La auditoría final añadió una pasada responsive específica para teléfono,
+un fondo de contraste medido para las fichas de datos y un flujo de QA
+reproducible que compila, ejecuta el build de producción y captura el
+recorrido en escritorio y móvil.
+
+**Caveats conocidos:** la validación en Safari/iOS y Android físicos sigue
+requiriendo dispositivos reales; S1/S2 superan ligeramente el objetivo de
+draw calls por la fragmentación del asset exterior; y cuatro anclas de
+hotspots de economy merecen una futura pasada de autoría visual. Ninguno
+impide ejecutar el producto, pero permanecen documentados en
+[`PROGRESS.md`](./PROGRESS.md).
 
 ## Desarrollo
 
@@ -29,6 +33,7 @@ estático, y verificación de datos primarios.
 npm install
 npm run dev       # servidor de desarrollo
 npm run build     # build de producción (tsc + vite build)
+npm run qa:visual # capturas y recorrido grabado contra un preview local
 npm run process-glb -- <in.glb> <out.glb>   # pipeline de assets: prune/dedup/weld/instance/Draco/KTX2
 ```
 
