@@ -1,7 +1,7 @@
 # PLAN — Sitio Scrollytelling 3D de Presentación de Aeronave
 
 > Documento de planificación. Ninguna línea de este plan es código de implementación.
-> Estado: **todas las decisiones fundacionales de [§12](#12-decisiones-confirmadas) están cerradas y confirmadas por el usuario.** Fases 0–4 completas: blockout interior, exterior real (binario fuente en `blender/source/`, CC BY 4.0 — ver §11.1), pipeline con KTX2/Basis genuino, HDRI reales generados proceduralmente para S1/S3, secciones 1–3, y el umbral (Fase 4) con geometría real de ambos lados más marco de puerta en los dos portales. El detalle fase por fase, incluidos los bugs reales encontrados y corregidos en cada cierre, vive en `PROGRESS.md`.
+> Estado: **fases 0–9 implementadas.** El cierre final verificó la copy técnica contra Airbus y Rolls-Royce, añadió fuentes visibles, responsive móvil y QA visual reproducible. Los caveats de dispositivo físico, draw calls del exterior y coordenadas de cuatro hotspots permanecen documentados con precisión en `PROGRESS.md`.
 
 ---
 
@@ -421,37 +421,35 @@ Fácil de arruinar en un sitio así, y es un marcador genuino de calidad:
 
 ## 9. Contenido informativo
 
-> ⚠️ **Estado de verificación — leer antes de usar cualquier cifra.**
-> En esta sesión el acceso a fuentes primarias falló: `WebFetch` devolvió **HTTP 403** en `airbus.com`, `en.wikipedia.org` y `sketchfab.com`. Todas las cifras de abajo provienen de **resúmenes de búsqueda de fuentes secundarias** y **ninguna está verificada contra fuente primaria**. No se debe redactar copy final con estos números sin la pasada de verificación de la Fase 9.
+> ✅ **Verificado en Fase 9.** La interfaz publica únicamente valores
+> contrastados con documentación primaria o, cuando el dato depende de la
+> operación, lo presenta con sus condiciones en vez de fingir un valor
+> universal.
 
-| Dato | Valor (sin verificar) | Sección | Estado |
-|---|---|---|---|
-| Envergadura | 79.8 m / 261 ft 10 in | S3 | ⚠️ Verificar |
-| Longitud | 72.7 m / 238 ft 8 in | S3 | ⚠️ Verificar |
-| Altura | 24.1 m / 79 ft | S3 | ⚠️ Verificar |
-| Motores | 4 × RR Trent 900 **o** Engine Alliance GP7200 | S2 | ⚠️ Verificar — **son dos opciones; elegir una y ser consistente** |
-| Empuje por motor | ~311–356 kN | S2 | 🔴 **Conflicto de fuentes** — ver nota |
-| Velocidad de crucero | Mach 0.85 | S3 | ⚠️ Verificar |
-| Velocidad máxima | Mach 0.89 / ~945 km/h | S3 | ⚠️ Verificar |
-| Velocidad de rotación | ~150–180 kt | S2 | 🟡 **Condicional** — ver nota |
-| Distancia de pista | ~2,900–3,000 m a MTOW | S2 | 🟡 **Condicional** — ver nota |
-| Alcance | ~15,200–15,400 km | S3 | ⚠️ Verificar — varía por fuente y variante |
-| Techo de servicio | 43,100 ft / 13,136 m | S3 | ⚠️ Verificar |
-| MTOW | 575,000 kg | S2 | ⚠️ Verificar |
-| Capacidad de combustible | ~320,000 L | S2/S3 | ⚠️ Verificar |
-| Pasajeros (3 clases) | 525 | S3/S5 | ⚠️ Verificar |
-| Pasajeros (máximo certificado) | 853 | S3 | ⚠️ Verificar |
-| Config. típica alta densidad | 615 (2 clases) | S5 | ⚠️ Verificar — cifra específica de aerolínea |
-| Disposición cubierta principal | 3-4-3 en economy | S5 | ⚠️ Verificar |
-| Disposición cubierta superior | 2-4-2 en economy | S5 | ⚠️ Verificar |
-| Longitud útil cubierta superior | 44.93 m / 147.4 ft | S5 | ⚠️ Verificar |
-| Ancho de fuselaje | 7.14 m | S5 | ⚠️ Verificar |
+| Dato publicado | Valor final | Fuente primaria |
+|---|---|---|
+| Envergadura | 79,75 m | Airbus Aircraft Characteristics |
+| Longitud | 72,73 m | Airbus Aircraft Characteristics |
+| Altura | ≈24,1 m, dependiente de peso/actitud | Airbus Aircraft Characteristics |
+| Motores | 4 × Rolls-Royce Trent 900 | Airbus / Rolls-Royce |
+| Empuje nominal por motor | 70.000 lbf ≈ 311 kN | Rolls-Royce |
+| Velocidad de rotación | Calculada para cada despegue; sin cifra universal | Copy operacional condicionada |
+| Pista de despegue | ≈2.900 m a MTOW, ISA y nivel del mar; referencial | Curvas Airbus ACAP |
+| Alcance máximo | 8.000 nm / 15.000 km | Airbus |
+| Asientos estándar | 555 (ACAP 2023) | Airbus Aircraft Characteristics |
+| Capacidad máxima | 853 | Airbus |
+| Disposición cubierta principal | 3-4-3 típica en economy | Airbus Aircraft Characteristics |
+| Disposición cubierta superior | 2-4-2 típica en economy | Airbus Aircraft Characteristics |
+| Ancho de fuselaje | 7,14 m | Airbus Aircraft Characteristics |
+| Volumen de cabina superior | 530 m³ | Airbus Aircraft Characteristics |
 
-**Notas sobre las marcas especiales:**
+El conflicto histórico de «1.208 kN» queda resuelto: esa magnitud corresponde
+al orden del empuje agregado de los cuatro motores, no al empuje de uno. El
+sitio usa una sola motorización — Trent 900 — y expresa **311 kN por motor**.
 
-🔴 **Conflicto de empuje.** Una fuente reporta "1,208 kN" para el Trent 900. Eso es del orden del **empuje total de los cuatro motores** (4 × ~302 kN), no por motor, e **incompatible** con las cifras por-motor del rango 311–356 kN. No se promedia ni se elige uno en silencio: hay que resolverlo contra Airbus o Rolls-Royce directamente, y ser explícito en la copy sobre si la cifra es por motor o total.
-
-🟡 **Cifras intrínsecamente condicionales.** La velocidad de rotación y la distancia de pista **dependen del peso, la altitud de presión, la temperatura y el viento**. No admiten un número absoluto. Deben redactarse siempre como "típico" o con condiciones declaradas ("a MTOW, nivel del mar, día ISA"), nunca como dato duro. Presentarlas como absolutas es incorrecto, no una simplificación.
+Fuentes: [Airbus A380](https://www.airbus.com/en/products-services/commercial-aircraft/passenger-aircraft/a380),
+[Airbus Aircraft Characteristics](https://www.aircraft.airbus.com/en/customer-care/fleet-wide-care/airport-operations-and-aircraft-characteristics/aircraft-characteristics) y
+[Rolls-Royce 2024 Full Year Results Appendices](https://www.rolls-royce.com/~/media/Files/R/Rolls-Royce/documents/investors/results/2024-full-year-results/rr-plc-holdings-2024-full-year-results-appendices.pdf).
 
 ### 9.1 Punto no planteado en el brief: propiedad intelectual
 
