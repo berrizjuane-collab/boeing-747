@@ -5,15 +5,12 @@
  * sources — isolating the numbers in one file is what makes that pass a
  * data edit instead of a component hunt.
  *
- * PLAN.md §9: primary-source access failed in the planning session
- * (airbus.com, Wikipedia and Sketchfab all returned HTTP 403), so every
- * figure below comes from secondary-source search summaries, not a
- * verified primary source. `verified: false` on every entry reflects that
- * honestly — Fase 9 is what flips it, not this phase. Two figures the plan
- * flags as *inherently* conditional (rotation speed, runway distance) are
- * worded as "typical, at MTOW" rather than as bare absolutes, per PLAN.md
- * §9's explicit instruction not to present weight/altitude/temperature/wind
- * -dependent numbers as hard data.
+ * Fase 9 closed the primary-source gap against Airbus's A380 product page,
+ * the Airbus A380 Aircraft Characteristics manual and Rolls-Royce's
+ * published Trent fleet/thrust data. Every displayed figure below is now
+ * either directly sourced or explicitly labeled as conditional. Operational
+ * values that do not have one universal number (rotation speed and runway
+ * requirement) are not presented as absolutes.
  */
 
 export interface DataPoint {
@@ -34,7 +31,7 @@ export const HERO_CONTENT = {
   eyebrow: 'MERIDIAN — vuelo de presentación',
   title: BRAND_NAME,
   subtitle: BRAND_SUBTITLE,
-  scrollHint: 'Desplazate para comenzar',
+  scrollHint: 'Desplázate para comenzar',
 }
 
 // S2: revealed progressively as the section's own local scroll advances
@@ -42,20 +39,24 @@ export const HERO_CONTENT = {
 // once on section entry — see InteriorOverlay-style rAF gating in
 // NarrativeOverlay.tsx rather than a discrete activeIndex switch.
 export const TAKEOFF_DATA: DataPoint[] = [
-  { label: 'Motores', value: '4 × Rolls-Royce Trent 900', verified: false },
-  { label: 'Empuje por motor', value: '~311–356 kN', verified: false },
-  { label: 'Velocidad de rotación', value: '~150–180 kt (típico, a MTOW)', verified: false },
-  { label: 'Distancia de pista', value: '~2.900–3.000 m (típico, a MTOW, nivel del mar)', verified: false },
+  { label: 'Motores', value: '4 × Rolls-Royce Trent 900', verified: true },
+  { label: 'Empuje por motor', value: '≈311 kN / 70.000 lbf', verified: true },
+  { label: 'Velocidad de rotación', value: 'Calculada para cada despegue', verified: true },
+  {
+    label: 'Pista de despegue',
+    value: '≈2.900 m a MTOW, ISA y nivel del mar (referencial)',
+    verified: true,
+  },
 ]
 
 // S3: the "ficha técnica" — general specs, PLAN.md §3 S3.
 export const SPEC_SHEET: DataPoint[] = [
-  { label: 'Envergadura', value: '79.8 m', verified: false },
-  { label: 'Longitud', value: '72.7 m', verified: false },
-  { label: 'Altura', value: '24.1 m', verified: false },
-  { label: 'Techo de servicio', value: '13.136 m / 43.100 ft', verified: false },
-  { label: 'Alcance', value: '~15.200–15.400 km', verified: false },
-  { label: 'Capacidad (3 clases)', value: '525 pasajeros', verified: false },
+  { label: 'Envergadura', value: '79,75 m', verified: true },
+  { label: 'Longitud', value: '72,73 m', verified: true },
+  { label: 'Altura', value: '≈24,1 m', verified: true },
+  { label: 'Alcance máximo', value: '8.000 nm / 15.000 km', verified: true },
+  { label: 'Asientos estándar (AC 2023)', value: '555 pasajeros', verified: true },
+  { label: 'Capacidad máxima', value: '853 pasajeros', verified: true },
 ]
 
 export const THRESHOLD_LINE = 'Cruzando el umbral'
@@ -77,6 +78,21 @@ export const FOOTER_ATTRIBUTION = {
   modelUrl: 'https://sketchfab.com/3d-models/airbus-a380-98d21f9c8104445f814cef47ef992889',
   licenseUrl: 'https://creativecommons.org/licenses/by/4.0/',
 }
+
+export const TECHNICAL_SOURCES = [
+  {
+    label: 'Airbus — A380',
+    url: 'https://www.airbus.com/en/products-services/commercial-aircraft/passenger-aircraft/a380',
+  },
+  {
+    label: 'Airbus — Aircraft Characteristics, A380',
+    url: 'https://www.aircraft.airbus.com/en/customer-care/fleet-wide-care/airport-operations-and-aircraft-characteristics/aircraft-characteristics',
+  },
+  {
+    label: 'Rolls-Royce — 2024 fleet and thrust data',
+    url: 'https://www.rolls-royce.com/~/media/Files/R/Rolls-Royce/documents/investors/results/2024-full-year-results/rr-plc-holdings-2024-full-year-results-appendices.pdf',
+  },
+] as const
 
 export interface InteriorZoneContent {
   eyebrow: string
@@ -102,8 +118,8 @@ export const INTERIOR_ZONES: Record<'cockpit' | 'economy' | 'stair' | 'upperDeck
     title: 'El plano que muestra la anchura real',
     body: 'La cubierta principal, de punta a punta — el pasillo más largo de la aeronave.',
     data: [
-      { label: 'Disposición', value: '3-4-3 por fila', verified: false },
-      { label: 'Ancho de fuselaje', value: '7.14 m', verified: false },
+      { label: 'Disposición típica', value: '3-4-3 por fila', verified: true },
+      { label: 'Ancho de fuselaje', value: '7,14 m', verified: true },
     ],
   },
   stair: {
@@ -117,8 +133,8 @@ export const INTERIOR_ZONES: Record<'cockpit' | 'economy' | 'stair' | 'upperDeck
     title: 'El doble piso, de nariz a cola',
     body: 'A diferencia de una joroba delantera, esta cubierta corre de punta a punta — el motivo por el que este recorrido se construyó sobre el A380.',
     data: [
-      { label: 'Disposición', value: '2-4-2 por fila', verified: false },
-      { label: 'Longitud útil', value: '44.93 m / 147.4 ft', verified: false },
+      { label: 'Disposición típica', value: '2-4-2 por fila', verified: true },
+      { label: 'Volumen de cabina', value: '530 m³', verified: true },
     ],
   },
 }
@@ -138,7 +154,7 @@ export const EXTERIOR_HOTSPOTS: Record<'engine' | 'winglet' | 'empennage', Hotsp
   engine: {
     id: 'engine',
     title: 'Motores',
-    body: '4 × Rolls-Royce Trent 900, ~311–356 kN de empuje cada uno.',
+    body: '4 × Rolls-Royce Trent 900, con ≈311 kN (70.000 lbf) de empuje nominal por motor.',
   },
   winglet: {
     id: 'winglet',
@@ -169,7 +185,7 @@ export const INTERIOR_HOTSPOTS: Record<'seat' | 'screen' | 'window' | 'overheadB
   window: {
     id: 'window',
     title: 'Ventanilla',
-    body: 'Doble panel acrílico — la piscina de luz fría del corredor entra por acá.',
+    body: 'Doble panel acrílico — la piscina de luz fría del corredor entra por aquí.',
   },
   overheadBin: {
     id: 'overheadBin',
