@@ -28,7 +28,23 @@ export function InteriorOverlay() {
   })
 
   useEffect(() => {
-    if (!inInterior) return
+    if (!inInterior) {
+      // Leaving S5 cancels the rAF loop below but was never clearing the
+      // zone that was active at that moment — found in Fase 9 verification:
+      // scroll into S5 far enough to reach "stair", then scroll back out to
+      // S2/S3 (or on to S6/S7), and "S5 — Escalera" stayed opacity:1,
+      // stacked on top of that section's own panel (both share
+      // `grid-row: 1`/`grid-column: 1`, so they render on top of each
+      // other, not side by side). Every other panel in NarrativeOverlay.tsx
+      // derives `data-active` directly from `activeIndex`, so it can't go
+      // stale this way; this rAF-driven one needs an explicit reset on the
+      // way out.
+      for (const key of ZONE_ORDER) {
+        const el = panelRefs.current[key]
+        if (el) el.dataset.active = 'false'
+      }
+      return
+    }
     let raf = 0
     const tick = () => {
       const { progress } = useScrollStore.getState()
