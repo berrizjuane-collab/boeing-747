@@ -49,7 +49,7 @@ async function setProgress(page, progress) {
 async function screenshot(page, name, progress) {
   await setProgress(page, progress)
   const target = path.join(outputDir, name)
-  await page.screenshot({ path: target, fullPage: false })
+  await page.screenshot({ path: target, fullPage: false, animations: 'disabled', timeout: 120_000 })
   report.captures.push({ name, progress })
 }
 
