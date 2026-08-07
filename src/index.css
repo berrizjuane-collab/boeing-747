@@ -1069,3 +1069,148 @@ body {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
 }
+
+
+/* ============================================================
+   Final audit — evidence-backed legibility and mobile layout
+
+   S3's own pixel measurements showed that white type over a bright,
+   moving sky cannot guarantee WCAG contrast through text-shadow alone.
+   Data groups now sit on an intentionally dark translucent surface. The
+   phone layout stops forcing narrative copy into one third of a 390px
+   viewport and turns the active panel into a compact bottom sheet while
+   preserving the aircraft above it.
+   ============================================================ */
+
+.overlay__data-list {
+  padding: 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  background: rgba(6, 9, 14, 0.84);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(10px);
+}
+
+.overlay__footer-sources,
+.fallback__source-list {
+  margin: 0.8em 0 0;
+  padding-left: 1.2em;
+  line-height: 1.7;
+}
+
+.overlay__footer-sources {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+@media (max-width: 720px) {
+  .overlay {
+    display: flex;
+    align-items: flex-end;
+    padding: 72px 16px 22px;
+  }
+
+  .overlay__col,
+  .overlay__col--left,
+  .overlay__col--right {
+    width: 100%;
+    padding: 0;
+    text-align: left;
+    justify-self: stretch;
+  }
+
+  .overlay__panel {
+    width: 100%;
+    max-height: min(48vh, 390px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 14px;
+    background: rgba(6, 9, 14, 0.86);
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+    backdrop-filter: blur(14px);
+  }
+
+  .overlay__data-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: 0.7rem;
+    margin-top: 0.75rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+
+  .overlay__col--right .overlay__data-list {
+    align-items: start;
+  }
+
+  .overlay__title--hero {
+    font-size: clamp(2.5rem, 13vw, 4.2rem);
+  }
+
+  .overlay__title {
+    font-size: clamp(1.7rem, 8vw, 2.6rem);
+  }
+
+  .overlay__data-value {
+    font-size: clamp(1rem, 4.8vw, 1.35rem);
+  }
+
+  .overlay__body {
+    font-size: 0.95rem;
+    line-height: 1.5;
+  }
+
+  .overlay__scroll-hint {
+    margin-top: 1.2em;
+  }
+
+  .overlay__footer-attribution {
+    margin-top: 0.8em;
+  }
+
+  .site-nav {
+    padding: 0 14px;
+  }
+
+  .site-nav__wordmark {
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+  }
+
+  .site-nav__right {
+    gap: 10px;
+  }
+
+  .site-nav__marks {
+    gap: 5px;
+  }
+
+  .site-nav__mark {
+    width: 8px;
+  }
+
+  .site-nav__mark[data-active='true'] {
+    width: 18px;
+  }
+
+  .site-nav__quality {
+    padding: 3px 5px;
+    font-size: 0.58rem;
+  }
+}
+
+@media (max-width: 430px) {
+  .site-nav__wordmark {
+    display: none;
+  }
+
+  .site-nav {
+    justify-content: flex-end;
+  }
+}
