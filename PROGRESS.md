@@ -3,7 +3,7 @@
 Checklist de seguimiento espejado a las fases de [`PLAN.md`](./PLAN.md).
 Sirve para retomar contexto entre sesiones: **antes de trabajar, leer las notas de la fase activa.**
 
-**Estado global: Fases 0–6 completas y verificadas visualmente en navegador real.** El bloqueo del exterior (más abajo, RESUELTO) se destrabó el 2026-08-05. **Fase 3 se cerró el 2026-08-06**: las tres condiciones que quedaban explícitas (verificación visual, HDRI reales, KTX2/Basis genuino) eran limitaciones de contenedor, no de código, y se resolvieron con evidencia. **Fase 4 se cerró el mismo día** con la geometría de detalle del umbral. **Fase 5 se cerró el mismo día**: sus gates técnicos (iluminación irradiada vía PMREM, sombras interiores, LOD de corredor, mesetas de easing) los implementó una sesión concurrente sobre `main` — mergeados acá y revisados con la misma vara que Fase 3/4, lo que encontró y corrigió dos bugs reales (doble iluminación de cabina, fade de salida con smoothstep degenerado) y una brecha frente al plan (LOD de culling duro en vez de *fade-out*), todo verificado visualmente. **Fase 6 se cerró el mismo día**: capa DOM completa (overlays narrativos, overlays de interior por zona, hotspots, pantalla de carga, nav) más el tercer HDRI (atardecer) que Fase 6 tenía pendiente desde que Fase 3 lo dejó fuera de alcance a propósito. Cinco bugs reales encontrados y corregidos durante la verificación — ver la sección de Fase 6 más abajo y el registro de sesión para el detalle de cada uno.
+**Estado global: Fases 0–9 implementadas y auditadas.** La Fase 9 cerró la deuda de datos con fuentes primarias de Airbus y Rolls-Royce; la auditoría final añadió QA visual reproducible, capturas desktop/mobile, clips de recorrido, una pasada responsive específica y una superficie de contraste para las fichas sobre cielos brillantes. El producto corre de extremo a extremo. Persisten tres caveats explícitos, no bloqueantes para el build: pruebas en dispositivos Safari/iOS/Android reales, la ligera deuda de draw calls de S1/S2 causada por el asset exterior y cuatro coordenadas de hotspots de economy que admiten otra pasada de autoría visual.
 
 Convención: `[ ]` pendiente · `[~]` en curso · `[x]` completo · `[!]` bloqueado
 
@@ -417,18 +417,27 @@ Corregido moviendo toda la configuración de sombra a props JSX del propio `<dir
 
 ---
 
-## Fase 9 — Verificación de datos y copy final · *paralelizable*
+## Fase 9 — Verificación de datos y copy final · ✅ Completa
 
-> **Contexto crítico:** en la sesión de planificación el acceso a fuentes primarias falló (HTTP 403 en airbus.com, wikipedia.org, sketchfab.com). **Todas las cifras de §9 de PLAN.md son de fuentes secundarias y ninguna está verificada.** No publicar copy con esos números sin completar esta fase.
+> Cerrada 2026-08-07 contra fuentes primarias: página oficial del A380,
+> manual Airbus *Aircraft Characteristics — Airport and Maintenance
+> Planning* y datos publicados de flota/empuje de Rolls-Royce.
 
-- [ ] Verificar cada cifra de la tabla de §9 contra fuente primaria (Airbus / Rolls-Royce / Engine Alliance)
-- [ ] 🔴 **Resolver el conflicto de empuje** — la cifra de "1,208 kN" parece ser el total de los 4 motores, incompatible con las cifras por-motor de 311–356 kN. Determinar cuál es y ser explícito en la copy sobre si es por motor o total
-- [ ] 🟡 Redactar velocidad de rotación y distancia de pista **siempre como condicionales** ("típico", o con condiciones declaradas). Nunca como dato absoluto — dependen de peso, altitud de presión, temperatura y viento
-- [ ] Elegir **una** opción de motor (Trent 900 **o** GP7200) y ser consistente en todo el sitio
-- [ ] Marcar qué cifras son específicas de aerolínea y decidir si se usan
-- [ ] Redactar copy final por sección
-- [ ] Revisión de IP: confirmar librea ficticia o despejar el uso de marcas reales
-- [ ] Créditos y atribuciones de licencia completos en el footer
+- [x] Verificar las cifras publicadas en `content.ts` contra Airbus / Rolls-Royce
+- [x] Resolver el conflicto de empuje: **70.000 lbf ≈ 311 kN por Trent 900**; se eliminó el rango ambiguo y no se confundió con el total de cuatro motores
+- [x] Tratar velocidad de rotación y pista como condicionales: la primera ya no muestra un falso valor universal; la segunda declara MTOW, ISA y nivel del mar y se marca como referencial
+- [x] Elegir una opción de motor y mantenerla en todo el sitio: **Rolls-Royce Trent 900**
+- [x] Retirar cifras dependientes de aerolínea: se usan 555 asientos estándar del ACAP 2023 y 853 como máximo, ambos con contexto
+- [x] Redactar copy final en español neutro
+- [x] Confirmar librea ficticia MERIDIAN
+- [x] Mantener atribución CC BY 4.0 y añadir enlaces visibles a fuentes técnicas en los footers 3D y estático
+- [x] Sustituir la longitud no verificada del upper deck por su volumen de cabina publicado: 530 m³
+
+**Fuentes primarias empleadas:**
+
+- Airbus, [A380](https://www.airbus.com/en/products-services/commercial-aircraft/passenger-aircraft/a380)
+- Airbus, [Aircraft Characteristics](https://www.aircraft.airbus.com/en/customer-care/fleet-wide-care/airport-operations-and-aircraft-characteristics/aircraft-characteristics)
+- Rolls-Royce, [2024 Full Year Results Appendices](https://www.rolls-royce.com/~/media/Files/R/Rolls-Royce/documents/investors/results/2024-full-year-results/rr-plc-holdings-2024-full-year-results-appendices.pdf)
 
 ---
 
