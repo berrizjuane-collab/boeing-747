@@ -1,14 +1,20 @@
 import { Canvas } from '@react-three/fiber'
-import { Suspense } from 'react'
-import { ACESFilmicToneMapping, SRGBColorSpace } from 'three'
+import { Suspense, useRef } from 'react'
+import { ACESFilmicToneMapping, SRGBColorSpace, type Mesh } from 'three'
 import { CameraRig } from './CameraRig'
 import { EnvironmentPlaceholder } from './EnvironmentPlaceholder'
 import { ExteriorAsset } from './ExteriorAsset'
+import { Hotspots } from './Hotspots'
 import { InteriorAsset } from './InteriorAsset'
 import { InteriorLighting } from './InteriorLighting'
+import { PostFX } from './PostFX'
 import { RunwayEnvironment } from './RunwayEnvironment'
 import { StatsCollector } from './StatsCollector'
+import { SunMesh } from './SunMesh'
+import { ThresholdFrame } from './ThresholdFrame'
+import { TierAutoDetect } from './TierAutoDetect'
 import { KeyframeAuthoringTool } from '../dev/KeyframeAuthoringTool'
+import { useQualityStore, TIER_SETTINGS } from '../state/qualityStore'
 import { useScrollStore } from '../state/scrollStore'
 
 // S4, S5, S6 — mounted only in this window per PLAN.md Fase 4 ("montaje del
@@ -30,8 +36,18 @@ function InteriorGate() {
 }
 
 export function SceneCanvas({ debugMode }: { debugMode: boolean }) {
+  // §7.1's DPR ceiling per tier. Reactive selection is fine here — tier
+  // changes at most twice in a session (one auto-detect, one manual
+  // override), nothing like the continuous-progress case the hard rule in
+  // scrollStore.ts exists for.
+  const dprMax = useQualityStore((s) => TIER_SETTINGS[s.tier].dprMax)
+  const sunRef = useRef<Mesh>(null)
+
   return (
     <Canvas
+      // §8.3: canvas content is decorative relative to the DOM narrative,
+      // which carries the same information as real, accessible text.
+      aria-hidden="true"
       // Runtime shadows cover the runway and the bounded interior Fase 5
       // lights; any broader shadow budget remains explicit future work.
       shadows
@@ -40,24 +56,37 @@ export function SceneCanvas({ debugMode }: { debugMode: boolean }) {
       // so the fixed-fullscreen override has to go through `style`, which
       // R3F spreads over its defaults.
       style={{ position: 'fixed', inset: 0, zIndex: 0, display: 'block' }}
-      dpr={[1, 2]} // full tiering by device is Fase 8; this is just a sane cap
+      dpr={[1, dprMax]}
       camera={{ fov: 45, near: 0.1, far: 3000, position: [60, 8, 55] }}
       gl={{ antialias: true }}
       onCreated={({ gl }) => {
+        // See StatsCollector.tsx: a multi-pass post-processing composer
+        // calls renderer.render() several times per frame, and info.reset()
+        // (which autoReset fires on every one of those calls) would wipe
+        // out everything but the last pass's counts before anything reads
+        // them. Reset manually, once per frame, from StatsCollector instead.
+        gl.info.autoReset = false
         gl.toneMapping = ACESFilmicToneMapping
         gl.toneMappingExposure = 1
         gl.outputColorSpace = SRGBColorSpace
       }}
     >
-      <EnvironmentPlaceholder />
+      <Suspense fallback={null}>
+        <EnvironmentPlaceholder />
+      </Suspense>
       <RunwayEnvironment />
+      <SunMesh ref={sunRef} />
       <Suspense fallback={null}>
         <ExteriorAsset />
       </Suspense>
       <InteriorGate />
+      <Hotspots />
+      <ThresholdFrame />
       <CameraRig enabled={!debugMode} />
       {debugMode && <KeyframeAuthoringTool />}
       <StatsCollector />
+      <TierAutoDetect />
+      <PostFX sunRef={sunRef} />
     </Canvas>
   )
 }

@@ -23,3 +23,20 @@ function threshold(progress: number, low: number): number {
 
 export const exposureMultiplier = (progress: number): number => threshold(progress, INTERIOR_EXPOSURE)
 export const sunIntensityMultiplier = (progress: number): number => threshold(progress, INTERIOR_SUN)
+
+/**
+ * 0 before S6, ramps to 1 across S6, holds through S7. The "sun" directional
+ * light's *intensity* already ramps back up across this same span (the
+ * `threshold()` shape above) — reused as-is, since it was already tuned and
+ * verified in Fase 4. But intensity alone returning to full isn't enough:
+ * at identical color, a full-intensity light reads as literally the same S1
+ * sun, which is exactly what PLAN.md §10.1 says S6 must not do ("no vuelve a
+ * la luz de S3"). EnvironmentPlaceholder.tsx uses this weight to lerp the
+ * light's color toward S6's dusk accent (`#E89B6C`, §10.1) as it fades back
+ * in, instead of only changing how bright the same golden-hour hue gets.
+ */
+export function duskColorMix(progress: number): number {
+  if (progress < THRESHOLD_OUT.start) return 0
+  if (progress < THRESHOLD_OUT.end) return localProgress(progress, THRESHOLD_OUT)
+  return 1
+}

@@ -1,0 +1,69 @@
+import { useProgress } from '@react-three/drei'
+import { useEffect, useRef, useState } from 'react'
+import { BRAND_NAME } from '../lib/content'
+import { BLOCKING_ASSET_WEIGHTS, BLOCKING_TOTAL_WEIGHT, weightForItem } from '../lib/loadingWeights'
+import { loadingState } from '../state/loadingState'
+
+const BLOCKING_ITEM_COUNT = Object.keys(BLOCKING_ASSET_WEIGHTS).length
+
+/**
+ * S0 (PLAN.md §10.4): black, centered wordmark, hairline rule filling
+ * left-to-right, tabular-mono percentage. `useProgress` wraps
+ * THREE.DefaultLoadingManager, which every loader in this app (GLTFLoader,
+ * RGBELoader) registers with automatically — no manual wiring needed to
+ * observe loads, only to *weight* them (loadingWeights.ts's honest caveat:
+ * useProgress counts items, not bytes).
+ *
+ * `active` starts false before anything has been requested yet, not just
+ * once everything's done — reading a bare `!active` as "loading complete"
+ * on the very first render would fire the exit sequence immediately, before
+ * any Suspense-gated component has even mounted to start its fetch. Gated
+ * on `total >= BLOCKING_ITEM_COUNT` too: wait until at least as many items
+ * have been *registered* as this app expects to block on, not just until
+ * whatever has registered so far happens to be idle.
+ */
+export function LoadingScreen({ onComplete }: { onComplete: () => void }) {
+  const { active, item, total } = useProgress()
+  const loadedUrlsRef = useRef<Set<string>>(new Set())
+  const completedRef = useRef(false)
+  const [weightedPct, setWeightedPct] = useState(0)
+  const [exiting, setExiting] = useState(false)
+  const [mounted, setMounted] = useState(true)
+
+  useEffect(() => {
+    if (!item || loadedUrlsRef.current.has(item)) return
+    loadedUrlsRef.current.add(item)
+    let loadedWeight = 0
+    for (const url of loadedUrlsRef.current) loadedWeight += weightForItem(url)
+    setWeightedPct(Math.min(100, (loadedWeight / BLOCKING_TOTAL_WEIGHT) * 100))
+  }, [item])
+
+  useEffect(() => {
+    if (completedRef.current || active || total < BLOCKING_ITEM_COUNT) return
+    completedRef.current = true
+    setWeightedPct(100)
+    // Starts the exposure ramp (EnvironmentPlaceholder.tsx) immediately,
+    // concurrent with this screen's own ~400-500ms fade rather than after
+    // it: the scene coming up *while* the loading screen dissolves reads as
+    // one continuous reveal instead of a black gap between "loader gone"
+    // and "scene visible" — same goal as PLAN.md §10.4's sequential
+    // description (rule -> wordmark -> exposure), simpler to keep smooth.
+    loadingState.revealStartSeconds = performance.now() / 1000
+    onComplete()
+    setExiting(true)
+    const timer = setTimeout(() => setMounted(false), 550)
+    return () => clearTimeout(timer)
+  }, [active, total, onComplete])
+
+  if (!mounted) return null
+
+  return (
+    <div className={`loading-screen${exiting ? ' loading-screen--exit' : ''}`} aria-hidden={exiting}>
+      <div className="loading-screen__wordmark">{BRAND_NAME}</div>
+      <div className="loading-screen__rule">
+        <div className="loading-screen__rule-fill" style={{ width: `${weightedPct}%` }} />
+      </div>
+      <div className="loading-screen__pct">{String(Math.round(weightedPct)).padStart(2, '0')}%</div>
+    </div>
+  )
+}

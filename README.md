@@ -10,12 +10,18 @@ registro de sesiones).
 
 ## Estado actual
 
-Fases 0–2 completas y núcleo de Fase 3 implementado, incluyendo el
-exterior real (ya no hay bloqueo: el binario fuente está en `blender/source/`,
-ver más abajo). Fase 3 conserva dos condiciones explícitas: HDRI reales para
-S1/S3 y KTX2/Basis en el artefacto exterior final. Fase 4 (umbral) y un
-adelanto de Fase 5 (interior) funcionan con geometría real de ambos lados —
-exterior e interior — recorrida con la cámara, no placeholders.
+Fases 0–6 completas. Exterior real (el binario fuente está en
+`blender/source/`, ver más abajo), tres HDRI reales — golden hour, gran
+altitud y atardecer, las tres generadas proceduralmente con el cielo físico
+de Cycles, no descargadas (`blender/generate_hdri.py`) —, KTX2/Basis genuino
+en el artefacto exterior final, umbral (Fase 4) con geometría real de ambos
+lados y marco de puerta en los dos portales, recorrido interior completo
+(Fase 5: iluminación de cabina, sombras, LOD de corredor con *fade-out* real,
+mesetas de easing por zona), y la capa DOM completa de Fase 6: overlays
+narrativos y por zona, hotspots con gating por banda de dwell, pantalla de
+carga con progreso ponderado, y nav fijo con salto a sección. Quedan
+Fases 7–9: post-proceso y dirección de arte, performance/mobile/fallback
+estático, y verificación de datos primarios.
 
 ## Desarrollo
 
@@ -66,3 +72,19 @@ blender --background --factory-startup --python blender/verify_exterior.py -- --
 
 El GLB resultante se procesa con `npm run process-glb` antes de usarse en la
 app (así se generó el `public/models/exterior.glb` ya presente en el repo).
+Ese pipeline produce texturas KTX2/Basis reales cuando el binario externo
+`ktx` (KTX-Software) está instalado — si no, degrada con gracia a JPEG (ver
+comentarios en `scripts/process-glb.mjs`). El transcoder Basis en tiempo de
+ejecución está self-hosted en `public/basis/`, igual que el decoder Draco en
+`public/draco/` — sin dependencia de un CDN externo.
+
+### HDRI
+
+`blender/generate_hdri.py` genera las HDRI reales de S1 (golden hour) y S3
+(gran altitud) proceduralmente con el modelo de cielo físico Nishita de
+Cycles, en vez de depender de una descarga externa (p. ej. Poly Haven):
+
+```
+blender --background --factory-startup --python blender/generate_hdri.py -- --preset golden-hour --output public/hdri/golden-hour.hdr
+blender --background --factory-startup --python blender/generate_hdri.py -- --preset high-altitude --output public/hdri/high-altitude.hdr
+```
