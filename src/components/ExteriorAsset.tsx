@@ -1,10 +1,10 @@
 import { useGLTF } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
-import { useCallback, useEffect, useMemo, useRef } from 'react'
-import { Group, Mesh, Object3D } from 'three'
+import { useCallback, useEffect, useRef } from 'react'
+import { Group, Mesh, type MeshStandardMaterial, Object3D } from 'three'
 import { KTX2Loader, type GLTFLoader } from 'three-stdlib'
 import { getAircraftPose } from '../lib/aircraftPose'
-import { createDissolveHullMaterial } from '../lib/dissolveHullMaterial'
+import { createDissolveHullMaterial, type DissolveUniforms } from '../lib/dissolveHullMaterial'
 import { EXTERIOR_LOCAL_OFFSET } from '../lib/sceneLayout'
 import { SECTIONS, localProgress } from '../lib/sections'
 import { EXIT_PORTAL, NOSE_PORTAL, portalRadius } from '../lib/thresholdPortals'
@@ -63,16 +63,24 @@ export function ExteriorAsset() {
   )
   const { scene } = useGLTF(`${import.meta.env.BASE_URL}models/exterior.glb`, true, true, extendLoader)
   const groupRef = useRef<Group>(null)
-  const dissolveMaterialRef = useRef(createDissolveHullMaterial())
+  const dissolveRef = useRef<DissolveUniforms | null>(null)
   const gearRef = useRef<Object3D | null>(null)
-  const dissolveMaterial = useMemo(() => dissolveMaterialRef.current, [])
 
   useEffect(() => {
     let gear: Object3D | null = null
     scene.traverse((obj) => {
       if (obj.name === 'A380' && (obj as Mesh).isMesh) {
         const mesh = obj as Mesh
-        mesh.material = dissolveMaterial
+        // Extends the mesh's own loaded MeshStandardMaterial (real
+        // baseColorTexture + roughness/metalness from the glTF) instead of
+        // replacing it with a from-scratch unlit shader — see
+        // dissolveHullMaterial.ts's doc comment for why that distinction
+        // matters (the earlier version made the fuselage flat gray outside
+        // the dissolve band, i.e. for the entire site except a few seconds
+        // of S4/S6).
+        const { material, uniforms } = createDissolveHullMaterial(mesh.material as MeshStandardMaterial)
+        mesh.material = material
+        dissolveRef.current = uniforms
         mesh.castShadow = true
         mesh.receiveShadow = true
       } else if ((obj as Mesh).isMesh) {
@@ -83,7 +91,7 @@ export function ExteriorAsset() {
       if (obj.name === 'LandingGear') gear = obj
     })
     gearRef.current = gear
-  }, [scene, dissolveMaterial])
+  }, [scene])
 
   useFrame(({ clock }) => {
     const group = groupRef.current
@@ -107,8 +115,11 @@ export function ExteriorAsset() {
     group.position.set(position.x, position.y + jitter, position.z)
     group.rotation.x = pitchRad
 
-    dissolveMaterial.uniforms.portal1Radius.value = portalRadius(progress, NOSE_PORTAL)
-    dissolveMaterial.uniforms.portal2Radius.value = portalRadius(progress, EXIT_PORTAL)
+    const dissolve = dissolveRef.current
+    if (dissolve) {
+      dissolve.portal1Radius.value = portalRadius(progress, NOSE_PORTAL)
+      dissolve.portal2Radius.value = portalRadius(progress, EXIT_PORTAL)
+    }
 
     const gear = gearRef.current
     if (gear) {
