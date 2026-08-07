@@ -43,8 +43,18 @@ export function InteriorOverlay() {
     return () => cancelAnimationFrame(raf)
   }, [inInterior])
 
-  if (!inInterior) return null
-
+  // Stays mounted outside S5 too (not `if (!inInterior) return null`),
+  // matching NarrativeOverlay.tsx's always-mounted-fade-via-data-active
+  // pattern instead of conditional rendering: PLAN.md §8.3 wants the
+  // heading hierarchy linear "independientemente de la posición de
+  // scroll", and a component that only mounts once scroll reaches S5 hides
+  // its four zone <h2>s from a screen reader's heading list entirely for
+  // anyone navigating by heading shortcuts rather than physically
+  // scrolling the canvas — the CSS was already built for this (zone panels
+  // default `data-active="false"`, `.overlay__panel`'s base rule is
+  // opacity:0, and `.overlay__panel--interior-zone` already shares one grid
+  // cell so an invisible stack doesn't collapse the layout), it just wasn't
+  // being used while unmounted.
   return (
     <div className="overlay">
       <div className="overlay__col overlay__col--left">

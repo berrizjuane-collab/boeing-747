@@ -3,9 +3,16 @@ import { SECTIONS, TOTAL_VH } from '../lib/sections'
 
 /**
  * Invisible DOM spacer track: gives the document its ~800vh of scrollable
- * height (§12.6) so Lenis/ScrollTrigger have something to measure. Section
- * labels here are placeholder orientation markers for the Fase 2 arc
- * review, not the real overlay typography system — that's Fase 6.
+ * height (§12.6) so Lenis/ScrollTrigger have something to measure.
+ *
+ * Used to render a visible `<span>` label per section — Fase 2 placeholder
+ * orientation markers, in normal document flow rather than fixed to the
+ * viewport. Removed once Fase 6's real overlay (NarrativeOverlay.tsx,
+ * InteriorOverlay.tsx) made them redundant: found via the Fase 7 Playwright
+ * pass that S1's own label, sitting at document-flow top + 24px padding,
+ * visually collided with the fixed nav bar (SiteNav.tsx, also fixed at the
+ * very top) at exactly scroll=0% — a moment no earlier verification pass
+ * had specifically checked, since it's the instant before any scrolling.
  */
 export function ScrollTrack({ containerRef }: { containerRef: RefObject<HTMLDivElement | null> }) {
   return (
@@ -15,9 +22,7 @@ export function ScrollTrack({ containerRef }: { containerRef: RefObject<HTMLDivE
           key={section.id}
           className="scroll-track__section"
           style={{ height: `${(section.end - section.start) * TOTAL_VH}vh` }}
-        >
-          <span className="scroll-track__label">{section.label}</span>
-        </div>
+        />
       ))}
     </div>
   )

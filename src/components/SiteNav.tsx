@@ -1,15 +1,15 @@
 import { BRAND_NAME } from '../lib/content'
 import { SECTIONS } from '../lib/sections'
+import { cycleTier, TIER_SETTINGS, useQualityStore } from '../state/qualityStore'
 import { useScrollStore } from '../state/scrollStore'
 
 /**
  * PLAN.md §10.5: 64px fixed transparent bar, wordmark left, 7-mark section
- * indicator (one per SECTIONS entry) right with the active mark elongated,
- * click-to-jump ("saltar a sección"). No quality toggle here — PROGRESS.md's
- * own Fase 6 checklist omits it, deferring it to Fase 8's tiering work the
- * same way the audio toggle is already deferred (§12.5): "si el audio se
- * agrega en una iteración futura, el toggle entra acá, junto al de calidad
- * — no antes."
+ * indicator (one per SECTIONS entry) + quality toggle right, click-to-jump
+ * ("saltar a sección"). The quality toggle was deliberately left out of
+ * Fase 6 (PROGRESS.md) and built here alongside the rest of Fase 8's
+ * tiering work — §7.3 requires it explicitly: "un usuario con una buena
+ * máquina que cayó al tier bajo debe poder corregirlo."
  *
  * Legibility: a gradient scrim from the top edge, not
  * `mix-blend-mode: difference` — the plan explicitly rejects that ("sobre
@@ -18,23 +18,35 @@ import { useScrollStore } from '../state/scrollStore'
  */
 export function SiteNav({ onJump }: { onJump: (index: number) => void }) {
   const activeIndex = useScrollStore((s) => s.activeIndex)
+  const tier = useQualityStore((s) => s.tier)
+  const setTier = useQualityStore((s) => s.setTier)
 
   return (
     <nav className="site-nav" aria-label="Navegación de secciones">
       <div className="site-nav__scrim" aria-hidden="true" />
       <div className="site-nav__wordmark">{BRAND_NAME}</div>
-      <div className="site-nav__marks">
-        {SECTIONS.map((section, index) => (
-          <button
-            key={section.id}
-            type="button"
-            className="site-nav__mark"
-            data-active={index === activeIndex}
-            aria-current={index === activeIndex ? 'true' : undefined}
-            aria-label={`Saltar a ${section.label}`}
-            onClick={() => onJump(index)}
-          />
-        ))}
+      <div className="site-nav__right">
+        <div className="site-nav__marks">
+          {SECTIONS.map((section, index) => (
+            <button
+              key={section.id}
+              type="button"
+              className="site-nav__mark"
+              data-active={index === activeIndex}
+              aria-current={index === activeIndex ? 'true' : undefined}
+              aria-label={`Saltar a ${section.label}`}
+              onClick={() => onJump(index)}
+            />
+          ))}
+        </div>
+        <button
+          type="button"
+          className="site-nav__quality"
+          onClick={() => setTier(cycleTier(tier), 'manual')}
+          aria-label={`Calidad: ${TIER_SETTINGS[tier].label}. Tocar para cambiar.`}
+        >
+          {tier}
+        </button>
       </div>
     </nav>
   )

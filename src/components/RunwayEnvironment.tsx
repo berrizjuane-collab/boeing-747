@@ -9,6 +9,8 @@ import {
   ShaderMaterial,
 } from 'three'
 import { SECTIONS } from '../lib/sections'
+import { TIER_SETTINGS, useQualityStore } from '../state/qualityStore'
+import { reducedMotionState } from '../state/reducedMotion'
 import { useScrollStore } from '../state/scrollStore'
 
 /** Soft radial falloff so billboard discs read as clouds, not cut-out circles. */
@@ -98,13 +100,14 @@ function DistantAirport() {
   )
 }
 
+const DUST_COUNT = 400
+
 /** Drifting dust motes near the runway, visible through S1-S2 and faded out by S3. */
 function DustParticles() {
   const pointsRef = useRef<PointsImpl>(null)
   const geometry = useMemo(() => {
-    const count = 400
-    const positions = new Float32Array(count * 3)
-    for (let i = 0; i < count; i++) {
+    const positions = new Float32Array(DUST_COUNT * 3)
+    for (let i = 0; i < DUST_COUNT; i++) {
       positions[i * 3] = (Math.random() - 0.5) * 100
       positions[i * 3 + 1] = 0.3 + Math.random() * 7
       positions[i * 3 + 2] = (Math.random() - 0.5) * 100
@@ -121,8 +124,16 @@ function DustParticles() {
     const fade = 1 - Math.min(1, Math.max(0, (progress - DUST_SECTION_END) / 0.05))
     const material = points.material as import('three').PointsMaterial
     material.opacity = 0.3 * fade
-    points.visible = fade > 0.01
-    points.rotation.y = clock.elapsedTime * 0.01
+    // §7.1's "Partículas" row (100%/40%/0% by tier): draw fewer points from
+    // the same buffer rather than resizing it — this is the count actually
+    // submitted to the GPU, not just a dimmer look at full count.
+    const particlesPct = TIER_SETTINGS[useQualityStore.getState().tier].particlesPct
+    points.geometry.setDrawRange(0, Math.floor(DUST_COUNT * particlesPct))
+    points.visible = fade > 0.01 && particlesPct > 0
+    // PLAN.md §8.1: "sin drift de partículas" under reduced motion — the
+    // fade/count above still apply (those are section/tier state, not
+    // motion), only the continuous rotation stops.
+    if (!reducedMotionState.active) points.rotation.y = clock.elapsedTime * 0.01
   })
 
   return (

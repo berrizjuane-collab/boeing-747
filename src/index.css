@@ -124,6 +124,15 @@ body {
      resizing it. */
   grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: center;
+  /* Clears the fixed nav (SiteNav.tsx, 64px + its own scrim) at the top,
+     and leaves the bottom edge some breathing room — found via the Fase 7
+     pass at 1200x675: S3's 6-item data list centers at panel height 645px
+     against a 675px viewport, so plain `align-items: center` on the full
+     viewport put its top ~35px into the nav band and its bottom ~5px past
+     the fold. Padding shrinks the box this grid centers within instead of
+     the full viewport, so every section's content is guaranteed clear of
+     the nav regardless of its own height. */
+  padding: 72px 0 32px;
   /* Center third is reserved for the aircraft (PLAN.md §10.2) — the grid
      itself never places content in column 2, so there's nothing to opt
      out of pointer-events for there. */
@@ -193,7 +202,8 @@ body {
   font-size: 0.75rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.6);
+  /* Up from 0.6 — same S3 contrast measurement as .overlay__data-label above. */
+  color: rgba(255, 255, 255, 0.78);
   margin: 0 0 0.75em;
 }
 
@@ -204,8 +214,14 @@ body {
      one third of it (the outer-thirds layout rule, same section), and 8vw
      of *viewport* width comfortably exceeds a same-length run of *column*
      width — confirmed by the Fase 6 Playwright pass, where the wordmark
-     overflowed its column into an unreadable fragment at 8vw. */
-  font-size: clamp(2.5rem, 4.5vw, 5.5rem);
+     overflowed its column into an unreadable fragment at 8vw. Still too
+     wide at 4.5vw, found via the Fase 7 pass at 1200px: "MERIDIAN" measured
+     291px unwrapped against a 266.8px column (border-box, 60px padding each
+     side per .overlay__col), 24px over — enough for overflow-wrap: anywhere
+     (.overlay__col) to split it into "MERIDIA"/"N" across two lines. 3.8vw
+     leaves ~21px of margin at the same width instead of landing right on
+     the edge. */
+  font-size: clamp(2.5rem, 3.8vw, 5.5rem);
   font-weight: 700;
   letter-spacing: -0.03em;
   line-height: 1;
@@ -239,8 +255,13 @@ body {
 .overlay__data-list {
   display: flex;
   flex-direction: column;
-  gap: 1.1em;
-  margin-top: 1.4em;
+  /* Down from 1.1em/1.4em: S3's 6-item list (the tallest in the site,
+     per .overlay__data-value's comment) still overflowed the padded
+     centering box above at 675px viewport height. Tightened here rather
+     than per-section since every list benefits from being a bit more
+     compact, not just S3's. */
+  gap: 0.75em;
+  margin-top: 0.9em;
   list-style: none;
   padding: 0;
 }
@@ -274,7 +295,17 @@ body {
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.16em;
-  color: rgba(255, 255, 255, 0.55);
+  /* Up from 0.55: PLAN.md §8.3 names S3 "el caso difícil" for AA contrast,
+     and measuring it confirmed why — sampled against S3's actual rendered
+     sky at its brightest (Fase 7 Playwright pass, canvas pixels via
+     sharp, not a CSS-alpha guess), this label's glyph color came out
+     essentially identical to the background behind it (~1.03:1 contrast,
+     nowhere near AA's 4.5:1). Text-shadow (`.overlay`, above) is still the
+     load-bearing fix — it's an edge/halo effect a flat contrast-ratio
+     sample can't fully capture — but a dimmer starting color only makes
+     that shadow work harder for no real benefit; less transparency costs
+     nothing here and measurably helps. */
+  color: rgba(255, 255, 255, 0.78);
 }
 
 .overlay__data-value {
@@ -287,9 +318,9 @@ body {
      S3's 6) stacks several data points at once — at the literal size
      they'd overflow viewport height well before mobile widths even
      enter into it. */
-  font-size: clamp(1.35rem, 2.6vw, 2rem);
+  font-size: clamp(1.35rem, 2vw, 2rem);
   color: #fff;
-  margin-top: 0.2em;
+  margin-top: 0.12em;
 }
 
 .overlay__interior-stack {
@@ -438,11 +469,45 @@ body {
   pointer-events: auto;
 }
 
+.site-nav__right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
 .site-nav__marks {
   display: flex;
   align-items: center;
   gap: 8px;
   pointer-events: auto;
+}
+
+.site-nav__quality {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+  padding: 3px 7px;
+  cursor: pointer;
+  pointer-events: auto;
+  text-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.55),
+    0 2px 16px rgba(0, 0, 0, 0.35);
+}
+
+.site-nav__quality:hover,
+.site-nav__quality:focus-visible {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.7);
+}
+
+.site-nav__quality:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
 }
 
 .site-nav__mark {
@@ -476,6 +541,62 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .site-nav__mark {
     transition-duration: 0.01ms;
+  }
+}
+
+/* ============================================================
+   Fase 8 — reduced-motion cross-fade (PLAN.md §8.1). See
+   ReducedMotionCrossfade.tsx — a no-op wrapper unless the media query
+   matches, in which case this dips opacity briefly on every section change
+   to mask the (now-snapping, not continuously-panning) camera jump.
+   ============================================================ */
+
+.reduced-motion-crossfade {
+  opacity: 1;
+  transition: opacity 0.22s ease;
+}
+
+.reduced-motion-crossfade[data-dipped='true'] {
+  opacity: 0.08;
+}
+
+/* ============================================================
+   Fase 8 — Interior-load guardrail (PLAN.md §8: hold scroll at S4 if the
+   interior hasn't finished streaming in yet). z-index 25: above the nav and
+   debug HUD (which stay visible/usable while held), below the S0 loading
+   screen (30) — this is a much shorter, rarer hold than that one.
+   ============================================================ */
+
+.interior-guardrail {
+  position: fixed;
+  bottom: 96px;
+  left: 50%;
+  z-index: 25;
+  transform: translate(-50%, 8px);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.75);
+  background: rgba(10, 12, 16, 0.75);
+  border-radius: 4px;
+  padding: 8px 14px;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.4s ease,
+    transform 0.4s ease;
+}
+
+.interior-guardrail[data-active='true'] {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .interior-guardrail {
+    transition-duration: 0.01ms;
+    transform: translate(-50%, 0);
   }
 }
 
@@ -717,4 +838,234 @@ body {
   color: rgba(255, 255, 255, 0.4);
   max-width: 34ch;
   margin-top: 1.4em;
+}
+
+/* ============================================================
+   PLAN.md §8.2: static fallback for no-WebGL2/software-renderer
+   visitors (main.tsx picks this over <App/> at boot — see
+   webglSupport.ts). Normal document flow, not fixed/pinned like the
+   3D overlay above — there's no canvas to pin over, so this is a
+   plain stack of <section>s a visitor actually scrolls, using the
+   same --font-display/--font-mono this whole page already defines.
+   ============================================================ */
+
+.fallback {
+  position: relative;
+  z-index: 1;
+  background: #0a0c10;
+}
+
+.fallback__notice {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.7);
+  background: #12151b;
+  padding: 16px clamp(20px, 5vw, 64px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.fallback__section {
+  position: relative;
+  min-height: 70vh;
+  display: flex;
+  align-items: center;
+  padding: 64px clamp(20px, 6vw, 96px);
+  overflow: hidden;
+}
+
+.fallback__section--threshold {
+  min-height: 30vh;
+  justify-content: center;
+  text-align: center;
+}
+
+.fallback__wash {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  opacity: 0.55;
+}
+
+/* Same darkening-toward-the-fold treatment as the real site's fog/ground —
+   keeps body copy readable over the gradient wash without a flat scrim
+   that would hide the section's actual grade color entirely. */
+.fallback__section::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(180deg, rgba(10, 12, 16, 0.35) 0%, rgba(10, 12, 16, 0.85) 100%);
+}
+
+.fallback__content {
+  position: relative;
+  z-index: 1;
+  max-width: 62ch;
+  text-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.55),
+    0 2px 16px rgba(0, 0, 0, 0.35);
+}
+
+.fallback__eyebrow,
+.fallback__eyebrow-heading {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0 0 0.75em;
+  font-weight: 400;
+}
+
+.fallback__title-hero {
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 6vw, 5.5rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  margin: 0;
+}
+
+.fallback__title,
+.fallback__section-heading {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 4vw, 3.5rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  margin: 0 0 0.5em;
+}
+
+.fallback__title-zone {
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 2.6vw, 2.25rem);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0 0 0.3em;
+}
+
+.fallback__threshold-line {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 400;
+}
+
+.fallback__subtitle,
+.fallback__body {
+  font-family: var(--font-display);
+  font-size: clamp(1rem, 1.6vw, 1.25rem);
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0.6em 0 0;
+  max-width: 44ch;
+}
+
+.fallback__data-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1.2em 2em;
+  margin: 1.4em 0 0;
+}
+
+.fallback__data-item dt {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.fallback__data-item dd {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(1.1rem, 1.8vw, 1.5rem);
+  color: #fff;
+  margin: 0.2em 0 0;
+}
+
+.fallback__zone {
+  margin-top: 2.5em;
+  padding-top: 2em;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.fallback__zone:first-of-type {
+  margin-top: 1.4em;
+}
+
+.fallback__hotspot-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9em;
+  margin-top: 1.6em;
+}
+
+.fallback__hotspot-note {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2em;
+  padding-left: 0.9em;
+  border-left: 2px solid rgba(255, 255, 255, 0.25);
+}
+
+.fallback__hotspot-title {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.fallback__hotspot-body {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.fallback__footer {
+  min-height: 40vh;
+}
+
+.fallback__footer-colophon {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.5);
+  max-width: 40ch;
+}
+
+.fallback__footer-attribution {
+  margin-top: 1.4em;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
+  max-width: 50ch;
+}
+
+.fallback__footer-attribution summary {
+  cursor: pointer;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.7rem;
+}
+
+.fallback__footer-attribution p {
+  margin-top: 0.8em;
+  line-height: 1.6;
+}
+
+.fallback__footer-attribution a {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.fallback__visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
 }

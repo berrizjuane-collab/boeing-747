@@ -11,6 +11,7 @@ import {
   UnsignedByteType,
 } from 'three'
 import { SECTIONS } from '../lib/sections'
+import { TIER_SETTINGS, useQualityStore } from '../state/qualityStore'
 import { useScrollStore } from '../state/scrollStore'
 
 const CABIN_LIGHT_INTENSITY = 2.6
@@ -115,13 +116,18 @@ export function InteriorLighting() {
 
   useFrame(() => {
     const factor = cabinFactor(useScrollStore.getState().progress)
+    // §7.1's "Sombras" row: real-time interior shadows are the Desktop High
+    // exclusive ("Interior en tiempo real" vs "Sólo horneadas" on the other
+    // two tiers). The lights themselves still fade in/out with `factor`
+    // either way — only the expensive shadow-map casting is tier-gated.
+    const shadowsAllowed = TIER_SETTINGS[useQualityStore.getState().tier].interiorRealtimeShadows
     if (warmLightRef.current) {
       warmLightRef.current.intensity = CABIN_LIGHT_INTENSITY * factor
-      warmLightRef.current.castShadow = factor > 0.02
+      warmLightRef.current.castShadow = shadowsAllowed && factor > 0.02
     }
     if (coolLightRef.current) {
       coolLightRef.current.intensity = CABIN_LIGHT_INTENSITY * 0.65 * factor
-      coolLightRef.current.castShadow = factor > 0.02
+      coolLightRef.current.castShadow = shadowsAllowed && factor > 0.02
     }
   })
 

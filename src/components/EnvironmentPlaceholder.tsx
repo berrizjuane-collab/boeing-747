@@ -8,6 +8,7 @@ import { activeHdriSectionSlot, goldenHourWeight, highAltitudeWeight, sunsetWeig
 import { duskColorMix, exposureMultiplier, sunIntensityMultiplier } from '../lib/thresholdLighting'
 import { SECTIONS } from '../lib/sections'
 import { createSkyDomeMaterial } from '../lib/skyDomeMaterial'
+import { exposureState } from '../state/exposureState'
 import { loadingState } from '../state/loadingState'
 import { useScrollStore } from '../state/scrollStore'
 
@@ -58,7 +59,7 @@ const SKY_RADIUS = 1200
  * A single-texture MeshBasicMaterial is the simplest thing that's correct.
  */
 export function EnvironmentPlaceholder() {
-  const { scene, gl } = useThree()
+  const { scene } = useThree()
   const colorRef = useRef(new Color('#c9895b'))
   const sunRef = useRef<DirectionalLight>(null)
   const skyDomeRef = useRef<Mesh>(null)
@@ -113,7 +114,14 @@ export function EnvironmentPlaceholder() {
 
     const revealStart = loadingState.revealStartSeconds
     const loadReveal = revealStart === null ? 0 : clamp01Reveal((performance.now() / 1000 - revealStart) / LOAD_REVEAL_DURATION)
-    gl.toneMappingExposure = exposureMultiplier(progress) * loadReveal
+    // Not gl.toneMappingExposure: PostFX.tsx's <EffectComposer> forces
+    // gl.toneMapping to NoToneMapping for as long as it's mounted (which is
+    // always, as of Fase 7), and three.js's tonemapping_fragment shader
+    // chunk is a no-op under NoToneMapping — the renderer-level exposure
+    // uniform silently stopped doing anything. ExposurePass.tsx (mounted
+    // first in PostFX's effect chain) picks it back up as a real
+    // post-process multiply instead.
+    exposureState.value = exposureMultiplier(progress) * loadReveal
     const sunFactor = sunIntensityMultiplier(progress)
     if (sunRef.current) {
       sunRef.current.intensity = SUN_INTENSITY * sunFactor

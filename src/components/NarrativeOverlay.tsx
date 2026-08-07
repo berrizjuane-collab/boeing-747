@@ -74,16 +74,27 @@ function Panel({
 }
 
 /**
- * DOM narrative layer for S1/S2/S3/S4/S6/S7 (PLAN.md §3, §10.2). S5's
- * per-zone content lives in InteriorOverlay.tsx instead — it's driven by
- * the walkthrough's zone index, not section activeIndex, so it doesn't fit
- * this component's one-panel-per-section shape. Panels stay mounted at all
- * times and fade via `data-active` (see index.css) rather than conditional
- * rendering, so the CSS transition has something to animate both in and out
- * of. `activeIndex` is safe to select reactively — it only changes 6 times
- * across the page (scrollStore.ts).
+ * DOM narrative layer for S1/S2/S3/S4/S6/S7 (PLAN.md §3, §10.2), split into
+ * two components — `NarrativeOverlayHead` (S1-S4) and `NarrativeOverlayTail`
+ * (S6-S7) — instead of one, so App.tsx can mount InteriorOverlay.tsx's S5
+ * content *between* them. S5 isn't part of either: it's driven by the
+ * walkthrough's zone index, not section activeIndex, so it doesn't fit this
+ * component's one-panel-per-section shape. That split exists purely for DOM
+ * order: PLAN.md §8.3 wants the heading hierarchy linear regardless of
+ * scroll position, and this whole narrative layer's panels already stay
+ * mounted at all times precisely so a screen reader's heading list reflects
+ * every section up front — but headings only read "linear" if they also
+ * appear in *story* order (S1→S2→S3→S4→S5→S6→S7), not DOM-insertion order.
+ * A single component mounted before InteriorOverlay would put S6/S7 ahead of
+ * S5 in that list, which is what a first pass at this (mount all of
+ * NarrativeOverlay, then InteriorOverlay, unconditionally) actually did —
+ * caught via the Fase 7 Playwright pass's own heading-order dump. Panels
+ * stay mounted at all times and fade via `data-active` (see index.css)
+ * rather than conditional rendering, so the CSS transition has something to
+ * animate both in and out of. `activeIndex` is safe to select reactively —
+ * it only changes 6 times across the page (scrollStore.ts).
  */
-export function NarrativeOverlay() {
+export function NarrativeOverlayHead() {
   const thresholdActive = useScrollStore((s) => s.activeIndex === 3)
 
   return (
@@ -97,7 +108,16 @@ export function NarrativeOverlay() {
         </Panel>
 
         <Panel index={1} side="right">
-          <div className="overlay__eyebrow">S2 — Rodaje y despegue</div>
+          {/* PLAN.md §8.3: heading hierarchy has to be linear regardless of
+              scroll position. Every other panel here has an <h1>/<h2> for
+              its section — S2 only had this eyebrow div, which would leave
+              a screen reader's heading list jumping straight from S1's
+              "MERIDIAN" to S3's "Ficha técnica" with no S2 entry at all, even
+              though there's a whole panel of engine/speed/runway data in
+              between. `.overlay__eyebrow`'s styling doesn't depend on the
+              element being a div, so promoting it to h2 is heading-level-only,
+              no visual change. */}
+          <h2 className="overlay__eyebrow">S2 — Rodaje y despegue</h2>
           <TakeoffData />
         </Panel>
 
@@ -113,30 +133,6 @@ export function NarrativeOverlay() {
             ))}
           </ul>
         </Panel>
-
-        <Panel index={5} side="right">
-          <div className="overlay__eyebrow">{EXIT_CONTENT.eyebrow}</div>
-          <h2 className="overlay__title">{EXIT_CONTENT.title}</h2>
-          <p className="overlay__body">{EXIT_CONTENT.body}</p>
-        </Panel>
-
-        <Panel index={6} side="left">
-          <p className="overlay__footer-colophon">{FOOTER_COLOPHON}</p>
-          <details className="overlay__footer-attribution">
-            <summary>{FOOTER_ATTRIBUTION.heading}</summary>
-            <p>
-              {FOOTER_ATTRIBUTION.modelCredit}
-              <br />
-              <a href={FOOTER_ATTRIBUTION.modelUrl} target="_blank" rel="noreferrer">
-                Modelo original
-              </a>
-              {' · '}
-              <a href={FOOTER_ATTRIBUTION.licenseUrl} target="_blank" rel="noreferrer">
-                CC BY 4.0
-              </a>
-            </p>
-          </details>
-        </Panel>
       </div>
 
       {/* S4: "mínimo o nulo... a lo sumo una línea" (PLAN.md §3 S4) — kept
@@ -146,5 +142,35 @@ export function NarrativeOverlay() {
         {THRESHOLD_LINE}
       </div>
     </>
+  )
+}
+
+export function NarrativeOverlayTail() {
+  return (
+    <div className="overlay">
+      <Panel index={5} side="right">
+        <div className="overlay__eyebrow">{EXIT_CONTENT.eyebrow}</div>
+        <h2 className="overlay__title">{EXIT_CONTENT.title}</h2>
+        <p className="overlay__body">{EXIT_CONTENT.body}</p>
+      </Panel>
+
+      <Panel index={6} side="left">
+        <p className="overlay__footer-colophon">{FOOTER_COLOPHON}</p>
+        <details className="overlay__footer-attribution">
+          <summary>{FOOTER_ATTRIBUTION.heading}</summary>
+          <p>
+            {FOOTER_ATTRIBUTION.modelCredit}
+            <br />
+            <a href={FOOTER_ATTRIBUTION.modelUrl} target="_blank" rel="noreferrer">
+              Modelo original
+            </a>
+            {' · '}
+            <a href={FOOTER_ATTRIBUTION.licenseUrl} target="_blank" rel="noreferrer">
+              CC BY 4.0
+            </a>
+          </p>
+        </details>
+      </Panel>
+    </div>
   )
 }

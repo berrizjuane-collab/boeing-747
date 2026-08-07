@@ -8,6 +8,7 @@ import { createDissolveHullMaterial } from '../lib/dissolveHullMaterial'
 import { EXTERIOR_LOCAL_OFFSET } from '../lib/sceneLayout'
 import { SECTIONS, localProgress } from '../lib/sections'
 import { EXIT_PORTAL, NOSE_PORTAL, portalRadius } from '../lib/thresholdPortals'
+import { reducedMotionState } from '../state/reducedMotion'
 import { useScrollStore } from '../state/scrollStore'
 
 useGLTF.setDecoderPath('/draco/')
@@ -91,9 +92,13 @@ export function ExteriorAsset() {
 
     // Cosmetic taxi vibration: time-driven (not scroll-indexed), fades out
     // as progress nears the end of S2 to read as "gear unloading" — same
-    // treatment the old placeholder used.
+    // treatment the old placeholder used. This is the "vibración de cámara
+    // en S2" PLAN.md §8.1 asks to remove under reduced motion — the plan's
+    // own §3 attributes the shake to the aircraft's pose, not a separate
+    // camera-side effect, and since the camera tracks alongside the
+    // aircraft through S2 the two read as the same shake to the viewer.
     let jitter = 0
-    if (progress >= TAXI_SECTION.start && progress < TAXI_SECTION.end) {
+    if (!reducedMotionState.active && progress >= TAXI_SECTION.start && progress < TAXI_SECTION.end) {
       const fadeOut = 1 - (progress - TAXI_SECTION.start) / (TAXI_SECTION.end - TAXI_SECTION.start)
       jitter = Math.sin(clock.elapsedTime * 40) * 0.08 * fadeOut
     }

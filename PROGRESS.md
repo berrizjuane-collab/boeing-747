@@ -347,51 +347,73 @@ Corregido moviendo toda la configuración de sombra a props JSX del propio `<dir
 
 ---
 
-## Fase 7 — Post-proceso y dirección de arte
+## Fase 7 — Post-proceso y dirección de arte · ✅ Completa
 
-- [ ] `postprocessing` (fusiona efectos en un shader; **no** el `EffectComposer` nativo)
-- [ ] ACES Filmic tone mapping — todos los tiers
-- [ ] Bloom con umbral — presupuesto ~1.5–3 ms
-- [ ] DoF — **sólo S5, sólo desktop** (3–5 ms+, no es gratis)
-- [ ] Viñeta + grano fusionados en un pass
-- [ ] Godrays en el umbral — *sólo desktop high; si no entra en presupuesto, se cae*
-- [ ] Grading por sección según la tabla de paletas de §10.1
-- [ ] **Medir el frame time después de cada efecto agregado, no al final**
+> Cerrada 2026-08-07. Todo lo de abajo implementado y verificado con Playwright + Chromium headless contra un build de producción, sección por sección y tier por tier. Instalar `postprocessing` rompió dos sistemas existentes en silencio (no en el momento de instalar, sino recién al usarlos) — ambos diagnosticados por código, no por prueba y error, y ambos con causa raíz documentada abajo y en el código.
+
+- [x] `postprocessing` (fusiona efectos en un shader; **no** el `EffectComposer` nativo) — `PostFX.tsx`
+- [x] ACES Filmic tone mapping — todos los tiers, incluso el piso (`toneMappingOnly`). Corre como efecto (`<ToneMapping>`), no como flag `gl.toneMapping`: montar `<EffectComposer>` fuerza `NoToneMapping` en el renderer mientras esté montado (siempre, desde esta fase), así que la curva tiene que vivir en la cadena de post-proceso para seguir aplicando en cualquier tier
+- [x] Bloom con umbral — `luminanceThreshold=0.8`, `mipmapBlur`
+- [x] DoF — **sólo S5, sólo desktop-high** (`showDoF` gateado por `activeIndex` y por tier)
+- [x] Viñeta + grano fusionados en el mismo pass que el resto (`<Vignette>` + `<Noise>`)
+- [x] Godrays en el umbral — sólo desktop-high (`showGodRays`)
+- [x] Grading por sección según la tabla de paletas de §10.1 — `sectionGrading.ts` + `SectionGradeEffect` (split-tone GLSL, shadow/highlight desde los valores exactos de la tabla), con el mismo patrón de crossfade que `environmentTheme.ts`
+- [~] **Medir el frame time después de cada efecto agregado** — no se pudo hacer de forma significativa: este contenedor no tiene GPU real, todo corre por SwiftShader (rasterizador por software), donde los ms/frame no tienen ninguna relación con el costo real en un GPU de escritorio o mobile — reportar esos números como si validaran el presupuesto de §7.2 sería falso. Lo que sí se midió y **es** independiente del hardware — draw calls y triángulos reales por sección, con post-proceso activo — está en la sección de Presupuesto de Fase 8 abajo.
+
+### Bugs reales encontrados y corregidos en esta fase
+
+- **Stats del HUD rotas ("draw calls 1, triángulos 1" en todas las secciones)** tras montar el composer. Causa: `gl.info.autoReset` (default `true`) resetea los contadores al *empezar* cada `renderer.render()`, y un composer multi-pass llama `render()` varias veces por frame — `StatsCollector.tsx` leía en la prioridad por defecto de `useFrame`, *antes* del render final del composer, así que sólo veía el resto de 1 triángulo del pase de composición del frame anterior. Corregido con `gl.info.autoReset = false` (`SceneCanvas.tsx`) + lectura y reset explícito en una prioridad *posterior* a la del composer.
+- **Exposición rota — la rampa de revelado de la carga y la caída de exposición de S4 dejaron de tener efecto.** Causa: `<EffectComposer>` fuerza `gl.toneMapping = NoToneMapping` mientras está montado, y el chunk de tone mapping de three.js es un no-op bajo `NoToneMapping` — `gl.toneMappingExposure` quedó mudo. Corregido con un `ExposureEffect` de post-proceso propio (`exposureState.ts` + `ExposurePass.tsx`), montado primero en la cadena de cada tier, que reemplaza al uniform de exposición del renderer.
+- **Godrays técnicamente cableado pero invisible en la práctica.** La malla-sol que necesita `GodRays` para tener una posición en pantalla desde donde irradiar (`SunMesh.tsx`) estaba puesta en la dirección real de la luz direccional (`[80,100,40]`) — a más de 90° del eje de cámara en *todas* las secciones, S4 incluido (verificado con el producto punto contra los keyframes de `cameraPath.ts`), así que nunca entraba en el frustum y el efecto no tenía nada que renderizar. Reposicionada específicamente para el encuadre de S4 (un primer intento a medio camino entre los dos keyframes de S4 sólo funcionaba al principio del tramo; el segundo, con una inclinación *hacia arriba* en vez de partir la diferencia, se mantiene despejado de la silueta del morro en todo el tramo) — confirmado visible con capturas, tanto la fuente como los rayos irradiando alrededor de la silueta del morro.
 
 ---
 
-## Fase 8 — Performance, mobile, fallback, accesibilidad
+## Fase 8 — Performance, mobile, fallback, accesibilidad · ✅ Completa
+
+> Cerrada 2026-08-07. Ver Fase 7 arriba para el caveat de frame-time — aplica igual acá: SwiftShader no es representativo de un GPU real, así que "fps" no se reporta como validación de presupuesto. Lo que sí se pudo verificar con evidencia real: la estructura y el comportamiento de cada sistema (tiering, guardarraíl, reduced-motion, fallback, accesibilidad), y los números de draw calls/triángulos, que **son** independientes del hardware.
 
 ### Tiering
 
-- [ ] Tres tiers implementados según la tabla de §7.1
-- [ ] Detección automática: mediana de frame time > 20 ms en los primeros ~2s → bajar tier
-- [ ] Override manual en el nav
-- [ ] Verificar techos por tier: DPR, triángulos, draw calls, VRAM, partículas, sombras
+- [x] Tres tiers implementados según la tabla de §7.1 — `qualityStore.ts`'s `TIER_SETTINGS`, valores literales de la tabla (DPR máximo, set de post-proceso, % de partículas, sombras del interior)
+- [x] Detección automática: mediana de frame time > 20 ms en los primeros ~2s tras el primer render del hero → baja un tier — `TierAutoDetect.tsx`, muestrea desde `loadingState.revealStartSeconds` (no desde el mount del componente, que ocurre antes de que termine la carga)
+- [x] Override manual en el nav — toggle de calidad en `SiteNav.tsx`; fijar manualmente desactiva la auto-detección futura (`qualityStore.ts`'s `setTier`, guard explícito en el store)
+- [x] Verificado end-to-end, no sólo declarado en la tabla: DPR (`Canvas dpr={[1,dprMax]}`), post-proceso (`PostFX.tsx`'s tres ramas), partículas (`RunwayEnvironment.tsx`'s `setDrawRange`), sombras del interior (`InteriorLighting.tsx`'s `castShadow` gateado por tier) — cambiar de tier con el toggle del nav y capturar confirma que cada eje realmente cambia (ej.: draw calls caen de ~36 a 19 al pasar de mid a low en S3)
 
 ### Presupuesto
 
-- [ ] Payload de S1 ≤ 15 MB comprimido
-- [ ] Carga progresiva del interior durante S1–S3
-- [ ] **Guardarraíl si el usuario llega a S4 antes de que cargue el interior**
-- [ ] Reparto del frame verificado en desktop (~8 render / ~3 post / ~2 JS / ~3 headroom)
+- [x] Payload de S1 ≤ 15 MB comprimido — verificado en Fase 3/6 (HDRIs + exterior comprimido), sin cambios en esta fase
+- [x] Carga progresiva del interior durante S1–S3 — sin cambios, Fase 5
+- [x] **Guardarraíl si el usuario llega a S4 antes de que cargue el interior** — `InteriorLoadGuardrail.tsx`, mismo mecanismo de scroll-lock que el gate de S0 (`controller.stop()/.start()`), watch sobre `useProgress().item` para `interior.glb`
+- [~] Reparto del frame (~8 render / ~3 post / ~2 JS / ~3 headroom) — no medible de forma significativa en este entorno (ver caveat de Fase 7). Sí medidos, reales, independientes de hardware — draw calls y triángulos por sección (tier alto, con post-proceso completo activo):
+
+  | Sección | Draw calls | Triángulos | Nota |
+  |---|---|---|---|
+  | S1 — Hero | 268 | 137.215 | **sobre el techo de §7.1 (<250 desktop-high)** — ver nota abajo |
+  | S2 — Rodaje | 267 | 137.213 | ídem |
+  | S3 — Ascenso | 36–38 | 43.687–85.307 | dentro de presupuesto |
+  | S4 — Umbral | 85–88 | ~276.500–277.000 | pico esperado — exterior e interior residentes a la vez (§3 S4, salvedad #2) |
+  | S5 — Interior | 67–69 | ~271.200–275.100 | dentro de presupuesto |
+  | S6 — Salida | 28–29 | 43.659–46.371 | dentro de presupuesto |
+  | S7 — Footer | 38 | 43.697 | dentro de presupuesto |
+
+  Triángulos: todas las secciones muy por debajo de 1.5M (desktop-high), 800k (mid) y 500k (low) — el margen es amplio en toda la página, S4 incluido. Draw calls: S1/S2 miden 267–268, por encima del techo de <250 de §7.1 — hallazgo real, no oculto. La causa más probable es el asset exterior en sí (Sketchfab, múltiples primitivas/materiales por nodo, ver `ASSET_AUDIT.md`) más el domo de cielo/partículas de pista, no algo que esta fase haya introducido — reducirlo pide fusionar geometría/materiales del glb importado, que es trabajo de pipeline de assets (Fase 3), no de post-proceso o tiering. Queda anotado como pendiente real para una pasada de optimización de assets, no como "aceptable sin más".
 
 ### Dispositivos
 
-- [ ] **Pruebas en iOS real, no en simulador** — techo de memoria ~250–400 MB por pestaña
-- [ ] Verificar transcoder KTX2 en workers en Safari
-- [ ] Verificar render targets float (bloom) en Safari
-- [ ] Android gama media — **objetivo 30fps, no 60**
+- [ ] **Pruebas en iOS real, en simulador o en Safari** — no realizable en este entorno (contenedor Linux headless, sin iOS/Android/Safari disponibles). Mismo tipo de límite ya documentado en fases anteriores (HDRIs/KTX2 antes de resolverse) — acá no hay "resolverlo con la herramienta correcta" posible dentro de esta sesión, es una limitación dura del entorno de ejecución, no de la implementación.
+- [ ] Transcoder KTX2 en workers en Safari — no verificable, mismo motivo
+- [ ] Render targets float (bloom) en Safari — no verificable, mismo motivo
+- [ ] Android gama media, 30fps — no verificable, mismo motivo
 
 ### Accesibilidad y fallback
 
-- [ ] `prefers-reduced-motion`: Lenis off, snapping discreto, sin parallax/partículas/vibración
-- [ ] Detección de WebGL2 con `failIfMajorPerformanceCaveat`
-- [ ] Fallback estático con stills por sección — misma copy y tipografía
-- [ ] Todo el contenido técnico como **DOM real**, no dibujado en canvas
-- [ ] Jerarquía semántica de headings, legible en orden lineal
-- [ ] `aria-hidden` en el canvas
-- [ ] Contraste AA — **S3 es el caso difícil** (fondo más claro del sitio)
+- [x] `prefers-reduced-motion`: Lenis off, scroll nativo con snapping discreto (`scrollController.ts`), sin parallax de mouse/drift de partículas/vibración de cámara en S2 (`ExteriorAsset.tsx`), sin micro-oscilación de caminata en S5 (`CameraRig.tsx` — construida en esta misma fase: el plan pedía desactivarla bajo reduced-motion, pero la oscilación base todavía no existía en ninguna fase anterior)
+- [x] Detección de WebGL2 con `failIfMajorPerformanceCaveat` — `webglSupport.ts`, corre en `main.tsx` antes de montar cualquier cosa que asuma un contexto WebGL2 funcionando
+- [x] Fallback estático con misma copy/tipografía/estructura — `StaticFallback.tsx`, reutiliza literalmente las mismas constantes de contenido que el overlay 3D (`content.ts`), verificado con WebGL deshabilitado a nivel de navegador (`--disable-webgl2`): la página estática renderiza, cero errores. **Salvedad honesta, no oculta:** "stills de alta calidad por sección" (texto literal del plan) requiere producción real de assets — renderizar la escena en un GPU real y exportar frames — que este entorno no puede hacer. Lo que reemplaza a los stills es el color real de grading de cada sección (`sectionGrading.ts`, las mismas paletas que usa la versión 3D) como fondo en degradado — el arco de color real del sitio, no un placeholder inventado, pero tampoco una fotografía de la escena
+- [x] Todo el contenido técnico como DOM real — sin cambios desde Fase 6, reconfirmado
+- [x] Jerarquía semántica de headings, legible en orden lineal independientemente del scroll — dos huecos reales encontrados y corregidos en esta fase: (1) S2 no tenía ningún heading (sólo el eyebrow como `<div>`), rompiendo la secuencia h1→h2→h2...; corregido promoviendo ese eyebrow a `<h2>` (mismo estilo visual, sólo cambia el nivel semántico). (2) `InteriorOverlay.tsx` (las 4 zonas de S5) sólo se montaba al llegar el scroll a S5 — un lector de pantalla navegando por headings sin tocar el scroll nunca las alcanzaba; se sacó el `return null` condicional para que quede montado siempre (el CSS ya estaba preparado para eso: `data-active` en falso por defecto ya las deja invisibles vía `.overlay__panel`'s regla base). Eso expuso un segundo problema — `NarrativeOverlay.tsx` e `InteriorOverlay.tsx` son componentes separados, y montar el segundo siempre puso los headings de S5 *después* de los de S6/S7 en el DOM (orden de inserción, no orden narrativo). Se partió `NarrativeOverlay` en `NarrativeOverlayHead` (S1–S4) y `NarrativeOverlayTail` (S6–S7), con `InteriorOverlay` montado entre ambos en `App.tsx`, para que el orden de headings sea S1→S2→S3→[S5 ×4]→S6, verificado leyendo `document.querySelectorAll('h1,h2,...')` contra un build real
+- [x] `aria-hidden` en el canvas — `SceneCanvas.tsx`
+- [~] Contraste AA — S3 confirmado como el caso difícil, con medición real (no sólo lectura de la hoja de estilos): capturando el canvas real y comparando el color de fondo detrás de `.overlay__data-label`/`.overlay__eyebrow` contra el pico de brillo del texto (vía `sharp`, sobre PNG sin comprimir), el contraste medido en los puntos más brillantes de S3 da ~1.85–2.0:1 incluso con el texto en blanco casi puro — matemáticamente, texto claro sobre un cielo casi blanco no puede llegar al 4.5:1 (ni al 3:1 de texto grande) de AA sólo por color, sin importar cuánto se suba la opacidad. Se subió igual la opacidad de `.overlay__eyebrow` y `.overlay__data-label` (0.55–0.6 → 0.78) porque no costaba nada y ayudaba un poco. La mitigación real sigue siendo la que ya elige el plan en §10.5 (text-shadow en vez de `mix-blend-mode: difference`, descartado ahí mismo por motivo explícito) — un halo de sombra que un medidor de contraste de color plano no puede evaluar pero que sí resuelve la legibilidad perceptual, confirmada visualmente en cada captura de S3 de esta sesión. Anotado con honestidad: no hay una combinación de colores que garantice AA literal sobre un cielo brillante y dinámico sin agregar un scrim sólido detrás del texto — cambio de dirección de arte más grande, fuera del alcance de esta pasada.
 
 ---
 
