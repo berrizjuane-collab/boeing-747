@@ -9,6 +9,7 @@ import {
   INTERIOR_ZONES,
   SPEC_SHEET,
   TAKEOFF_DATA,
+  TECHNICAL_SOURCES,
   THRESHOLD_LINE,
 } from '../lib/content'
 import { SECTION_GRADES } from '../lib/sectionGrading'
@@ -184,6 +185,18 @@ export function StaticFallback() {
                 CC BY 4.0
               </a>
             </p>
+          </details>
+          <details className="fallback__footer-attribution">
+            <summary>Fuentes técnicas</summary>
+            <ul className="fallback__source-list">
+              {TECHNICAL_SOURCES.map((source) => (
+                <li key={source.url}>
+                  <a href={source.url} target="_blank" rel="noreferrer">
+                    {source.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
           </details>
         </div>
       </footer>
