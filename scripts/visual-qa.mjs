@@ -49,52 +49,38 @@ async function setProgress(page, progress) {
 async function screenshot(page, name, progress) {
   await setProgress(page, progress)
   const target = path.join(outputDir, name)
-  await page.screenshot({ path: target, fullPage: false, animations: 'disabled', timeout: 120_000 })
+  await page.screenshot({ path: target, fullPage: false, animations: 'disabled', timeout: 180_000 })
   report.captures.push({ name, progress })
+}
+
+async function setQuality(page, target) {
+  const control = page.locator('.site-nav__quality')
+  if (!(await control.count())) return
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const label = (await control.textContent())?.toLowerCase() ?? ''
+    if (label.includes(target)) return
+    await control.click()
+    await page.waitForTimeout(400)
+  }
 }
 
 const desktop = await browser.newContext({
   viewport: { width: 1440, height: 900 },
   deviceScaleFactor: 1,
-  recordVideo: { dir: outputDir, size: { width: 1280, height: 800 } },
 })
 const desktopPage = await desktop.newPage()
 await openReady(desktopPage, 'desktop')
 
-const desktopShots = [
+for (const [name, progress] of [
   ['01-hero.png', 0.01],
   ['02-takeoff.png', 0.19],
   ['03-spec-sheet.png', 0.36],
   ['04-threshold.png', 0.47],
   ['05-interior.png', 0.66],
   ['06-sunset-outro.png', 0.91],
-]
-for (const [name, progress] of desktopShots) await screenshot(desktopPage, name, progress)
-
-await desktopPage.evaluate(async () => {
-  const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
-  const max = document.documentElement.scrollHeight - window.innerHeight
-  const ranges = [
-    [0.01, 0.30, 5200],
-    [0.38, 0.56, 5200],
-    [0.58, 0.96, 7200],
-  ]
-  for (const [start, end, duration] of ranges) {
-    window.scrollTo({ top: max * start, behavior: 'instant' })
-    await delay(900)
-    const began = performance.now()
-    while (performance.now() - began < duration) {
-      const t = Math.min(1, (performance.now() - began) / duration)
-      const eased = t * t * (3 - 2 * t)
-      window.scrollTo({ top: max * (start + (end - start) * eased), behavior: 'instant' })
-      await delay(33)
-    }
-    await delay(700)
-  }
-})
-const recordedVideo = desktopPage.video()
-await desktopPage.close()
-if (recordedVideo) await recordedVideo.saveAs(path.join(outputDir, 'meridian-complete-tour.webm'))
+]) {
+  await screenshot(desktopPage, name, progress)
+}
 await desktop.close()
 
 const mobile = await browser.newContext({
@@ -116,6 +102,40 @@ for (const [name, progress] of [
   await screenshot(mobilePage, name, progress)
 }
 await mobile.close()
+
+const video = await browser.newContext({
+  viewport: { width: 960, height: 600 },
+  deviceScaleFactor: 1,
+  recordVideo: { dir: outputDir, size: { width: 960, height: 600 } },
+})
+const videoPage = await video.newPage()
+await openReady(videoPage, 'video')
+await setQuality(videoPage, 'low')
+await videoPage.evaluate(async () => {
+  const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+  const max = document.documentElement.scrollHeight - window.innerHeight
+  const ranges = [
+    [0.01, 0.30, 5200],
+    [0.38, 0.56, 5200],
+    [0.58, 0.96, 7200],
+  ]
+  for (const [start, end, duration] of ranges) {
+    window.scrollTo({ top: max * start, behavior: 'instant' })
+    await delay(900)
+    const began = performance.now()
+    while (performance.now() - began < duration) {
+      const t = Math.min(1, (performance.now() - began) / duration)
+      const eased = t * t * (3 - 2 * t)
+      window.scrollTo({ top: max * (start + (end - start) * eased), behavior: 'instant' })
+      await delay(33)
+    }
+    await delay(700)
+  }
+})
+const recordedVideo = videoPage.video()
+await videoPage.close()
+if (recordedVideo) await recordedVideo.saveAs(path.join(outputDir, 'meridian-complete-tour.webm'))
+await video.close()
 
 await browser.close()
 await writeFile(path.join(outputDir, 'visual-qa-report.json'), JSON.stringify(report, null, 2))
