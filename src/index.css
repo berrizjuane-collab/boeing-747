@@ -150,7 +150,7 @@ body {
      boundary. A definite width forces the box itself to stay inside the
      track no matter the content, which is what lets overflow-wrap below
      actually engage instead of never being asked to. */
-  width: min(38ch, 100%);
+  width: 100%;
   padding: 0 clamp(24px, 5vw, 96px);
   overflow-wrap: anywhere;
   /* Every left-side (or right-side) panel across S1/S3/S7 (or S2/S6) is a
@@ -226,6 +226,7 @@ body {
   letter-spacing: -0.03em;
   line-height: 1;
   margin: 0;
+  white-space: nowrap;
 }
 
 .overlay__title {
@@ -1105,8 +1106,9 @@ body {
 
 @media (max-width: 720px) {
   .overlay {
-    display: flex;
-    align-items: flex-end;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: end;
     padding: 72px 16px 22px;
   }
 
@@ -1117,6 +1119,8 @@ body {
     padding: 0;
     text-align: left;
     justify-self: stretch;
+    grid-column: 1;
+    grid-row: 1;
   }
 
   .overlay__panel {
@@ -1150,7 +1154,7 @@ body {
   }
 
   .overlay__title--hero {
-    font-size: clamp(2.5rem, 13vw, 4.2rem);
+    font-size: clamp(2.35rem, 12vw, 3.6rem);
   }
 
   .overlay__title {
