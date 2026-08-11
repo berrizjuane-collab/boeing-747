@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint src",
     "preview": "vite preview",
-    "process-glb": "node scripts/process-glb.mjs"
+    "process-glb": "node scripts/process-glb.mjs",
+    "qa:visual": "node scripts/visual-qa.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",

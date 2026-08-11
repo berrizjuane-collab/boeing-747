@@ -10,20 +10,30 @@ registro de sesiones).
 
 ## Estado actual
 
-Las 10 fases de [`PLAN.md`](./PLAN.md) §13 (0–9) están completas. Exterior
-real (el binario fuente está en `blender/source/`, ver más abajo), tres HDRI
-reales — golden hour, gran altitud y atardecer, las tres generadas
-proceduralmente con el cielo físico de Cycles, no descargadas
-(`blender/generate_hdri.py`) —, KTX2/Basis genuino en el artefacto exterior
-final, umbral (Fase 4) con geometría real de ambos lados y marco de puerta en
-los dos portales, recorrido interior completo (Fase 5: iluminación de
-cabina, sombras, LOD de corredor con *fade-out* real, mesetas de easing por
-zona), la capa DOM completa de Fase 6 (overlays narrativos y por zona,
-hotspots con gating por banda de dwell, pantalla de carga con progreso
-ponderado, nav fijo con salto a sección), post-proceso y dirección de arte
-(Fase 7), tiering/accesibilidad/fallback estático (Fase 8), y datos técnicos
-verificados contra fuentes primarias con copy final (Fase 9). Detalle
-completo, fase por fase, en [`PROGRESS.md`](./PROGRESS.md).
+Fases 0–9 implementadas. El recorrido integra exterior e interior reales,
+tres HDRI procedurales, KTX2/Basis, cruce de umbral, postproceso por tier,
+overlays narrativos, hotspots, fallback sin WebGL2, accesibilidad y copy
+técnica verificada contra fuentes primarias de Airbus y Rolls-Royce.
+
+La auditoría final añadió una pasada responsive específica para teléfono,
+un fondo de contraste medido para las fichas de datos y un flujo de QA
+reproducible que compila, ejecuta el build de producción y captura el
+recorrido en escritorio y móvil.
+
+**Caveats conocidos:** la validación en Safari/iOS y Android físicos sigue
+requiriendo dispositivos reales; S1/S2 superan ligeramente el objetivo de
+draw calls por la fragmentación del asset exterior; y cuatro anclas de
+hotspots de economy merecen una futura pasada de autoría visual. Ninguno
+impide ejecutar el producto, pero permanecen documentados en
+[`PROGRESS.md`](./PROGRESS.md).
+
+> **Ronda 2 en curso — leer antes de dar el sitio por terminado.** Las 10
+> fases de la ronda 1 están cerradas, pero una auditoría posterior concluyó
+> que el resultado visual todavía se lee como un boceto estructural, por
+> debajo del estándar del brief. El diagnóstico de causa raíz y el plan de
+> corrección viven en [`plan2.md`](./plan2.md), con su checklist en
+> [`progress2.md`](./progress2.md) — **esos son los documentos activos**;
+> `PLAN.md` y `PROGRESS.md` quedan como registro cerrado de la ronda 1.
 
 ## Desarrollo
 
@@ -32,6 +42,7 @@ npm install
 npm run dev       # servidor de desarrollo — abre en /boeing-747/, no en la raíz (ver "Deploy" más abajo)
 npm run build     # build de producción (tsc + vite build)
 npm run preview   # sirve dist/ localmente, mismo base path que producción
+npm run qa:visual # capturas y recorrido grabado contra un preview local
 npm run process-glb -- <in.glb> <out.glb>   # pipeline de assets: prune/dedup/weld/instance/Draco/KTX2
 ```
 

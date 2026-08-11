@@ -1,0 +1,77 @@
+name: Final visual QA
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: final-visual-qa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  final-visual-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium and media tools
+        run: |
+          npx playwright install --with-deps chromium
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Static checks
+        run: |
+          npm run lint
+          npm run build
+
+      - name: Start production preview
+        run: |
+          npm run preview -- --host 127.0.0.1 > /tmp/meridian-preview.log 2>&1 &
+          for attempt in {1..60}; do
+            if curl --fail --silent http://127.0.0.1:4173 >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/meridian-preview.log
+          exit 1
+
+      - name: Capture final product
+        run: npm run qa:visual
+
+      - name: Cut short MP4 clips
+        run: |
+          ffmpeg -y -i artifacts/final-visuals/meridian-complete-tour.webm -ss 00:00:02 -t 00:00:06 -an -c:v libx264 -crf 22 -pix_fmt yuv420p -movflags +faststart artifacts/final-visuals/clip-01-exterior.mp4
+          ffmpeg -y -i artifacts/final-visuals/meridian-complete-tour.webm -ss 00:00:09 -t 00:00:06 -an -c:v libx264 -crf 22 -pix_fmt yuv420p -movflags +faststart artifacts/final-visuals/clip-02-threshold.mp4
+          ffmpeg -y -i artifacts/final-visuals/meridian-complete-tour.webm -ss 00:00:16 -t 00:00:07 -an -c:v libx264 -crf 22 -pix_fmt yuv420p -movflags +faststart artifacts/final-visuals/clip-03-interior-outro.mp4
+
+      - name: Archive preview log
+        if: always()
+        run: |
+          mkdir -p artifacts/final-visuals
+          cp /tmp/meridian-preview.log artifacts/final-visuals/preview.log
+
+      - name: Upload screenshots and clips
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: meridian-final-visuals
+          path: artifacts/final-visuals
+          if-no-files-found: error
+          retention-days: 30

@@ -6,6 +6,7 @@ import {
   HERO_CONTENT,
   SPEC_SHEET,
   TAKEOFF_DATA,
+  TECHNICAL_SOURCES,
   THRESHOLD_LINE,
 } from '../lib/content'
 import { localProgress, SECTIONS } from '../lib/sections'
@@ -169,6 +170,18 @@ export function NarrativeOverlayTail() {
               CC BY 4.0
             </a>
           </p>
+        </details>
+        <details className="overlay__footer-attribution">
+          <summary>Fuentes técnicas</summary>
+          <ul className="overlay__footer-sources">
+            {TECHNICAL_SOURCES.map((source) => (
+              <li key={source.url}>
+                <a href={source.url} target="_blank" rel="noreferrer">
+                  {source.label}
+                </a>
+              </li>
+            ))}
+          </ul>
         </details>
       </Panel>
     </div>

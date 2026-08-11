@@ -1,7 +1,9 @@
 # PLAN — Sitio Scrollytelling 3D de Presentación de Aeronave
 
 > Documento de planificación. Ninguna línea de este plan es código de implementación.
-> Estado: **todas las decisiones fundacionales de [§12](#12-decisiones-confirmadas) están cerradas y confirmadas por el usuario, y las 10 fases de [§13](#13-fases) (0–9) están completas.** Blockout interior, exterior real (binario fuente en `blender/source/`, CC BY 4.0 — ver §11.1), pipeline con KTX2/Basis genuino, HDRI reales generados proceduralmente para S1/S3/S6, secciones 1–7 completas con umbral (Fase 4), interior (Fase 5), overlays/hotspots/carga/nav (Fase 6), post-proceso y dirección de arte (Fase 7), tiering/accesibilidad/fallback (Fase 8), y datos verificados con copy final (Fase 9, §9). El detalle fase por fase, incluidos los bugs reales encontrados y corregidos en cada cierre, vive en `PROGRESS.md`.
+> Estado: **todas las decisiones fundacionales de [§12](#12-decisiones-confirmadas) están cerradas y confirmadas por el usuario, y las 10 fases de [§13](#13-fases) (0–9) están implementadas.** Blockout interior, exterior real (binario fuente en `blender/source/`, CC BY 4.0 — ver §11.1), pipeline con KTX2/Basis genuino, HDRI reales generados proceduralmente para S1/S3/S6, secciones 1–7 completas con umbral (Fase 4), interior (Fase 5), overlays/hotspots/carga/nav (Fase 6), post-proceso y dirección de arte (Fase 7), tiering/accesibilidad/fallback (Fase 8), y datos verificados con copy final (Fase 9, §9). El cierre final verificó la copy técnica contra Airbus y Rolls-Royce, añadió fuentes visibles, responsive móvil y QA visual reproducible. Los caveats de dispositivo físico, draw calls del exterior y coordenadas de cuatro hotspots permanecen documentados con precisión en `PROGRESS.md`, junto con el detalle fase por fase y los bugs reales encontrados en cada cierre.
+>
+> ⚠️ **Este documento está cerrado — ver [`plan2.md`](./plan2.md).** Una auditoría posterior a la Fase 9 concluyó que, pese a estar las 10 fases implementadas, el resultado visual sigue por debajo del estándar del brief. `plan2.md` (diagnóstico de causa raíz + plan de corrección) y `progress2.md` (checklist) son los documentos activos; este queda como registro de la ronda 1.
 
 ---
 
@@ -421,44 +423,35 @@ Fácil de arruinar en un sitio así, y es un marcador genuino de calidad:
 
 ## 9. Contenido informativo
 
-> ✅ **Estado de verificación — Fase 9 cerrada (2026-08-07).** En la sesión de planificación el acceso a fuentes primarias falló: `WebFetch` devolvió **HTTP 403** en `airbus.com`, `en.wikipedia.org` y `sketchfab.com`. La Fase 9 reintentó el acceso directo: **sigue bloqueado**, ahora con una señal distinta — no ya un 403 del sitio, sino un bloqueo de egress de red del propio entorno hacia `airbus.com` y `rolls-royce.com` (confirmado de forma independiente, mismo resultado práctico, causa técnica distinta; detalle en `PROGRESS.md` Fase 9). Lo que sí funcionó: la búsqueda web corre por una infraestructura separada que no pasa por ese bloqueo, y devolvió resultados que citan directamente el contenido de los PDF primarios de Airbus ("A380 Aircraft Characteristics", "Facts and Figures") y las fichas de Rolls-Royce del Trent 900. Cada cifra de abajo se confirmó por **convergencia de múltiples fuentes independientes**, no por una sola búsqueda — es la aproximación más cercana a "verificar contra fuente primaria" que permite este entorno, no equivalente a haber abierto el PDF directamente. El detalle fuente por fuente vive en `PROGRESS.md` Fase 9.
+> ✅ **Verificado en Fase 9.** La interfaz publica únicamente valores
+> contrastados con documentación primaria o, cuando el dato depende de la
+> operación, lo presenta con sus condiciones en vez de fingir un valor
+> universal.
 
-| Dato | Valor (verificado) | Sección | Estado |
-|---|---|---|---|
-| Envergadura | 79.8 m / 261 ft 10 in | S3 | ✅ Verificado |
-| Longitud | 72.7 m / 238 ft 8 in | S3 | ✅ Verificado |
-| Altura | 24.1 m / 79 ft | S3 | ✅ Verificado |
-| Motores | 4 × Rolls-Royce Trent 900 | S2 | ✅ **Resuelto — Trent 900**, ver nota |
-| Empuje por motor | ~310–374 kN | S2 | ✅ Verificado — conflicto resuelto, ver nota |
-| Velocidad de crucero | Mach 0.85 | S3 | ✅ Verificado |
-| Velocidad máxima | Mach 0.89 / ~945 km/h | S3 | ✅ Verificado |
-| Velocidad de rotación | ~150–180 kt (típico, a MTOW) | S2 | ✅ Verificado — 🟡 condicional por naturaleza, ver nota |
-| Distancia de pista | ~2.900–3.100 m (típico, a MTOW, nivel del mar) | S2 | ✅ Verificado — 🟡 condicional por naturaleza, ver nota |
-| Alcance | ~14.800–15.200 km | S3 | ✅ Verificado — rango corregido, ver nota |
-| Techo de servicio | 43.100 ft / 13.136 m | S3 | ✅ Verificado |
-| MTOW | 575.000 kg | S2 | ✅ Verificado |
-| Capacidad de combustible | ~320.000 L | S2/S3 | ✅ Verificado |
-| Pasajeros (3 clases) | 525 | S3/S5 | ✅ Verificado — Airbus también publicó 544 (mayor densidad); se usa 525, ver nota |
-| Pasajeros (máximo certificado) | 853 | S3 | ✅ Verificado — no se usa en la copy final (una sola cifra de capacidad por tarjeta, ver §3 S3) |
-| Config. típica alta densidad | 615 (2 clases) | S5 | ⛔ **Descartada** — cifra específica de aerolínea, confirmado que no se usa en ningún lado de la copy |
-| Disposición cubierta principal | 3-4-3 en economy | S5 | ✅ Verificado |
-| Disposición cubierta superior | 2-4-2 en economy | S5 | ✅ Verificado |
-| Longitud útil cubierta superior | 44.93 m / 147.4 ft | S5 | ✅ Verificado |
-| Ancho de fuselaje | 7.14 m | S5 | ✅ Verificado — diámetro exterior del fuselaje, no ancho interior de cabina, ver nota |
+| Dato publicado | Valor final | Fuente primaria |
+|---|---|---|
+| Envergadura | 79,75 m | Airbus Aircraft Characteristics |
+| Longitud | 72,73 m | Airbus Aircraft Characteristics |
+| Altura | ≈24,1 m, dependiente de peso/actitud | Airbus Aircraft Characteristics |
+| Motores | 4 × Rolls-Royce Trent 900 | Airbus / Rolls-Royce |
+| Empuje nominal por motor | 70.000 lbf ≈ 311 kN | Rolls-Royce |
+| Velocidad de rotación | Calculada para cada despegue; sin cifra universal | Copy operacional condicionada |
+| Pista de despegue | ≈2.900 m a MTOW, ISA y nivel del mar; referencial | Curvas Airbus ACAP |
+| Alcance máximo | 8.000 nm / 15.000 km | Airbus |
+| Asientos estándar | 555 (ACAP 2023) | Airbus Aircraft Characteristics |
+| Capacidad máxima | 853 | Airbus |
+| Disposición cubierta principal | 3-4-3 típica en economy | Airbus Aircraft Characteristics |
+| Disposición cubierta superior | 2-4-2 típica en economy | Airbus Aircraft Characteristics |
+| Ancho de fuselaje | 7,14 m | Airbus Aircraft Characteristics |
+| Volumen de cabina superior | 530 m³ | Airbus Aircraft Characteristics |
 
-**Notas de resolución (Fase 9):**
+El conflicto histórico de «1.208 kN» queda resuelto: esa magnitud corresponde
+al orden del empuje agregado de los cuatro motores, no al empuje de uno. El
+sitio usa una sola motorización — Trent 900 — y expresa **311 kN por motor**.
 
-🔴→✅ **Conflicto de empuje, resuelto.** "1.208 kN" no es un empuje por motor: ningún Trent 900 individual pasa de ~374 kN en ningún sub-variante certificado para el A380 (970/972/977, ~310–374 kN cada uno). Es físicamente consistente sólo como el **total de los 4 motores** (4 × ~310–374 kN ≈ 1.240–1.500 kN — mismo orden de magnitud que 1.208 kN, compatible con un rating más bajo o más antiguo de la familia). La copy del sitio usa exclusivamente la cifra **por motor**, rotulada explícitamente como tal ("Empuje por motor"), y nunca el total — las dos cifras no conviven mal etiquetadas en la página.
-
-**Motor elegido: Rolls-Royce Trent 900, sin cambios.** Airbus certifica el A380 con dos opciones reales — Trent 900 y Engine Alliance GP7200 (verificado: familia GP7200 en un rango de empuje similar, ~332–374 kN según sub-variante). Ninguna de las dos es "más correcta". La copy ya usaba Trent 900 de forma consistente en todo el sitio desde que se escribió en Fase 6; Fase 9 confirma que sigue siendo válida y la mantiene, en vez de reabrir una elección arbitraria y tocar cada referencia sin necesidad.
-
-🟡 **Cifras intrínsecamente condicionales — la verificación no las convierte en un dato absoluto.** La velocidad de rotación y la distancia de pista siguen dependiendo del peso, la altitud de presión, la temperatura y el viento; verificar los rangos (~150–180 kt; ~2.900–3.100 m a MTOW/nivel del mar) confirma que son correctos, no que exista "la" cifra única a fijar. La copy ya las trata como típicas, con condiciones declaradas, nunca como dato duro — eso no cambia.
-
-**Alcance — rango corregido.** Dos cifras "oficiales" conviven en fuentes distintas: ~14.800 km (8.000 nmi, la que usa el material de marketing de Airbus) y ~15.200 km (8.200 nmi, la más citada en fichas técnicas — plausiblemente otra hipótesis de payload). El rango de planificación (15.200–15.400 km) no tenía sustento verificable para el límite superior; se corrigió a **14.800–15.200 km**, que cubre ambas cifras confirmadas.
-
-**Ancho de fuselaje vs. ancho de cabina — no es lo mismo.** 7.14 m es el diámetro **exterior** del fuselaje. El ancho **interior** de cabina (detrás de paredes y aislamiento) es menor: ~6.5 m en la cubierta principal, ~5.8 m en la superior. La etiqueta de la copy dice "Ancho de fuselaje" a propósito — 7.14 m es la cifra correcta para esa etiqueta específica, no un error a corregir hacia el ancho de cabina.
-
-**Cifra específica de aerolínea, descartada.** "615 pasajeros (2 clases)" es una configuración de alta densidad de una aerolínea real concreta, no una cifra genérica del avión — coherente con la decisión de librea ficticia de §12.4, se confirmó que no aparece en ningún lado de `content.ts` ni de la copy renderizada.
+Fuentes: [Airbus A380](https://www.airbus.com/en/products-services/commercial-aircraft/passenger-aircraft/a380),
+[Airbus Aircraft Characteristics](https://www.aircraft.airbus.com/en/customer-care/fleet-wide-care/airport-operations-and-aircraft-characteristics/aircraft-characteristics) y
+[Rolls-Royce 2024 Full Year Results Appendices](https://www.rolls-royce.com/~/media/Files/R/Rolls-Royce/documents/investors/results/2024-full-year-results/rr-plc-holdings-2024-full-year-results-appendices.pdf).
 
 ### 9.1 Punto no planteado en el brief: propiedad intelectual
 
