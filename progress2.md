@@ -8,6 +8,16 @@ Convención: `[ ]` pendiente · `[~]` en curso · `[x]` completo **con evidencia
 
 ---
 
+## ⚠️ Trampa de verificación descubierta al mergear — leer antes de creerle a una captura
+
+En este entorno no hay GPU: todo corre por **SwiftShader** (rasterizador por software). El shader del fuselaje (MeshStandardMaterial + textura KTX2 + los chunks inyectados del disolve) tarda **~45 segundos en compilar**. Hasta que compila, three.js **no dibuja ese objeto**, pero sí dibuja todo lo demás — cielo, suelo, marcas de pista, overlays.
+
+El resultado es una captura que parece perfectamente válida (0 errores de consola, 0 fallos de red, escena renderizada) **pero sin el avión**. Durante el merge esto costó una investigación completa: se llegó a concluir que había una regresión que dejaba la aeronave invisible, se bisectó el material, se probó con un `MeshBasicMaterial` rojo, y sólo al instrumentar posición/visibilidad en runtime quedó claro que la geometría siempre estuvo ahí, visible y bien ubicada (`hullWorld=(0, 5.2, 4.7)`, `radius=42.8`, `camPos=(60, 8, 55)`) — lo que faltaba era **tiempo de compilación**, no código.
+
+**Regla para toda captura de esta ronda:** esperar ≥55 s tras la carga antes del primer screenshot, y ≥10 s tras cada cambio de scroll. Una captura tomada antes de eso **no es evidencia de nada** y no puede usarse para marcar ni para descartar un ítem. Si `npm run qa:visual` (el harness heredado de la ronda 1) no respeta esos tiempos, corregirlo es prerequisito de la Fase A — de lo contrario todo el checklist de abajo se verifica contra imágenes falsas.
+
+---
+
 ## Regla de marcado — leer antes de tocar una casilla
 
 Un ítem sólo pasa a `[x]` si junto a él queda registrada la **evidencia concreta** que lo respalda: captura a un porcentaje de scroll específico, medición numérica, o resultado de un assert automatizado. La columna "Evidencia" no es opcional y no acepta "verificado" a secas.
