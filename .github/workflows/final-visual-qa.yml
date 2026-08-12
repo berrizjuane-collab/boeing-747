@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     # SwiftShader screenshots intentionally wait for real shader completion;
     # leave headroom for slower shared runners instead of truncating evidence.
-    timeout-minutes: 40
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@v4

@@ -12,6 +12,11 @@ const outputDir = path.resolve(process.env.VISUAL_QA_DIR ?? 'artifacts/final-vis
 // safe defaults used by CI and this headless workspace.
 const initialSettleMs = Number(process.env.VISUAL_QA_INITIAL_SETTLE_MS ?? 55_000)
 const scrollSettleMs = Number(process.env.VISUAL_QA_SCROLL_SETTLE_MS ?? 10_000)
+// GitHub's shared SwiftShader runners can need more than three minutes to
+// read back the first shadowed interior frame even after shader warm-up.
+// Keep the full-resolution High capture and give it honest headroom rather
+// than weakening the evidence tier to make CI faster.
+const screenshotTimeoutMs = Number(process.env.VISUAL_QA_SCREENSHOT_TIMEOUT_MS ?? 600_000)
 await mkdir(outputDir, { recursive: true })
 
 const browser = await chromium.launch({
@@ -143,9 +148,15 @@ async function setProgress(page, progress) {
 }
 
 async function screenshot(page, name, progress) {
+  console.log(`[visual-qa] preparing ${name} at ${(progress * 100).toFixed(1)}%`)
   await setProgress(page, progress)
   const target = path.join(outputDir, name)
-  await page.screenshot({ path: target, fullPage: false, animations: 'disabled', timeout: 180_000 })
+  await page.screenshot({
+    path: target,
+    fullPage: false,
+    animations: 'disabled',
+    timeout: screenshotTimeoutMs,
+  })
   const state = await page.evaluate(() => {
     const activeElements = Array.from(document.querySelectorAll('[data-active="true"]'))
     const activePanel = activeElements.find(
@@ -175,6 +186,10 @@ async function screenshot(page, name, progress) {
   })
   const imageMetrics = await measureScreenshot(target, state.panelBounds)
   report.captures.push({ name, progress, ...state, imageMetrics })
+  console.log(
+    `[visual-qa] captured ${name}: ${state.quality ?? 'unknown'} · ` +
+      `${state.performance?.drawCalls ?? 'n/a'} calls · ${state.performance?.triangles ?? 'n/a'} triangles`,
+  )
 }
 
 async function setQuality(page, target) {
