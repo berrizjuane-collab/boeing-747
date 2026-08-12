@@ -1,7 +1,5 @@
 import { Html } from '@react-three/drei'
-import { useEffect, useRef } from 'react'
-import { type InteriorZoneKey, zoneForLocalProgress } from '../lib/cameraPath'
-import { localProgress, SECTIONS } from '../lib/sections'
+import type { InteriorZoneKey } from '../lib/cameraPath'
 import { useScrollStore } from '../state/scrollStore'
 
 interface HotspotProps {
@@ -13,16 +11,9 @@ interface HotspotProps {
   sectionIndex: number
   /** S5 hotspots only: additionally requires this walkthrough zone's dwell
    * plateau, using the same detection InteriorOverlay.tsx keys its content
-   * off (cameraPath.ts's zoneForLocalProgress) so a hotspot never goes
+   * off (the store's globally derived interiorZone) so a hotspot never goes
    * live for content that isn't showing. */
   zone?: InteriorZoneKey
-}
-
-function isDwellActive(sectionIndex: number, zone: InteriorZoneKey | undefined) {
-  const { activeIndex, progress } = useScrollStore.getState()
-  if (activeIndex !== sectionIndex) return false
-  if (!zone) return true
-  return zoneForLocalProgress(localProgress(progress, SECTIONS[sectionIndex])) === zone
 }
 
 /**
@@ -47,27 +38,18 @@ function isDwellActive(sectionIndex: number, zone: InteriorZoneKey | undefined) 
  *
  * Dwell-band gating (§10.3's "detalle de interacción crítico"): interactive
  * hotspots compete with touch-scroll, so this stays `pointer-events: none`
- * (index.css's `.hotspot` default) until its own rAF loop — not a React
- * re-render, continuous scroll progress can't drive one — flips
- * `data-interactive` on. Outside the dwell band it's purely decorative and
- * scroll passes through untouched.
+ * (index.css's `.hotspot` default) until the derived section/zone selector
+ * flips `data-interactive` on. That boolean changes only at boundaries, not
+ * on every continuous progress update.
  */
 export function Hotspot({ position, title, body, pulseDelay, sectionIndex, zone }: HotspotProps) {
-  const wrapRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    let raf = 0
-    const tick = () => {
-      if (wrapRef.current) wrapRef.current.dataset.interactive = String(isDwellActive(sectionIndex, zone))
-      raf = requestAnimationFrame(tick)
-    }
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
-  }, [sectionIndex, zone])
+  const interactive = useScrollStore(
+    (state) => state.activeIndex === sectionIndex && (!zone || state.interiorZone === zone),
+  )
 
   return (
     <Html position={position} distanceFactor={14}>
-      <div className="hotspot" ref={wrapRef} data-interactive="false">
+      <div className="hotspot" data-interactive={String(interactive)}>
         <button className="hotspot__dot-wrap" type="button" aria-label={title}>
           <span className="hotspot__pulse-ring" style={{ animationDelay: `${pulseDelay}s` }} />
           <span className="hotspot__ring" />

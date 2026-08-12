@@ -35,6 +35,7 @@ import os
 import sys
 
 import bpy
+import numpy as np
 
 
 # Nishita parameters per preset. sun_elevation/sun_rotation in radians,
@@ -63,6 +64,7 @@ PRESETS = {
         "sun_intensity": 0.9,
         "sun_size": math.radians(0.545),
         "background_strength": 1.0,
+        "target_mean_luminance": 1.0,
     },
     "high-altitude": {
         "sun_elevation": math.radians(68.0),
@@ -74,25 +76,18 @@ PRESETS = {
         "sun_intensity": 1.3,
         "sun_size": math.radians(0.545),
         "background_strength": 1.35,
+        "target_mean_luminance": 1.25,
     },
     # sunset (S6 salida): PLAN.md §10.1 is explicit that this must *not* read
     # as S1/S3 repeated — "Frío al atardecer", base `#2B3A55` (cool blue-gray)
     # with the warm tone (`#E89B6C`) demoted to an accent, not the overall
-    # key. A negative sun_elevation (sun a few degrees *below* the horizon,
-    # true "blue hour" rather than golden-hour's low-but-above-horizon sun)
-    # gets this from the same physical model rather than a color grade: with
-    # the disc gone, Rayleigh scattering no longer has a bright direct source
-    # to wash the sky warm, so the zenith reads deep blue while Mie
-    # scattering + the raised dust_density still glow warm low on the
-    # horizon, right where the vanished sun was — cool overall, warm accent
-    # only, exactly the split §10.1 asks for. Raised ozone_density deepens
-    # that blue-to-violet falloff (ozone's absorption bands are what make
-    # real blue-hour skies read blue rather than grey). Lower
-    # background_strength than either daylight preset — dusk, not noon —
-    # without going as dark as S7's near-black bookend, which is a flat
-    # fog/background color change (environmentTheme.ts), not this HDRI.
+    # key. The previous -3° elevation put the sun below the horizon and made
+    # the shipped map effectively nocturnal. Keeping it just above the
+    # horizon preserves a readable cool dusk with a warm low-angle accent.
+    # Raised ozone deepens the blue-to-violet falloff while the calibration
+    # pass below keeps its energy compatible with the other two maps.
     "sunset": {
-        "sun_elevation": math.radians(-3.0),
+        "sun_elevation": math.radians(2.5),
         "sun_rotation": math.radians(250.0),
         "altitude": 3000.0,
         "air_density": 1.2,
@@ -101,6 +96,7 @@ PRESETS = {
         "sun_intensity": 1.0,
         "sun_size": math.radians(0.545),
         "background_strength": 0.55,
+        "target_mean_luminance": 0.65,
     },
 }
 
@@ -125,14 +121,21 @@ def _build_sky_world(preset):
     output = nodes.new("ShaderNodeOutputWorld")
     background = nodes.new("ShaderNodeBackground")
     sky = nodes.new("ShaderNodeTexSky")
-    sky.sky_type = "NISHITA"
+    sky_type_options = {item.identifier for item in sky.bl_rna.properties["sky_type"].enum_items}
+    # Blender 5.0 renamed Nishita's production implementation to
+    # MULTIPLE_SCATTERING. Keep the generator reproducible on both the 4.x
+    # toolchain used originally and current LTS builds.
+    sky.sky_type = "NISHITA" if "NISHITA" in sky_type_options else "MULTIPLE_SCATTERING"
 
     params = PRESETS[preset]
     sky.sun_elevation = params["sun_elevation"]
     sky.sun_rotation = params["sun_rotation"]
     sky.altitude = params["altitude"]
     sky.air_density = params["air_density"]
-    sky.dust_density = params["dust_density"]
+    if hasattr(sky, "dust_density"):
+        sky.dust_density = params["dust_density"]
+    else:
+        sky.aerosol_density = params["dust_density"]
     sky.ozone_density = params["ozone_density"]
     sky.sun_intensity = params["sun_intensity"]
     sky.sun_size = params["sun_size"]
@@ -145,6 +148,49 @@ def _build_sky_world(preset):
 
     bpy.context.scene.world = world
     return world
+
+
+def _mean_luminance(image_path):
+    """Read a rendered HDR as linear RGB and return Rec.709 mean luminance."""
+    image = bpy.data.images.load(image_path, check_existing=False)
+    try:
+        pixels = np.empty(len(image.pixels), dtype=np.float32)
+        image.pixels.foreach_get(pixels)
+        rgba = pixels.reshape((-1, 4))
+        return float(np.mean(rgba[:, 0] * 0.2126 + rgba[:, 1] * 0.7152 + rgba[:, 2] * 0.0722))
+    finally:
+        bpy.data.images.remove(image)
+
+
+def _normalize_world_energy(world, output_path, width, height, samples, target):
+    """Calibrate each procedural sky to a declared, reproducible energy target.
+
+    Nishita's sun disc can change mean radiance by orders of magnitude between
+    elevations. A fixed Background strength therefore cannot keep several
+    presets exposure-compatible. Rendering and measuring a calibration pass,
+    then scaling that same linear world, makes the contract explicit and
+    avoids hand-tuned values that drift when a preset changes.
+    """
+    background = next(node for node in world.node_tree.nodes if node.type == "BACKGROUND")
+    history = []
+
+    for _ in range(3):
+        _render(output_path, width, height, samples, "HDR", "Raw")
+        observed = _mean_luminance(output_path)
+        history.append(observed)
+        if observed <= 0:
+            raise RuntimeError(f"Rendered HDRI has invalid mean luminance {observed}")
+        if abs(observed - target) / target <= 0.01:
+            break
+        background.inputs["Strength"].default_value *= target / observed
+
+    return {
+        "target_mean_luminance": target,
+        "measured_mean_luminance": history[-1],
+        "calibration_passes": len(history),
+        "calibration_history": history,
+        "final_background_strength": background.inputs["Strength"].default_value,
+    }
 
 
 def _build_pano_camera():
@@ -207,7 +253,7 @@ def main():
     # with --factory-startup the default engine is EEVEE, so this has to
     # happen before the camera is built, not just before rendering.
     bpy.context.scene.render.engine = "CYCLES"
-    _build_sky_world(preset)
+    world = _build_sky_world(preset)
     _build_pano_camera()
 
     # Raw view transform: no filmic/AgX display curve baked in. The .hdr
@@ -215,7 +261,14 @@ def main():
     # any real captured HDRI (e.g. Poly Haven), so the app's own ACES
     # Filmic tone mapping (PLAN.md render pipeline) is the only tone curve
     # applied, not two stacked on top of each other.
-    _render(output_path, width, height, samples, "HDR", "Raw")
+    calibration = _normalize_world_energy(
+        world,
+        output_path,
+        width,
+        height,
+        samples,
+        PRESETS[preset]["target_mean_luminance"],
+    )
     result = {
         "preset": preset,
         "output": output_path,
@@ -223,6 +276,7 @@ def main():
         "resolution": [width, height],
         "samples": samples,
         "nishita_params": PRESETS[preset],
+        "calibration": calibration,
     }
 
     if preview_path:

@@ -1,7 +1,8 @@
 import { create } from 'zustand'
+import { getInteriorZone, type InteriorZoneKey } from '../lib/cameraPath'
 import { getActiveSectionIndex } from '../lib/sections'
 
-interface ScrollState {
+export interface ScrollSnapshot {
   /**
    * 0..1 across the whole document. Updated every scroll tick (via GSAP's
    * scrub, so multiple times per frame while scrolling). Read it with
@@ -14,11 +15,24 @@ interface ScrollState {
    * re-renders subscribers when the *selected* value changes, and this only
    * changes 6 times across the whole page. */
   activeIndex: number
+  /** Derived atomically from global progress; always null outside S5. */
+  interiorZone: InteriorZoneKey | null
+}
+
+interface ScrollState extends ScrollSnapshot {
   setProgress: (p: number) => void
 }
 
+export function deriveScrollSnapshot(globalProgress: number): ScrollSnapshot {
+  const progress = Math.min(1, Math.max(0, globalProgress))
+  return {
+    progress,
+    activeIndex: getActiveSectionIndex(progress),
+    interiorZone: getInteriorZone(progress),
+  }
+}
+
 export const useScrollStore = create<ScrollState>((set) => ({
-  progress: 0,
-  activeIndex: 0,
-  setProgress: (p) => set({ progress: p, activeIndex: getActiveSectionIndex(p) }),
+  ...deriveScrollSnapshot(0),
+  setProgress: (progress) => set(deriveScrollSnapshot(progress)),
 }))

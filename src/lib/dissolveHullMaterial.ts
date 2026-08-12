@@ -1,4 +1,6 @@
-import { Color, DoubleSide, type Material, MeshStandardMaterial, Vector3 } from 'three'
+import { Color, DoubleSide, type Material, MeshStandardMaterial, Vector2, Vector3 } from 'three'
+import { createAircraftSurfaceMaps, type AircraftSurfaceMaps } from './aircraftSurfaceMaps'
+import { EXIT_PORTAL, NOSE_PORTAL } from './thresholdPortals'
 
 export interface DissolveUniforms {
   edgeGlow: { value: Color }
@@ -9,7 +11,10 @@ export interface DissolveUniforms {
 }
 
 export type DissolveHullMaterial = MeshStandardMaterial & {
-  userData: Record<string, unknown> & { dissolveUniforms: DissolveUniforms }
+  userData: Record<string, unknown> & {
+    aircraftSurfaceMaps: AircraftSurfaceMaps
+    dissolveUniforms: DissolveUniforms
+  }
 }
 
 /**
@@ -27,17 +32,32 @@ export function createDissolveHullMaterial(baseMaterial: Material): DissolveHull
   }
 
   const material = (baseMaterial as MeshStandardMaterial).clone() as DissolveHullMaterial
+  const aircraftSurfaceMaps = createAircraftSurfaceMaps()
   const uniforms: DissolveUniforms = {
     edgeGlow: { value: new Color('#8fd8ff') },
-    portal1Center: { value: new Vector3(0, 40, -114) },
+    portal1Center: { value: NOSE_PORTAL.center.clone() },
     portal1Radius: { value: 0 },
-    portal2Center: { value: new Vector3(0, 44, -52) },
+    portal2Center: { value: EXIT_PORTAL.center.clone() },
     portal2Radius: { value: 0 },
   }
 
   material.side = DoubleSide
   material.shadowSide = DoubleSide
-  material.userData = { ...material.userData, dissolveUniforms: uniforms }
+  material.name = `${baseMaterial.name || 'A380_Hull'}_MERIDIAN_PBR`
+  material.normalMap = aircraftSurfaceMaps.normal
+  material.normalScale = new Vector2(0.32, 0.32)
+  material.roughnessMap = aircraftSurfaceMaps.roughness
+  material.roughness = 1
+  material.userData = {
+    ...material.userData,
+    aircraftSurfaceMaps,
+    dissolveUniforms: uniforms,
+    surfaceProfile: {
+      paint: { metalness: 0, roughness: '0.39–0.68 map-driven' },
+      glass: { metalness: 0.02, roughness: 0.1 },
+      exposedMetal: { metalness: 0.68, roughness: 0.24 },
+    },
+  }
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms)
 
@@ -78,6 +98,32 @@ float dissolvePortalGlow(vec3 point, vec3 center, float radius) {
 }`,
       )
       .replace(
+        '#include <roughnessmap_fragment>',
+        `#include <roughnessmap_fragment>
+
+// The licensed source has one albedo atlas for every surface. Classify broad
+// physical identities from that atlas, then retain the authored roughness
+// tile above for panel-level variation. Dark neutral pixels are glazing;
+// mid-value neutrals are exposed metal; saturated and bright pixels remain
+// painted dielectric surfaces.
+float meridianLuma = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722));
+float meridianChroma = max(diffuseColor.r, max(diffuseColor.g, diffuseColor.b))
+  - min(diffuseColor.r, min(diffuseColor.g, diffuseColor.b));
+float meridianNeutral = 1.0 - smoothstep(0.055, 0.16, meridianChroma);
+float meridianGlass = meridianNeutral * (1.0 - smoothstep(0.055, 0.16, meridianLuma));
+float meridianMetal = meridianNeutral
+  * smoothstep(0.18, 0.32, meridianLuma)
+  * (1.0 - smoothstep(0.58, 0.78, meridianLuma));
+roughnessFactor = mix(roughnessFactor, 0.10, meridianGlass);
+roughnessFactor = mix(roughnessFactor, 0.24, meridianMetal);`,
+      )
+      .replace(
+        '#include <metalnessmap_fragment>',
+        `#include <metalnessmap_fragment>
+metalnessFactor = mix(metalnessFactor, 0.02, meridianGlass);
+metalnessFactor = mix(metalnessFactor, 0.68, meridianMetal);`,
+      )
+      .replace(
         '#include <opaque_fragment>',
         `float dissolveMask = min(
   dissolvePortalMask(vDissolveWorldPosition, portal1Center, portal1Radius),
@@ -94,7 +140,7 @@ outgoingLight = mix(outgoingLight, edgeGlow, dissolveGlow);
 #include <opaque_fragment>`,
       )
   }
-  material.customProgramCacheKey = () => 'a380-dissolve-pbr-v2'
+  material.customProgramCacheKey = () => 'a380-dissolve-pbr-surface-v3'
   material.needsUpdate = true
   return material
 }

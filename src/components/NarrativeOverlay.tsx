@@ -67,7 +67,11 @@ function Panel({
   const isActive = useScrollStore((s) => s.activeIndex === index)
   return (
     <div className={`overlay__col overlay__col--${side}`}>
-      <div className="overlay__panel" data-active={isActive} data-section={SECTIONS[index].id}>
+      <div
+        className={`overlay__panel overlay__panel--${SECTIONS[index].id}`}
+        data-active={isActive}
+        data-section={SECTIONS[index].id}
+      >
         {children}
       </div>
     </div>
@@ -157,7 +161,7 @@ export function NarrativeOverlayTail() {
 
       <Panel index={6} side="left">
         <p className="overlay__footer-colophon">{FOOTER_COLOPHON}</p>
-        <details className="overlay__footer-attribution">
+        <details className="overlay__footer-attribution" open>
           <summary>{FOOTER_ATTRIBUTION.heading}</summary>
           <p>
             {FOOTER_ATTRIBUTION.modelCredit}

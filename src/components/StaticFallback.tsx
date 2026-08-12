@@ -172,7 +172,7 @@ export function StaticFallback() {
             Créditos
           </h2>
           <p className="fallback__footer-colophon">{FOOTER_COLOPHON}</p>
-          <details className="fallback__footer-attribution">
+          <details className="fallback__footer-attribution" open>
             <summary>{FOOTER_ATTRIBUTION.heading}</summary>
             <p>
               {FOOTER_ATTRIBUTION.modelCredit}

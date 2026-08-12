@@ -1,6 +1,8 @@
 name: Final visual QA
 
 on:
+  push:
+    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -15,7 +17,9 @@ concurrency:
 jobs:
   final-visual-qa:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # SwiftShader screenshots intentionally wait for real shader completion;
+    # leave headroom for slower shared runners instead of truncating evidence.
+    timeout-minutes: 40
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -38,13 +42,16 @@ jobs:
       - name: Static checks
         run: |
           npm run lint
+          npm test
+          npm run qa:hdri
+          npm run qa:interior
           npm run build
 
       - name: Start production preview
         run: |
           npm run preview -- --host 127.0.0.1 > /tmp/meridian-preview.log 2>&1 &
           for attempt in {1..60}; do
-            if curl --fail --silent http://127.0.0.1:4173 >/dev/null; then
+            if curl --fail --silent http://127.0.0.1:4173/boeing-747/ >/dev/null; then
               exit 0
             fi
             sleep 1
@@ -57,9 +64,12 @@ jobs:
 
       - name: Cut short MP4 clips
         run: |
-          ffmpeg -y -i artifacts/final-visuals/meridian-complete-tour.webm -ss 00:00:02 -t 00:00:06 -an -c:v libx264 -crf 22 -pix_fmt yuv420p -movflags +faststart artifacts/final-visuals/clip-01-exterior.mp4
-          ffmpeg -y -i artifacts/final-visuals/meridian-complete-tour.webm -ss 00:00:09 -t 00:00:06 -an -c:v libx264 -crf 22 -pix_fmt yuv420p -movflags +faststart artifacts/final-visuals/clip-02-threshold.mp4
-          ffmpeg -y -i artifacts/final-visuals/meridian-complete-tour.webm -ss 00:00:16 -t 00:00:07 -an -c:v libx264 -crf 22 -pix_fmt yuv420p -movflags +faststart artifacts/final-visuals/clip-03-interior-outro.mp4
+          # Playwright records the mandatory 55 s SwiftShader warm-up too.
+          # Seek from EOF so clips target the animated tour despite variable
+          # load/compile times on CI runners.
+          ffmpeg -y -sseof -00:00:22 -i artifacts/final-visuals/meridian-complete-tour.webm -t 00:00:06 -an -c:v libx264 -crf 22 -pix_fmt yuv420p -movflags +faststart artifacts/final-visuals/clip-01-exterior.mp4
+          ffmpeg -y -sseof -00:00:15 -i artifacts/final-visuals/meridian-complete-tour.webm -t 00:00:06 -an -c:v libx264 -crf 22 -pix_fmt yuv420p -movflags +faststart artifacts/final-visuals/clip-02-threshold.mp4
+          ffmpeg -y -sseof -00:00:08 -i artifacts/final-visuals/meridian-complete-tour.webm -t 00:00:07 -an -c:v libx264 -crf 22 -pix_fmt yuv420p -movflags +faststart artifacts/final-visuals/clip-03-interior-outro.mp4
 
       - name: Archive preview log
         if: always()

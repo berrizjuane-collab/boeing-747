@@ -1,5 +1,5 @@
-import { CatmullRomCurve3, Vector3 } from 'three'
-import { SECTIONS, getActiveSectionIndex, localProgress } from './sections'
+import { CatmullRomCurve3, Quaternion, Vector3 } from 'three'
+import { SECTIONS, getActiveSectionIndex } from './sections'
 import { INTERIOR_ANCHORS_WORLD } from './sceneLayout'
 
 export interface CameraKeyframe {
@@ -85,51 +85,183 @@ export const KEYFRAMES: CameraKeyframe[] = [
   // S6 — exit + pull back: breaks back outside near the upper deck exit,
   // then retreats to a wide cinematic shot of the aircraft in flight —
   // same generous-distance reasoning as S2/S3 above.
-  { sectionIndex: 5, camPos: [20, 50, -45], camTarget: [0, 40.95, -58], fov: 42, roll: 0 },
-  { sectionIndex: 5, camPos: [190, 90, 90], camTarget: [0, 40, -80], fov: 35, roll: 0 },
+  // First meet the port upper-deck doorway on its own beat, then clear the
+  // fuselage laterally. Separating approach from pull-back keeps the frame
+  // readable during the crossing and reserves the right third for copy.
+  { sectionIndex: 5, camPos: [0, 40.95, -61], camTarget: [-2.75, 40.4, -53.8], fov: 45, roll: 0 },
+  { sectionIndex: 5, camPos: [-2.75, 41.05, -53.8], camTarget: [-3.65, 41, -47.05], fov: 44, roll: 0 },
+  { sectionIndex: 5, camPos: [-110, 55, -20], camTarget: [-72.12, 50.32, -31.96], fov: 42, roll: 0 },
+  { sectionIndex: 5, camPos: [-190, 90, 90], camTarget: [-131.5, 74.6, 37.68], fov: 35, roll: 0 },
 
   // S7 — footer: holds near the wide shot, a touch further back so the
   // ending doesn't read as an exact freeze-frame of S6.
-  { sectionIndex: 6, camPos: [200, 92, 96], camTarget: [0, 40, -80], fov: 35, roll: 0 },
+  { sectionIndex: 6, camPos: [-200, 92, 96], camTarget: [-141.05, 76.67, 44.13], fov: 35, roll: 0 },
 ]
 
-const posCurve = new CatmullRomCurve3(KEYFRAMES.map((k) => new Vector3(...k.camPos)))
-const targetCurve = new CatmullRomCurve3(KEYFRAMES.map((k) => new Vector3(...k.camTarget)))
+const POSITION_CURVE = new CatmullRomCurve3(KEYFRAMES.map((keyframe) => new Vector3(...keyframe.camPos)))
 
-// Arc-length position, 0..1, of each keyframe *along its own curve* —
-// `getLengths(N-1)` samples cumulative length at exactly the keyframes'
-// raw parametric positions (t = i/(N-1)), which is where CatmullRomCurve3
-// places control point i. Position and target are two *different* curves
-// with two different shapes, so each needs its own table: reusing
-// position's u to sample the target curve looked plausible but landed on
-// the wrong points entirely (caught in the Fase 2 Playwright review — the
-// look-at target was nowhere near the intended keyframe at a section
-// boundary, even though the position was fine).
-function buildArcLengthU(curve: CatmullRomCurve3): number[] {
-  const cumulative = curve.getLengths(KEYFRAMES.length - 1)
+// Sampling only once per control-point segment measures its chord, not the
+// Catmull-Rom arc between the points. A dense table makes getPointAt() truly
+// close to constant-speed and, because the division count is an exact
+// multiple of the segment count, still gives an exact lookup for every
+// authored keyframe.
+const ARC_SAMPLES_PER_SEGMENT = 512
+const ARC_LENGTH_DIVISIONS = (KEYFRAMES.length - 1) * ARC_SAMPLES_PER_SEGMENT
+POSITION_CURVE.arcLengthDivisions = ARC_LENGTH_DIVISIONS
+
+function buildKeyframeArcLengthU(curve: CatmullRomCurve3): number[] {
+  const cumulative = curve.getLengths(ARC_LENGTH_DIVISIONS)
   const total = cumulative[cumulative.length - 1]
-  return cumulative.map((len) => len / total)
+  return KEYFRAMES.map((_, index) => cumulative[index * ARC_SAMPLES_PER_SEGMENT] / total)
 }
 
-const POS_U = buildArcLengthU(posCurve)
-const TARGET_U = buildArcLengthU(targetCurve)
+const POSITION_U = buildKeyframeArcLengthU(POSITION_CURVE)
+const LOOK_DIRECTIONS = KEYFRAMES.map((keyframe) =>
+  new Vector3(...keyframe.camTarget).sub(new Vector3(...keyframe.camPos)).normalize(),
+)
+const LOOK_DISTANCES = KEYFRAMES.map((keyframe) =>
+  new Vector3(...keyframe.camTarget).distanceTo(new Vector3(...keyframe.camPos)),
+)
+const LOOK_ROTATIONS = LOOK_DIRECTIONS.slice(0, -1).map((direction, index) =>
+  new Quaternion().setFromUnitVectors(direction, LOOK_DIRECTIONS[index + 1]),
+)
+const IDENTITY_ROTATION = new Quaternion()
 
-interface SectionSpan {
-  firstIndex: number
-  lastIndex: number
-  first: CameraKeyframe
-  last: CameraKeyframe
+export type InteriorZoneKey = 'cockpit' | 'economy' | 'stair' | 'upperDeck'
+
+interface CameraTraversalBand {
+  start: number
+  end: number
+  fromIndex: number
+  toIndex: number
+  zone?: InteriorZoneKey
 }
 
-const SECTION_SPANS: SectionSpan[] = SECTIONS.map((section) => {
-  const indices = KEYFRAMES.reduce<number[]>((acc, k, i) => {
-    if (k.sectionIndex === section.index) acc.push(i)
-    return acc
-  }, [])
-  const firstIndex = indices[0]
-  const lastIndex = indices[indices.length - 1]
-  return { firstIndex, lastIndex, first: KEYFRAMES[firstIndex], last: KEYFRAMES[lastIndex] }
-})
+const INTERIOR_SECTION = SECTIONS[4]
+const interiorTime = (localProgress: number) =>
+  localProgress <= 0
+    ? INTERIOR_SECTION.start
+    : localProgress >= 1
+      ? INTERIOR_SECTION.end
+      : INTERIOR_SECTION.start + (INTERIOR_SECTION.end - INTERIOR_SECTION.start) * localProgress
+
+/**
+ * One gap-free global traversal. Every moving band joins adjacent authored
+ * keyframes; a dwell repeats one keyframe over a non-zero scroll interval.
+ * Section boundaries therefore choose narrative timing, never disjoint
+ * pieces of curve:
+ *
+ * - S2 absorbs the hero-to-tracking transition.
+ * - S3 reaches the threshold approach before S4 begins.
+ * - S4 lands in the cockpit exactly as S5 begins.
+ * - S5 gives all four zones, including upper deck, a real hold.
+ * - S6 turns through the exit before its long cinematic pull-back.
+ */
+const CAMERA_TRAVERSAL: readonly CameraTraversalBand[] = [
+  { start: 0, end: 0.12, fromIndex: 0, toIndex: 1 },
+  { start: 0.12, end: 0.18, fromIndex: 1, toIndex: 2 },
+  { start: 0.18, end: 0.28, fromIndex: 2, toIndex: 3 },
+  { start: 0.28, end: 0.3, fromIndex: 3, toIndex: 4 },
+  { start: 0.3, end: 0.378, fromIndex: 4, toIndex: 5 },
+  { start: 0.378, end: 0.42, fromIndex: 5, toIndex: 6 },
+  { start: 0.42, end: 0.46, fromIndex: 6, toIndex: 7 },
+  { start: 0.46, end: 0.5, fromIndex: 7, toIndex: 8 },
+
+  { start: interiorTime(0), end: interiorTime(0.1), fromIndex: 8, toIndex: 8, zone: 'cockpit' },
+  { start: interiorTime(0.1), end: interiorTime(0.28), fromIndex: 8, toIndex: 9 },
+  { start: interiorTime(0.28), end: interiorTime(0.4), fromIndex: 9, toIndex: 9, zone: 'economy' },
+  { start: interiorTime(0.4), end: interiorTime(0.64), fromIndex: 9, toIndex: 10 },
+  { start: interiorTime(0.64), end: interiorTime(0.72), fromIndex: 10, toIndex: 10, zone: 'stair' },
+  { start: interiorTime(0.72), end: interiorTime(0.88), fromIndex: 10, toIndex: 11 },
+  { start: interiorTime(0.88), end: interiorTime(1), fromIndex: 11, toIndex: 11, zone: 'upperDeck' },
+
+  { start: 0.82, end: 0.83, fromIndex: 11, toIndex: 12 },
+  { start: 0.83, end: 0.835, fromIndex: 12, toIndex: 13 },
+  { start: 0.835, end: 0.88, fromIndex: 13, toIndex: 14 },
+  { start: 0.88, end: 0.95, fromIndex: 14, toIndex: 15 },
+  { start: 0.95, end: 1, fromIndex: 15, toIndex: 16 },
+]
+
+function assertValidTraversal() {
+  const first = CAMERA_TRAVERSAL[0]
+  const last = CAMERA_TRAVERSAL[CAMERA_TRAVERSAL.length - 1]
+  if (first.start !== 0 || first.fromIndex !== 0 || last.end !== 1 || last.toIndex !== KEYFRAMES.length - 1) {
+    throw new Error('Camera traversal must cover global progress [0, 1]')
+  }
+
+  for (let index = 0; index < CAMERA_TRAVERSAL.length; index += 1) {
+    const band = CAMERA_TRAVERSAL[index]
+    if (band.end <= band.start || band.toIndex < band.fromIndex || band.toIndex - band.fromIndex > 1) {
+      throw new Error(`Invalid camera traversal band at index ${index}`)
+    }
+    if (
+      band.zone &&
+      (band.fromIndex !== band.toIndex || band.start < INTERIOR_SECTION.start || band.end > INTERIOR_SECTION.end)
+    ) {
+      throw new Error(`Interior zone must be an S5 dwell at band ${index}`)
+    }
+    if (index > 0) {
+      const previous = CAMERA_TRAVERSAL[index - 1]
+      if (band.start !== previous.end || band.fromIndex !== previous.toIndex) {
+        throw new Error(`Camera traversal has a gap before band ${index}`)
+      }
+    }
+  }
+}
+
+assertValidTraversal()
+
+const ACCELERATION_SHARE = 0.02
+
+/**
+ * Integrates a cosine-ramped velocity profile: zero speed at either end,
+ * constant cruise speed through the middle. Unlike smoothstep, its short
+ * acceleration shoulders only raise peak speed by ~6.4%, which keeps the
+ * long S3/S6 moves below the 3-unit sampling budget.
+ */
+function traversalEase(value: number) {
+  const t = Math.min(1, Math.max(0, value))
+  const ramp = ACCELERATION_SHARE
+  const normalization = 1 - ramp
+
+  if (t < ramp) {
+    return (0.5 * t - (ramp / (2 * Math.PI)) * Math.sin((Math.PI * t) / ramp)) / normalization
+  }
+  if (t > 1 - ramp) {
+    const remaining = 1 - t
+    return 1 - (0.5 * remaining - (ramp / (2 * Math.PI)) * Math.sin((Math.PI * remaining) / ramp)) / normalization
+  }
+  return (t - ramp / 2) / normalization
+}
+
+function clampProgress(progress: number) {
+  return Math.min(1, Math.max(0, progress))
+}
+
+function traversalSample(progress: number) {
+  const clamped = clampProgress(progress)
+  const band =
+    CAMERA_TRAVERSAL.find((candidate) => clamped >= candidate.start && clamped < candidate.end) ??
+    CAMERA_TRAVERSAL[CAMERA_TRAVERSAL.length - 1]
+  const local = (clamped - band.start) / (band.end - band.start)
+  return { band, t: traversalEase(local) }
+}
+
+/** A testable 0..1 coordinate proving that the authored path is traversed in order. */
+export function cameraTraversalProgress(globalProgress: number) {
+  const { band, t } = traversalSample(globalProgress)
+  return (band.fromIndex + (band.toIndex - band.fromIndex) * t) / (KEYFRAMES.length - 1)
+}
+
+/**
+ * The sole interior-zone API. Its input is global document progress and it
+ * cannot return an S5 zone while another section is active.
+ */
+export function getInteriorZone(globalProgress: number): InteriorZoneKey | null {
+  const progress = clampProgress(globalProgress)
+  if (getActiveSectionIndex(progress) !== INTERIOR_SECTION.index) return null
+  return traversalSample(progress).band.zone ?? null
+}
 
 export interface SampledCamera {
   position: Vector3
@@ -138,107 +270,23 @@ export interface SampledCamera {
   rollRad: number
 }
 
-/**
- * Samples the camera curve at global scroll progress (0..1).
- *
- * Two things have to both be true, and they pull in different directions:
- *
- * 1. Uses `getPointAt`, not `getPoint`. `getPointAt` is reparametrized by
- *    arc length, so equal steps in curve-`u` move the camera equal
- *    *distances* along the curve. `getPoint` uses raw parametric `t`
- *    (keyframe-index fraction), which speeds up and slows down wherever
- *    keyframes happen to sit closer together or further apart — a bug that
- *    reads as "the easing is wrong" and sends you looking in the wrong
- *    place.
- *
- * 2. Section boundaries have to land exactly on §3's scroll percentages —
- *    the aircraft's own pose (aircraftPose.ts) is driven by section-local
- *    progress, and if the camera's curve-`u` were fed raw scroll progress
- *    directly, a section's share of *arc length* rarely matches its share
- *    of *scroll*, so the camera and the aircraft drift out of sync (this
- *    was caught during the Fase 2 Playwright review: the camera ended up
- *    clipped inside the fuselage mid-S2, well before the S4 threshold).
- *
- * The fix: remap scroll progress to curve-`u` piecewise, per section, using
- * each section's own [firstKeyframe, lastKeyframe] arc-length span — looked
- * up separately in POS_U and TARGET_U, since position and target need their
- * own u for the reason in the comment on buildArcLengthU above. Within a
- * section this is still a `getPointAt`-style constant-speed traversal —
- * just of that section's stretch of each curve, not the whole thing — and
- * section-local progress (the same value driving the aircraft) maps 1:1 to
- * how far through that stretch both the position and the target are.
- */
-// Exported so InteriorOverlay.tsx can detect which zone is under a dwell
-// plateau right now, without hardcoding a second copy of these boundaries.
-export const WALKTHROUGH_PLATEAUS = [
-  { start: 0, end: 0.12, from: 0, to: 0 },
-  { start: 0.12, end: 0.38, from: 0, to: 1 / 3 },
-  { start: 0.38, end: 0.5, from: 1 / 3, to: 1 / 3 },
-  { start: 0.5, end: 0.76, from: 1 / 3, to: 2 / 3 },
-  { start: 0.76, end: 0.88, from: 2 / 3, to: 2 / 3 },
-  { start: 0.88, end: 1, from: 2 / 3, to: 1 },
-] as const
-
-function smoothstep01(value: number) {
-  const t = Math.min(1, Math.max(0, value))
-  return t * t * (3 - 2 * t)
-}
-
-/**
- * Gives S5 extra scroll dwell at the cockpit, economy and stair anchors,
- * followed by an eased arrival at the upper deck. Movement still starts and
- * ends at exactly the same keyframes; only the local time spent at each zone
- * changes.
- */
-export function walkthroughProgress(progress: number) {
-  const band = WALKTHROUGH_PLATEAUS.find((candidate) => progress <= candidate.end) ?? WALKTHROUGH_PLATEAUS[WALKTHROUGH_PLATEAUS.length - 1]
-  const span = band.end - band.start
-  const local = span > 0 ? (progress - band.start) / span : 0
-  const eased = smoothstep01(local)
-  return band.from + (band.to - band.from) * eased
-}
-
-export type InteriorZoneKey = 'cockpit' | 'economy' | 'stair' | 'upperDeck'
-
-/**
- * Maps S5-local progress (0..1) to the zone under its dwell plateau right
- * now — shared by InteriorOverlay.tsx (per-zone narrative content) and
- * Hotspots.tsx (per-zone dwell-band gating), both of which need to agree on
- * exactly the same windows the camera itself dwells in. Plateau indices:
- * 0 cockpit dwell, 1 transit, 2 economy dwell, 3 transit, 4 stair dwell,
- * 5 transit into upper deck.
- *
- * Index 5 is folded into 'upperDeck' rather than treated as another
- * transit gap: the rig gives the upper deck no dwell plateau of its own —
- * the walkthrough reaches it exactly as S5 ends, then S6 immediately breaks
- * the camera back outside. Treating that final approach as "upper deck
- * active" is the only way this ★ zone — PLAN.md §3 calls it "la carga
- * narrativa del doble piso completo" — gets any screen time at all, short
- * of adding a dwell plateau to the rig itself, which is out of Fase 6 scope.
- */
-export function zoneForLocalProgress(t: number): InteriorZoneKey | null {
-  if (t <= WALKTHROUGH_PLATEAUS[0].end) return 'cockpit'
-  if (t < WALKTHROUGH_PLATEAUS[2].start) return null
-  if (t <= WALKTHROUGH_PLATEAUS[2].end) return 'economy'
-  if (t < WALKTHROUGH_PLATEAUS[4].start) return null
-  if (t <= WALKTHROUGH_PLATEAUS[4].end) return 'stair'
-  return 'upperDeck'
-}
-
+/** Samples the continuous camera traversal at global scroll progress. */
 export function sampleCamera(progress: number): SampledCamera {
-  const sectionIndex = getActiveSectionIndex(progress)
-  const section = SECTIONS[sectionIndex]
-  const span = SECTION_SPANS[sectionIndex]
-  const t = localProgress(progress, section)
-  const pathT = sectionIndex === 4 ? walkthroughProgress(t) : t
+  const { band, t } = traversalSample(progress)
+  const from = KEYFRAMES[band.fromIndex]
+  const to = KEYFRAMES[band.toIndex]
+  const positionU = POSITION_U[band.fromIndex] + (POSITION_U[band.toIndex] - POSITION_U[band.fromIndex]) * t
+  const position = POSITION_CURVE.getPointAt(positionU)
 
-  const posU = POS_U[span.firstIndex] + (POS_U[span.lastIndex] - POS_U[span.firstIndex]) * pathT
-  const targetU = TARGET_U[span.firstIndex] + (TARGET_U[span.lastIndex] - TARGET_U[span.firstIndex]) * pathT
-
-  const position = posCurve.getPointAt(posU)
-  const target = targetCurve.getPointAt(targetU)
-  const fov = span.first.fov + (span.last.fov - span.first.fov) * pathT
-  const rollDeg = span.first.roll + (span.last.roll - span.first.roll) * pathT
+  const lookRotation = new Quaternion()
+  if (band.toIndex !== band.fromIndex) {
+    lookRotation.slerpQuaternions(IDENTITY_ROTATION, LOOK_ROTATIONS[band.fromIndex], t)
+  }
+  const lookDirection = LOOK_DIRECTIONS[band.fromIndex].clone().applyQuaternion(lookRotation).normalize()
+  const lookDistance = LOOK_DISTANCES[band.fromIndex] + (LOOK_DISTANCES[band.toIndex] - LOOK_DISTANCES[band.fromIndex]) * t
+  const target = position.clone().addScaledVector(lookDirection, lookDistance)
+  const fov = from.fov + (to.fov - from.fov) * t
+  const rollDeg = from.roll + (to.roll - from.roll) * t
 
   return { position, target, fov, rollRad: (rollDeg * Math.PI) / 180 }
 }

@@ -190,6 +190,21 @@ body {
   transform: translateY(0);
 }
 
+/* Narrative copy that sits over the aircraft/sky gets a restrained optical
+   surface. It remains wholly inside the outer-third grid and keeps the model
+   unobstructed, while making contrast independent of a moving white fuselage
+   or bright horizon. Data-heavy S2/S3 already use their own darker cards. */
+.overlay__panel--hero,
+.overlay__panel--exit,
+.overlay__panel--interior-zone {
+  padding: 1rem 1.1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(5, 8, 13, 0.82), rgba(8, 12, 18, 0.58));
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(10px);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .overlay__panel {
     transition-duration: 0.01ms;

@@ -26,6 +26,7 @@ export function LoadingScreen({ onComplete }: { onComplete: () => void }) {
   const { active, item, total } = useProgress()
   const loadedUrlsRef = useRef<Set<string>>(new Set())
   const completedRef = useRef(false)
+  const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [weightedPct, setWeightedPct] = useState(0)
   const [exiting, setExiting] = useState(false)
   const [mounted, setMounted] = useState(true)
@@ -51,9 +52,19 @@ export function LoadingScreen({ onComplete }: { onComplete: () => void }) {
     loadingState.revealStartSeconds = performance.now() / 1000
     onComplete()
     setExiting(true)
-    const timer = setTimeout(() => setMounted(false), 550)
-    return () => clearTimeout(timer)
+    // Keep this timer alive if `active`/`total` emit one final loading-manager
+    // update after completion. Returning its cleanup from this effect used to
+    // cancel the timer on that update, leaving a transparent
+    // `.loading-screen--exit` mounted forever and making readiness checks hang.
+    exitTimerRef.current = setTimeout(() => setMounted(false), 550)
   }, [active, total, onComplete])
+
+  useEffect(
+    () => () => {
+      if (exitTimerRef.current !== null) clearTimeout(exitTimerRef.current)
+    },
+    [],
+  )
 
   if (!mounted) return null
 

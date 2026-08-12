@@ -1,12 +1,21 @@
 import { Environment } from '@react-three/drei'
 import { useFrame, useLoader, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
-import { BackSide, Color, DirectionalLight, EquirectangularReflectionMapping, FogExp2, Mesh, MeshBasicMaterial } from 'three'
+import {
+  BackSide,
+  Color,
+  DirectionalLight,
+  EquirectangularReflectionMapping,
+  FogExp2,
+  Mesh,
+  MeshBasicMaterial,
+  MeshStandardMaterial,
+} from 'three'
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
-import { sampleEnvironmentColor } from '../lib/environmentTheme'
+import { EXTERIOR_LIGHTS, sampleEnvironmentTheme } from '../lib/environmentTheme'
 import { activeHdriSectionSlot, goldenHourWeight, highAltitudeWeight, sunsetWeight } from '../lib/hdriTheme'
-import { duskColorMix, exposureMultiplier, sunIntensityMultiplier } from '../lib/thresholdLighting'
 import { SECTIONS } from '../lib/sections'
+import { exposureMultiplier } from '../lib/thresholdLighting'
 import { createSkyDomeMaterial } from '../lib/skyDomeMaterial'
 import { exposureState } from '../state/exposureState'
 import { loadingState } from '../state/loadingState'
@@ -19,14 +28,8 @@ import { useScrollStore } from '../state/scrollStore'
 // without this they could visibly pop in at different moments).
 const LOAD_REVEAL_DURATION = 1.2
 const clamp01Reveal = (x: number) => Math.min(1, Math.max(0, x))
-
-const SUN_INTENSITY = 2
-const SHADOW_SECTION_END = SECTIONS[1].end + 0.04
-const SUN_COLOR_DAY = new Color('#ffd6ad')
-// PLAN.md §10.1 S6 key/acento, used verbatim — the point is the returning
-// sun reads as a *different*, cooler-accented light, not a re-tinted S1 sun.
-const SUN_COLOR_DUSK = new Color('#e89b6c')
-const sunColorScratch = new Color()
+const GROUND_FADE_START = SECTIONS[1].end
+const GROUND_FADE_END = SECTIONS[2].start + 0.025
 
 // Comfortably inside the camera's far=3000 (SceneCanvas.tsx) and comfortably
 // outside every keyframe/anchor in the scene (aircraft span ~80m, camera
@@ -60,8 +63,12 @@ const SKY_RADIUS = 1200
  */
 export function EnvironmentPlaceholder() {
   const { scene } = useThree()
-  const colorRef = useRef(new Color('#c9895b'))
-  const sunRef = useRef<DirectionalLight>(null)
+  const colorRef = useRef(new Color('#9f6246'))
+  const keyRef = useRef<DirectionalLight>(null)
+  const fillRef = useRef<DirectionalLight>(null)
+  const rimRef = useRef<DirectionalLight>(null)
+  const groundRef = useRef<Mesh>(null)
+  const groundMaterialRef = useRef<MeshStandardMaterial>(null)
   const skyDomeRef = useRef<Mesh>(null)
   const sunsetDomeRef = useRef<Mesh>(null)
 
@@ -103,14 +110,24 @@ export function EnvironmentPlaceholder() {
 
   useEffect(() => {
     scene.background = colorRef.current
-    scene.fog = new FogExp2(colorRef.current.getHex(), 0.0035)
+    scene.fog = new FogExp2(colorRef.current.getHex(), 0.0015)
   }, [scene])
 
   useFrame(() => {
     const { progress } = useScrollStore.getState()
-    colorRef.current.copy(sampleEnvironmentColor(progress))
+    const theme = sampleEnvironmentTheme(progress)
+    colorRef.current.copy(theme.background)
     if (scene.fog instanceof FogExp2) {
       scene.fog.color.copy(colorRef.current)
+      scene.fog.density = theme.fogDensity
+    }
+    scene.environmentIntensity = theme.environmentIntensity
+    if (groundMaterialRef.current) groundMaterialRef.current.color.copy(theme.ground)
+    const groundFade = clamp01Reveal((GROUND_FADE_END - progress) / (GROUND_FADE_END - GROUND_FADE_START))
+    if (groundRef.current) groundRef.current.visible = groundFade > 0.01
+    if (groundMaterialRef.current) {
+      groundMaterialRef.current.opacity = groundFade
+      groundMaterialRef.current.depthWrite = groundFade > 0.98
     }
 
     const revealStart = loadingState.revealStartSeconds
@@ -122,17 +139,20 @@ export function EnvironmentPlaceholder() {
     // uniform silently stopped doing anything. ExposurePass.tsx (mounted
     // first in PostFX's effect chain) picks it back up as a real
     // post-process multiply instead.
-    exposureState.value = exposureMultiplier(progress) * loadReveal
-    const sunFactor = sunIntensityMultiplier(progress)
-    if (sunRef.current) {
-      sunRef.current.intensity = SUN_INTENSITY * sunFactor
-      // Shadow maps are useful for S1-S2's runway cue and needlessly expensive
-      // once the aircraft has left the runway.
-      sunRef.current.castShadow = progress < SHADOW_SECTION_END
-      // See duskColorMix's doc comment: the returning S6 sun is a cooler,
-      // dimmer-reading accent color, not literally the S1 golden-hour hue.
-      sunColorScratch.copy(SUN_COLOR_DAY).lerp(SUN_COLOR_DUSK, duskColorMix(progress))
-      sunRef.current.color.copy(sunColorScratch)
+    exposureState.value = exposureMultiplier(progress) * theme.exposureCompensation * loadReveal
+
+    const lightRefs = { key: keyRef.current, fill: fillRef.current, rim: rimRef.current }
+    for (const role of ['key', 'fill', 'rim'] as const) {
+      const light = lightRefs[role]
+      if (!light) continue
+      const sample = theme.lights[role]
+      light.color.copy(sample.color)
+      light.intensity = sample.intensity
+      light.visible = sample.intensity > 0.01
+      // Runtime metadata mirrors the declared inventory and makes the light
+      // rig inspectable in Three devtools / QA without parsing source text.
+      light.userData.temperatureKelvin = sample.temperatureKelvin
+      light.userData.intensity = sample.intensity
     }
 
     const golden = goldenHourWeight(progress)
@@ -154,47 +174,64 @@ export function EnvironmentPlaceholder() {
 
   return (
     <>
-      <hemisphereLight args={['#ffffff', '#3a3a3a', 1.2]} />
-      {/*
-        Shadow config as JSX props, not imperative sunRef.current.shadow.* in
-        a useEffect (how a previous session had it): THREE.WebGLShadowMap
-        lazily creates the light's shadow map render target at whatever
-        shadow.mapSize is the *first* time this light actually needs to cast
-        a frame, which can happen before a useEffect on the ref runs.
-        Confirmed empirically (readRenderTargetPixels against a clean
-        production build, not just the dev server) — setting mapSize to
-        2048x2048 imperatively left the real render target stuck at the
-        default 512x512 forever after, with every shadow map texel reading
-        pure white (no caster ever recorded), while `sun.shadow.mapSize`
-        itself correctly reported 2048x2048 — every property *looked*
-        configured right, and nothing rendered. Static JSX props are applied
-        during React's commit phase, strictly before R3F's first gl.render()
-        call, so the render target is created at the right size from frame
-        one. Same reasoning extends to the camera-* bounds: as imperative
-        mutation they'd need an explicit updateProjectionMatrix() call too
-        (OrthographicCamera doesn't recompute it on property assignment) —
-        moot here since R3F's own prop-setter calls that for camera-typed
-        targets, but noted because it's the same class of bug either way.
-      */}
+      {/* The exterior key deliberately has no realtime shadow map. The A380
+          is split into 100+ meshes, so that pass alone broke the high-tier
+          draw budget. RunwayEnvironment renders the moving contact cue as a
+          one-draw analytical projection; tiered interior shadows are unchanged. */}
       <directionalLight
-        ref={sunRef}
-        position={[80, 100, 40]}
-        color="#ffd6ad"
-        intensity={SUN_INTENSITY}
-        castShadow
-        shadow-mapSize={[2048, 2048]}
-        shadow-camera-near={1}
-        shadow-camera-far={500}
-        shadow-camera-left={-220}
-        shadow-camera-right={220}
-        shadow-camera-top={220}
-        shadow-camera-bottom={-220}
-        shadow-bias={-0.0005}
-        shadow-normalBias={0.02}
+        ref={keyRef}
+        name={EXTERIOR_LIGHTS.key.name}
+        position={EXTERIOR_LIGHTS.key.position}
+        color="#ffd0a0"
+        intensity={1.55}
+        userData={{
+          role: EXTERIOR_LIGHTS.key.role,
+          purpose: EXTERIOR_LIGHTS.key.purpose,
+          temperatureKelvin: 4300,
+          intensity: 1.55,
+          castsShadow: EXTERIOR_LIGHTS.key.castsShadow,
+        }}
+        castShadow={EXTERIOR_LIGHTS.key.castsShadow}
       />
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
+      <directionalLight
+        ref={fillRef}
+        name={EXTERIOR_LIGHTS.fill.name}
+        position={EXTERIOR_LIGHTS.fill.position}
+        color="#c8dcff"
+        intensity={0.3}
+        userData={{
+          role: EXTERIOR_LIGHTS.fill.role,
+          purpose: EXTERIOR_LIGHTS.fill.purpose,
+          temperatureKelvin: 7200,
+          intensity: 0.3,
+          castsShadow: EXTERIOR_LIGHTS.fill.castsShadow,
+        }}
+        castShadow={EXTERIOR_LIGHTS.fill.castsShadow}
+      />
+      <directionalLight
+        ref={rimRef}
+        name={EXTERIOR_LIGHTS.rim.name}
+        position={EXTERIOR_LIGHTS.rim.position}
+        color="#ffe4bd"
+        intensity={0.68}
+        userData={{
+          role: EXTERIOR_LIGHTS.rim.role,
+          purpose: EXTERIOR_LIGHTS.rim.purpose,
+          temperatureKelvin: 5000,
+          intensity: 0.68,
+          castsShadow: EXTERIOR_LIGHTS.rim.castsShadow,
+        }}
+        castShadow={EXTERIOR_LIGHTS.rim.castsShadow}
+      />
+      <mesh
+        ref={groundRef}
+        name="Environment · Ground"
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, 0, 0]}
+        receiveShadow
+      >
         <planeGeometry args={[4000, 4000]} />
-        <meshStandardMaterial color="#3c4a3a" roughness={1} />
+        <meshStandardMaterial ref={groundMaterialRef} color="#59664d" roughness={1} transparent />
       </mesh>
       <mesh ref={skyDomeRef} renderOrder={-10} material={skyMaterial}>
         <sphereGeometry args={[SKY_RADIUS, 32, 32]} />

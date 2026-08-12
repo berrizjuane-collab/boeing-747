@@ -28,11 +28,13 @@ interface LodNode {
 }
 
 /**
- * Real procedural interior blockout (Fase 0, `blender/interior_blockout.py`,
- * reproduced this session — see PROGRESS.md Fase 3 notes) compressed through
- * the Fase 3 asset pipeline (`scripts/process-glb.mjs`): 733KB -> 55KB via
- * prune/dedup/weld/Draco. No KTX2 stage — the blockout is solid-color
- * materials, no textures to compress.
+ * Final procedural Option-B interior (`blender/interior_blockout.py`, kept
+ * under its historical filename for pipeline compatibility): cockpit,
+ * economy, enclosed stair and upper deck with linked seating and authored
+ * PBR materials. The published GLB is compressed through
+ * `scripts/process-glb.mjs` (prune/dedup/weld/instance/Draco); KTX2 is
+ * intentionally skipped because this neutral cabin uses material channels,
+ * not bitmap textures.
  *
  * Axis note: the Blender script authors geometry with Y as vertical and Z as
  * the cockpit->tail length axis (i.e. already "Three.js-shaped" internally),

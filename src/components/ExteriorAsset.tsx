@@ -88,7 +88,10 @@ export function ExteriorAsset() {
     })
     gearRef.current = gear
     return () => {
-      dissolveMaterialRef.current?.dispose()
+      const dissolveMaterial = dissolveMaterialRef.current
+      dissolveMaterial?.userData.aircraftSurfaceMaps.normal.dispose()
+      dissolveMaterial?.userData.aircraftSurfaceMaps.roughness.dispose()
+      dissolveMaterial?.dispose()
       dissolveMaterialRef.current = null
     }
   }, [scene])

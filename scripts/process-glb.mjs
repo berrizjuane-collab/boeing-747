@@ -14,7 +14,8 @@
 // instead of hand-building an InstancedMesh in the app.
 //
 // Usage:
-//   node scripts/process-glb.mjs <input.glb> <output.glb> [--ktx-mode etc1s|uastc]
+//   node scripts/process-glb.mjs <input.glb> <output.glb>
+//     [--ktx-mode etc1s|uastc] [--join-draw-calls]
 //
 // KTX2/Basis compression is skipped automatically (with a clear log line, not
 // a silent no-op) when the source has no textures — the interior blockout is
@@ -54,6 +55,7 @@ const input = resolve(inputArg)
 const output = resolve(outputArg)
 const ktxModeFlagIndex = rest.indexOf('--ktx-mode')
 const ktxMode = ktxModeFlagIndex >= 0 ? rest[ktxModeFlagIndex + 1] : 'etc1s'
+const joinDrawCalls = rest.includes('--join-draw-calls')
 
 if (!existsSync(input)) {
   console.error(`Input not found: ${input}`)
@@ -89,6 +91,32 @@ async function textureCount(path) {
   return doc.getRoot().listTextures().length
 }
 
+async function namedNodeNames(path) {
+  const io = new NodeIO()
+    .registerExtensions(ALL_EXTENSIONS)
+    .registerDependencies({ 'draco3d.decoder': await draco3d.createDecoderModule() })
+  const doc = await io.read(path)
+  return doc.getRoot().listNodes().map((node) => node.getName()).filter(Boolean)
+}
+
+/**
+ * `join --keepNamed false` is what lets compatible primitives collapse to a
+ * material batch, but named source nodes also carry the interior's semantic
+ * audit contract. Preserve the complete source inventory in scene metadata:
+ * runtime geometry stays batched and the graph does not gain hundreds of
+ * empty marker objects, while tooling can still audit every authored part.
+ */
+async function preserveSemanticInventory(path, output, names) {
+  const io = new NodeIO()
+    .registerExtensions(ALL_EXTENSIONS)
+    .registerDependencies({ 'draco3d.decoder': await draco3d.createDecoderModule() })
+  const doc = await io.read(path)
+  const root = doc.getRoot()
+  const scene = root.getDefaultScene() ?? root.listScenes()[0]
+  scene.setExtras({ ...scene.getExtras(), geometryBatchedSourceNodes: names })
+  await io.write(output, doc)
+}
+
 async function main() {
   const workDir = mkdtempSync(join(tmpdir(), 'glb-pipeline-'))
   const startSize = sizeOf(input)
@@ -100,13 +128,23 @@ async function main() {
     const deduped = join(workDir, '2-deduped.glb')
     const welded = join(workDir, '3-welded.glb')
     const instanced = join(workDir, '4-instanced.glb')
+    const joined = join(workDir, '4-joined.glb')
+    const semantic = join(workDir, '4-semantic.glb')
     const dracoOut = join(workDir, '5-draco.glb')
+
+    const semanticNodeNames = joinDrawCalls ? await namedNodeNames(input) : []
 
     run('prune (remove unreferenced properties)', ['prune', input, pruned])
     run('dedup (deduplicate accessors and textures)', ['dedup', pruned, deduped])
     run('weld (merge equivalent vertices)', ['weld', deduped, welded])
     run('instance (GPU-instance repeated meshes, EXT_mesh_gpu_instancing)', ['instance', welded, instanced])
-    run('draco (compress geometry)', ['draco', instanced, dracoOut])
+    let geometryInput = instanced
+    if (joinDrawCalls) {
+      run('join (batch compatible primitives by material)', ['join', instanced, joined, '--keepNamed', 'false'])
+      await preserveSemanticInventory(joined, semantic, semanticNodeNames)
+      geometryInput = semantic
+    }
+    run('draco (compress geometry)', ['draco', geometryInput, dracoOut])
 
     const nTextures = await textureCount(dracoOut)
     let finalFile = dracoOut
