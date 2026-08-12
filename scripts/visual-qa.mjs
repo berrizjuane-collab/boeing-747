@@ -5,6 +5,13 @@ import sharp from 'sharp'
 
 const baseURL = process.env.VISUAL_QA_URL ?? 'http://127.0.0.1:4173/boeing-747/'
 const outputDir = path.resolve(process.env.VISUAL_QA_DIR ?? 'artifacts/final-visuals')
+const mode = process.env.VISUAL_QA_MODE ?? 'all'
+const validModes = new Set(['all', 'screenshots', 'video'])
+if (!validModes.has(mode)) {
+  throw new Error(`VISUAL_QA_MODE must be one of ${[...validModes].join(', ')}; received ${JSON.stringify(mode)}`)
+}
+const runScreenshots = mode === 'all' || mode === 'screenshots'
+const runVideo = mode === 'all' || mode === 'video'
 // SwiftShader needs ~45s to compile the textured PBR+dissolve hull shader in
 // this project. A shorter wait can produce a perfectly plausible screenshot
 // with the aircraft missing, so these are evidence constraints, not cosmetic
@@ -31,6 +38,7 @@ const browser = await chromium.launch({
 
 const report = {
   baseURL,
+  mode,
   generatedAt: new Date().toISOString(),
   consoleErrors: [],
   pageErrors: [],
@@ -39,6 +47,7 @@ const report = {
   assertionFailures: [],
   captures: [],
   videoFinalState: null,
+  videoTimeline: null,
 }
 
 function percentileFromHistogram(histogram, sampleCount, fraction) {
@@ -208,106 +217,131 @@ async function setQuality(page, target) {
   }
 }
 
-const desktop = await browser.newContext({
-  viewport: { width: 1440, height: 900 },
-  deviceScaleFactor: 1,
-})
-const desktopPage = await desktop.newPage()
-await openReady(desktopPage, 'desktop')
-await setQuality(desktopPage, 'high')
-await desktopPage.waitForTimeout(scrollSettleMs)
+if (runScreenshots) {
+  const desktop = await browser.newContext({
+    viewport: { width: 1440, height: 900 },
+    deviceScaleFactor: 1,
+  })
+  const desktopPage = await desktop.newPage()
+  await openReady(desktopPage, 'desktop')
+  await setQuality(desktopPage, 'high')
+  await desktopPage.waitForTimeout(scrollSettleMs)
 
-for (const [name, progress] of [
-  ['01-hero.png', 0.01],
-  ['02-takeoff.png', 0.19],
-  ['03-spec-sheet.png', 0.36],
-  ['04-threshold.png', 0.47],
-  ['05a-interior-cockpit.png', 0.515],
-  ['05b-interior-economy.png', 0.6],
-  ['05c-interior-stair.png', 0.715],
-  ['05d-interior-upper-deck.png', 0.795],
-  ['06a-exit-frame.png', 0.83],
-  ['06b-exit-clean-86.png', 0.86],
-  ['06c-sunset-clean-88.png', 0.88],
-  ['06d-sunset-outro.png', 0.92],
-  ['07-footer.png', 0.97],
-]) {
-  await screenshot(desktopPage, name, progress)
+  for (const [name, progress] of [
+    ['01-hero.png', 0.01],
+    ['02-takeoff.png', 0.19],
+    ['03-spec-sheet.png', 0.36],
+    ['04-threshold.png', 0.47],
+    ['05a-interior-cockpit.png', 0.515],
+    ['05b-interior-economy.png', 0.6],
+    ['05c-interior-stair.png', 0.715],
+    ['05d-interior-upper-deck.png', 0.795],
+    ['06a-exit-frame.png', 0.83],
+    ['06b-exit-clean-86.png', 0.86],
+    ['06c-sunset-clean-88.png', 0.88],
+    ['06d-sunset-outro.png', 0.92],
+    ['07-footer.png', 0.97],
+  ]) {
+    await screenshot(desktopPage, name, progress)
+  }
+  await desktop.close()
+
+  const mobile = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    deviceScaleFactor: 1,
+    isMobile: true,
+    hasTouch: true,
+    userAgent:
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1',
+  })
+  const mobilePage = await mobile.newPage()
+  await openReady(mobilePage, 'mobile')
+  await setQuality(mobilePage, 'low')
+  await mobilePage.waitForTimeout(scrollSettleMs)
+  for (const [name, progress] of [
+    ['08-mobile-hero.png', 0.01],
+    ['09-mobile-spec-sheet.png', 0.36],
+    ['10-mobile-interior.png', 0.6],
+    ['11-mobile-outro.png', 0.91],
+  ]) {
+    await screenshot(mobilePage, name, progress)
+  }
+  await mobile.close()
 }
-await desktop.close()
 
-const mobile = await browser.newContext({
-  viewport: { width: 390, height: 844 },
-  deviceScaleFactor: 1,
-  isMobile: true,
-  hasTouch: true,
-  userAgent:
-    'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1',
-})
-const mobilePage = await mobile.newPage()
-await openReady(mobilePage, 'mobile')
-await setQuality(mobilePage, 'low')
-await mobilePage.waitForTimeout(scrollSettleMs)
-for (const [name, progress] of [
-  ['08-mobile-hero.png', 0.01],
-  ['09-mobile-spec-sheet.png', 0.36],
-  ['10-mobile-interior.png', 0.6],
-  ['11-mobile-outro.png', 0.91],
-]) {
-  await screenshot(mobilePage, name, progress)
-}
-await mobile.close()
-
-const video = await browser.newContext({
-  viewport: { width: 960, height: 600 },
-  deviceScaleFactor: 1,
-  recordVideo: { dir: outputDir, size: { width: 960, height: 600 } },
-})
-const videoPage = await video.newPage()
-await openReady(videoPage, 'video')
-await setQuality(videoPage, 'low')
-const videoRanges = [
-  [0.01, 0.30, 5200],
-  [0.38, 0.56, 5200],
-  [0.58, 0.96, 7200],
-]
-for (const [start, end, duration] of videoRanges) {
-  const steps = Math.max(2, Math.ceil(duration / 180))
-  const dwellMs = Math.max(0, duration / steps - 34)
-  for (let step = 0; step <= steps; step += 1) {
-    const t = step / steps
-    const eased = t * t * (3 - 2 * t)
-    const progress = start + (end - start) * eased
-    // Keep each scroll write as a separate browser round-trip and wait for a
-    // real animation frame. A single in-page timer loop can outrun (or be
-    // starved by) SwiftShader and record 100 seconds that never leave S5.
-    await videoPage.evaluate(
-      (value) =>
-        new Promise((resolve) => {
-          const max = document.documentElement.scrollHeight - window.innerHeight
-          window.scrollTo({ top: max * value, behavior: 'instant' })
-          requestAnimationFrame(() => resolve(undefined))
-        }),
-      progress,
+if (runVideo) {
+  const video = await browser.newContext({
+    viewport: { width: 960, height: 600 },
+    deviceScaleFactor: 1,
+    recordVideo: { dir: outputDir, size: { width: 960, height: 600 } },
+  })
+  const videoStartedAt = Date.now()
+  const videoPage = await video.newPage()
+  report.videoTimeline = { samples: [], ranges: [] }
+  await openReady(videoPage, 'video')
+  await setQuality(videoPage, 'low')
+  const videoRanges = [
+    [0.01, 0.30, 5200],
+    [0.38, 0.56, 5200],
+    [0.58, 0.96, 7200],
+  ]
+  for (const [rangeIndex, [start, end, duration]] of videoRanges.entries()) {
+    const steps = Math.max(2, Math.ceil(duration / 180))
+    const dwellMs = Math.max(0, duration / steps - 34)
+    const range = {
+      startProgress: start,
+      endProgress: end,
+      startSeconds: (Date.now() - videoStartedAt) / 1000,
+      endSeconds: null,
+    }
+    report.videoTimeline.ranges.push(range)
+    console.log(
+      `[visual-qa] recording range ${rangeIndex + 1}/${videoRanges.length}: ` +
+        `${(start * 100).toFixed(0)}–${(end * 100).toFixed(0)}% in ${steps + 1} frames`,
     )
-    if (dwellMs > 0) await videoPage.waitForTimeout(dwellMs)
+    for (let step = 0; step <= steps; step += 1) {
+      const t = step / steps
+      const eased = t * t * (3 - 2 * t)
+      const progress = start + (end - start) * eased
+      // Keep each scroll write as a separate browser round-trip and wait for a
+      // real animation frame. A single in-page timer loop can outrun (or be
+      // starved by) SwiftShader and record 100 seconds that never leave S5.
+      await videoPage.evaluate(
+        (value) =>
+          new Promise((resolve) => {
+            const max = document.documentElement.scrollHeight - window.innerHeight
+            window.scrollTo({ top: max * value, behavior: 'instant' })
+            requestAnimationFrame(() => resolve(undefined))
+          }),
+        progress,
+      )
+      report.videoTimeline.samples.push({
+        progress,
+        seconds: (Date.now() - videoStartedAt) / 1000,
+      })
+      if (dwellMs > 0) await videoPage.waitForTimeout(dwellMs)
+      if (step > 0 && (step % 10 === 0 || step === steps)) {
+        console.log(`[visual-qa] range ${rangeIndex + 1}: ${step}/${steps} frames`)
+      }
+    }
+    await videoPage.waitForTimeout(700)
+    range.endSeconds = (Date.now() - videoStartedAt) / 1000
   }
-  await videoPage.waitForTimeout(700)
+  await videoPage.waitForTimeout(2_000)
+  report.videoFinalState = await videoPage.evaluate(() => {
+    const max = document.documentElement.scrollHeight - window.innerHeight
+    return {
+      progress: max > 0 ? window.scrollY / max : 0,
+      activePanels: Array.from(document.querySelectorAll('[data-active="true"]'))
+        .map((element) => element.textContent?.replace(/\s+/g, ' ').trim() ?? '')
+        .filter(Boolean),
+    }
+  })
+  const recordedVideo = videoPage.video()
+  await videoPage.close()
+  if (recordedVideo) await recordedVideo.saveAs(path.join(outputDir, 'meridian-complete-tour.webm'))
+  await video.close()
 }
-await videoPage.waitForTimeout(2_000)
-report.videoFinalState = await videoPage.evaluate(() => {
-  const max = document.documentElement.scrollHeight - window.innerHeight
-  return {
-    progress: max > 0 ? window.scrollY / max : 0,
-    activePanels: Array.from(document.querySelectorAll('[data-active="true"]'))
-      .map((element) => element.textContent?.replace(/\s+/g, ' ').trim() ?? '')
-      .filter(Boolean),
-  }
-})
-const recordedVideo = videoPage.video()
-await videoPage.close()
-if (recordedVideo) await recordedVideo.saveAs(path.join(outputDir, 'meridian-complete-tour.webm'))
-await video.close()
 
 await browser.close()
 
@@ -363,24 +397,27 @@ for (const capture of report.captures) {
   }
 }
 
-const hero = report.captures.find(({ name }) => name === '01-hero.png')
-if (!hero || hero.imageMetrics.clippedWhitePct >= 2) {
-  report.assertionFailures.push(
-    `01-hero.png: clipped-white pixels must stay below 2% (measured ${hero?.imageMetrics.clippedWhitePct ?? 'missing'}%)`,
-  )
-}
+if (runScreenshots) {
+  const hero = report.captures.find(({ name }) => name === '01-hero.png')
+  if (!hero || hero.imageMetrics.clippedWhitePct >= 2) {
+    report.assertionFailures.push(
+      `01-hero.png: clipped-white pixels must stay below 2% (measured ${hero?.imageMetrics.clippedWhitePct ?? 'missing'}%)`,
+    )
+  }
 
-const specSheet = report.captures.find(({ name }) => name === '03-spec-sheet.png')
-if (!specSheet || (specSheet.imageMetrics.panelContrastEstimate ?? 0) < 4.5) {
-  report.assertionFailures.push(
-    `03-spec-sheet.png: measured panel contrast must be at least 4.5:1 (measured ${specSheet?.imageMetrics.panelContrastEstimate ?? 'missing'})`,
-  )
+  const specSheet = report.captures.find(({ name }) => name === '03-spec-sheet.png')
+  if (!specSheet || (specSheet.imageMetrics.panelContrastEstimate ?? 0) < 4.5) {
+    report.assertionFailures.push(
+      `03-spec-sheet.png: measured panel contrast must be at least 4.5:1 (measured ${specSheet?.imageMetrics.panelContrastEstimate ?? 'missing'})`,
+    )
+  }
 }
 
 if (
-  !report.videoFinalState ||
-  report.videoFinalState.progress < 0.95 ||
-  !report.videoFinalState.activePanels.some((text) => text.includes('Créditos y licencias'))
+  runVideo &&
+  (!report.videoFinalState ||
+    report.videoFinalState.progress < 0.95 ||
+    !report.videoFinalState.activePanels.some((text) => text.includes('Créditos y licencias')))
 ) {
   report.assertionFailures.push(
     `meridian-complete-tour.webm: tour must finish on S7 with visible credits (state ${JSON.stringify(report.videoFinalState)})`,

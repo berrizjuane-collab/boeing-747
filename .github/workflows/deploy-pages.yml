@@ -31,6 +31,9 @@ jobs:
 
   deploy:
     needs: build
+    # Public repositories can deploy directly. Private repositories whose
+    # account plan supports Pages opt in by setting PAGES_ENABLED=true.
+    if: github.event.repository.visibility == 'public' || vars.PAGES_ENABLED == 'true'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

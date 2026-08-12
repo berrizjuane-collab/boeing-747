@@ -39,6 +39,8 @@ npm run qa:hdri   # mide luminancia real y exige ratio máximo < 4x
 npm run qa:interior # estructura/PBR/instancing/presupuesto del GLB publicado
 npm run qa:d3     # serie cuadro a cuadro 70–85% contra un preview local
 npm run qa:visual # capturas y recorrido grabado contra un preview local
+# CI separa la evidencia sin rebajarla: VISUAL_QA_MODE=screenshots|video
+npm run qa:clips  # deriva 3 clips MP4 usando el timeline real del recorrido
 npm run process-glb -- <in.glb> <out.glb>   # pipeline: prune/dedup/weld/instance/Draco/KTX2
 # Para interiores repetitivos: añade --join-draw-calls después de <out.glb>
 ```
@@ -49,15 +51,20 @@ portapapeles.
 
 ## Deploy
 
-El sitio se publica en GitHub Pages vía `.github/workflows/deploy-pages.yml`:
-cada push a `main` corre `npm ci && npm run build` y publica `dist/`
-automáticamente. No hace falta ningún token ni cuenta externa — usa el
+El sitio se prepara para GitHub Pages vía `.github/workflows/deploy-pages.yml`:
+cada push a `main` corre `npm ci && npm run build` y archiva `dist/`. Si el
+repositorio es público, también lo publica automáticamente. Si permanece
+privado, el deploy se habilita con la variable de repositorio
+`PAGES_ENABLED=true` una vez que el plan de la cuenta admita Pages para
+repositorios privados. No hace falta ningún token ni cuenta externa — usa el
 permiso `pages: write` que GitHub Actions ya tiene sobre este repo.
 
 **Antes del primer deploy, una sola vez:** en GitHub, `Settings → Pages →
 Build and deployment → Source`, elegir **GitHub Actions** (no "Deploy from a
-branch"). Eso no lo puede hacer el workflow por sí solo — es un ajuste de
-configuración del repositorio, no del código.
+branch"). En un repo privado, además crear `Settings → Secrets and variables
+→ Actions → Variables → PAGES_ENABLED` con valor `true`, pero sólo después de
+que Pages esté disponible para la cuenta. Es configuración del repositorio,
+no del código.
 
 `vite.config.ts` fija `base: '/boeing-747/'` porque Pages sirve este
 repositorio como *project site* en
