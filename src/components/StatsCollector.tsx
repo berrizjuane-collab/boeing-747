@@ -6,6 +6,9 @@ import { imagePipelineDiagnostics, type ImagePipelineDiagnostics } from '../stat
 
 declare global {
   interface Window {
+    __MERIDIAN_GRADE_QA__?: {
+      setEnabled: (enabled: boolean) => void
+    }
     __MERIDIAN_ENVIRONMENT_QA__?: {
       sample: (progress: number) => {
         environmentSource: 'golden' | 'high-altitude' | 'cabin' | 'sunset'

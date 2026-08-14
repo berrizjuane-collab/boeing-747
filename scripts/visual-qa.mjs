@@ -248,6 +248,94 @@ async function measureExactPixelDiff(referenceFile, candidateFile) {
   return { differingPixels, maximumChannelDelta }
 }
 
+async function measureGradingHighlightShift(ungradedFile, gradedFile) {
+  const [ungraded, graded] = await Promise.all([
+    sharp(ungradedFile).removeAlpha().raw().toBuffer({ resolveWithObject: true }),
+    sharp(gradedFile).removeAlpha().raw().toBuffer({ resolveWithObject: true }),
+  ])
+  if (ungraded.info.width !== graded.info.width || ungraded.info.height !== graded.info.height ||
+      ungraded.info.channels !== graded.info.channels) {
+    throw new Error('Grading comparison requires images with matching dimensions and channels')
+  }
+
+  // S6 desktop-low canvas crop: excludes the top nav and right-side overlay,
+  // then samples the upper quartile without letting near-white UI/text pixels
+  // dominate the authored highlight-key measurement.
+  const bounds = {
+    x: 0,
+    y: Math.floor(ungraded.info.height * 0.12),
+    width: Math.floor(ungraded.info.width * 0.69),
+    height: Math.floor(ungraded.info.height * 0.72),
+  }
+  const histogram = new Uint32Array(256)
+  let roiPixels = 0
+  for (let y = bounds.y; y < bounds.y + bounds.height; y += 1) {
+    for (let x = bounds.x; x < bounds.x + bounds.width; x += 1) {
+      const offset = (y * ungraded.info.width + x) * ungraded.info.channels
+      const luma = Math.round(
+        ungraded.data[offset] * 0.2126 + ungraded.data[offset + 1] * 0.7152 + ungraded.data[offset + 2] * 0.0722,
+      )
+      histogram[luma] += 1
+      roiPixels += 1
+    }
+  }
+  const lowerLuma = percentileFromHistogram(histogram, roiPixels, 0.75) * 255
+  const upperLuma = percentileFromHistogram(histogram, roiPixels, 0.98) * 255
+  const beforeSum = [0, 0, 0]
+  const afterSum = [0, 0, 0]
+  let samplePixels = 0
+  let differingPixels = 0
+  let maximumChannelDelta = 0
+
+  for (let y = bounds.y; y < bounds.y + bounds.height; y += 1) {
+    for (let x = bounds.x; x < bounds.x + bounds.width; x += 1) {
+      const offset = (y * ungraded.info.width + x) * ungraded.info.channels
+      const luma = Math.round(
+        ungraded.data[offset] * 0.2126 + ungraded.data[offset + 1] * 0.7152 + ungraded.data[offset + 2] * 0.0722,
+      )
+      if (luma < lowerLuma || luma > upperLuma) continue
+      let differs = false
+      for (let channel = 0; channel < 3; channel += 1) {
+        beforeSum[channel] += ungraded.data[offset + channel]
+        afterSum[channel] += graded.data[offset + channel]
+        const delta = Math.abs(graded.data[offset + channel] - ungraded.data[offset + channel])
+        if (delta > 0) differs = true
+        maximumChannelDelta = Math.max(maximumChannelDelta, delta)
+      }
+      if (differs) differingPixels += 1
+      samplePixels += 1
+    }
+  }
+
+  const beforeMeanRgb = beforeSum.map((value) => value / samplePixels)
+  const afterMeanRgb = afterSum.map((value) => value / samplePixels)
+  const key = [0xe8 / 255, 0x9b / 255, 0x6c / 255]
+  const beforeNormalized = beforeMeanRgb.map((value) => value / 255)
+  const afterNormalized = afterMeanRgb.map((value) => value / 255)
+  const shift = afterNormalized.map((value, index) => value - beforeNormalized[index])
+  const targetDirection = key.map((value, index) => value - beforeNormalized[index])
+  const shiftMagnitude = Math.hypot(...shift)
+  const targetMagnitude = Math.hypot(...targetDirection)
+  const alignment = shiftMagnitude > 0 && targetMagnitude > 0
+    ? shift.reduce((sum, value, index) => sum + value * targetDirection[index], 0) / (shiftMagnitude * targetMagnitude)
+    : null
+
+  return {
+    bounds,
+    lumaWindow: [lowerLuma, upperLuma],
+    samplePixels,
+    differingPixels,
+    maximumChannelDelta,
+    beforeMeanRgb,
+    afterMeanRgb,
+    shiftRgb: afterMeanRgb.map((value, index) => value - beforeMeanRgb[index]),
+    shiftMagnitude,
+    alignmentWithS6Key: alignment,
+    keyDistanceBefore: Math.hypot(...beforeNormalized.map((value, index) => value - key[index])),
+    keyDistanceAfter: Math.hypot(...afterNormalized.map((value, index) => value - key[index])),
+  }
+}
+
 function watch(page, label) {
   page.on('console', (message) => {
     if (message.type() === 'error') report.consoleErrors.push({ label, text: message.text() })
@@ -355,12 +443,12 @@ async function setQuality(page, target) {
   // Force at least one manual interaction even if auto-detection guessed the
   // requested label; otherwise a pending auto downgrade can mutate the tier
   // midway through a supposedly fixed-quality capture sequence.
-  await control.click()
+  await control.click({ force: true, timeout: 120_000 })
   await page.waitForTimeout(400)
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const label = (await control.textContent())?.toLowerCase() ?? ''
     if (label.includes(target)) return
-    await control.click()
+    await control.click({ force: true, timeout: 120_000 })
     await page.waitForTimeout(400)
   }
 }
@@ -479,6 +567,7 @@ if (runScreenshots) {
   const gearPage = await gearComparison.newPage()
   const gearQaURL = new URL(baseURL)
   gearQaURL.searchParams.set('gear-qa', '1')
+  gearQaURL.searchParams.set('grade-qa', '1')
   watch(gearPage, 'gear-comparison')
   await gearPage.goto(gearQaURL.href, { waitUntil: 'networkidle', timeout: 120_000 })
   await gearPage.locator('.loading-screen').waitFor({ state: 'detached', timeout: 120_000 })
@@ -506,6 +595,26 @@ if (runScreenshots) {
     pipeline: window.__MERIDIAN_IMAGE_PIPELINE__ ?? null,
     performance: window.__MERIDIAN_PERF__ ?? null,
   }))
+
+  await setProgress(gearPage, 0.88)
+  const gradeOffFile = path.join(outputDir, 'qa-grade-off.png')
+  const gradeOnFile = path.join(outputDir, 'qa-grade-on.png')
+  await gearPage.evaluate(() => window.__MERIDIAN_GRADE_QA__?.setEnabled(false))
+  await gearPage.waitForTimeout(scrollSettleMs)
+  await gearPage.screenshot({ path: gradeOffFile, fullPage: false, animations: 'disabled', timeout: screenshotTimeoutMs })
+  await gearPage.evaluate(() => window.__MERIDIAN_GRADE_QA__?.setEnabled(true))
+  await gearPage.waitForTimeout(scrollSettleMs)
+  await gearPage.screenshot({ path: gradeOnFile, fullPage: false, animations: 'disabled', timeout: screenshotTimeoutMs })
+  report.gradingHighlightShift = await measureGradingHighlightShift(gradeOffFile, gradeOnFile)
+  if (report.gradingHighlightShift.samplePixels < 1_000 ||
+      report.gradingHighlightShift.shiftMagnitude <= 0.005 ||
+      (report.gradingHighlightShift.alignmentWithS6Key ?? -1) <= 0.3 ||
+      report.gradingHighlightShift.keyDistanceAfter >= report.gradingHighlightShift.keyDistanceBefore) {
+    report.assertionFailures.push(
+      `S6 grading must measurably move display-space highlights toward #E89B6C: ` +
+        `${JSON.stringify(report.gradingHighlightShift)}`,
+    )
+  }
   await gearComparison.close()
 
   const aaOffComparison = await browser.newContext({
