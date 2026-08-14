@@ -458,6 +458,7 @@ async function screenshot(page, name, progress) {
       quality,
       performance: window.__MERIDIAN_PERF__ ?? null,
       imagePipeline: window.__MERIDIAN_IMAGE_PIPELINE__ ?? null,
+      instanceColors: window.__MERIDIAN_ENVIRONMENT_QA__?.inspectInstanceColors() ?? null,
     }
   })
   const imageMetrics = await measureScreenshot(target, state.panelBounds, name === '11-mobile-outro.png')
@@ -938,6 +939,16 @@ if (runB1Calibration) {
 if (runNarrativeScreenshots || runB1Probe) {
   const s2 = report.captures.find(({ name }) => name === '02-takeoff.png')
   const s2Surface = s2?.imageMetrics.s2ExteriorSurface
+  const invalidInstanceColors = s2?.instanceColors?.filter(
+    ({ present, count, firstValues }) =>
+      !present || count < 1 || firstValues.length < 3 || firstValues.some((value) => !Number.isFinite(value) || value <= 0),
+  )
+  if (!Array.isArray(s2?.instanceColors) || s2.instanceColors.length !== 2 || invalidInstanceColors?.length) {
+    report.assertionFailures.push(
+      `02-takeoff.png: hangar/grass instance-color buffers must be present and non-black before rendering ` +
+        `(${JSON.stringify(s2?.instanceColors ?? null)})`,
+    )
+  }
   if (!s2Surface || s2Surface.p05Luma < 1 || s2Surface.p50Luma < 4 || s2Surface.nearBlackPct > 50 ||
       s2.imageMetrics.lumaContrastRatio < 6) {
     report.assertionFailures.push(

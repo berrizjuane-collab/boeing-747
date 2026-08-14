@@ -8,6 +8,7 @@ import {
   EquirectangularReflectionMapping,
   FogExp2,
   HemisphereLight,
+  InstancedMesh as InstancedMeshImpl,
   Mesh,
   MeshBasicMaterial,
   MeshStandardMaterial,
@@ -214,12 +215,27 @@ export function EnvironmentPlaceholder() {
     window.__MERIDIAN_ENVIRONMENT_QA__ = {
       sample: sampleEnvironmentQa,
       setAmbientMultiplier: setEnvironmentQaAmbientMultiplier,
+      inspectInstanceColors: () =>
+        ['Airport · Hangar walls', 'Airport · Instanced grass bands'].map((name) => {
+          const mesh = scene.getObjectByName(name)
+          const attribute = mesh instanceof InstancedMeshImpl ? mesh.instanceColor : null
+          const material = mesh instanceof InstancedMeshImpl && mesh.material instanceof MeshStandardMaterial
+            ? mesh.material
+            : null
+          return {
+            name,
+            present: attribute !== null,
+            count: attribute?.count ?? 0,
+            firstValues: attribute ? Array.from(attribute.array.slice(0, Math.min(12, attribute.array.length))) : [],
+            materialColor: material?.color.getHexString() ?? null,
+          }
+        }),
     }
     return () => {
       environmentQaAmbientMultiplier = 1
       delete window.__MERIDIAN_ENVIRONMENT_QA__
     }
-  }, [sampleEnvironmentQa])
+  }, [sampleEnvironmentQa, scene])
 
   useFrame(() => {
     const { progress, activeIndex } = useScrollStore.getState()
