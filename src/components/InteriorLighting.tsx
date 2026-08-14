@@ -1,15 +1,9 @@
 import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
 import {
-  DataTexture,
-  EquirectangularReflectionMapping,
   Object3D,
-  PMREMGenerator,
   PointLight,
-  RGBAFormat,
   SpotLight,
-  SRGBColorSpace,
-  UnsignedByteType,
 } from 'three'
 import { SECTIONS } from '../lib/sections'
 import { TIER_SETTINGS, useQualityStore } from '../state/qualityStore'
@@ -135,36 +129,6 @@ function cabinFactor(progress: number) {
   return Math.min(entry, exit)
 }
 
-/**
- * Small procedural equirectangular fill environment. It is intentionally not
- * presented as an HDRI: the interior brief calls for an irradiated, low-cost
- * fill map, while external HDRIs remain a separate asset gate.
- */
-function createCabinFillTexture() {
-  const width = 64
-  const height = 32
-  const data = new Uint8Array(width * height * 4)
-
-  for (let y = 0; y < height; y += 1) {
-    const vertical = y / (height - 1)
-    const ceilingWarmth = 1 - Math.abs(vertical - 0.2) / 0.8
-    for (let x = 0; x < width; x += 1) {
-      const i = (y * width + x) * 4
-      const sideVariation = 0.92 + 0.08 * Math.sin((x / width) * Math.PI * 2)
-      data[i] = Math.round((90 + 110 * ceilingWarmth) * sideVariation)
-      data[i + 1] = Math.round((82 + 86 * ceilingWarmth) * sideVariation)
-      data[i + 2] = Math.round((74 + 62 * ceilingWarmth) * sideVariation)
-      data[i + 3] = 255
-    }
-  }
-
-  const texture = new DataTexture(data, width, height, RGBAFormat, UnsignedByteType)
-  texture.colorSpace = SRGBColorSpace
-  texture.mapping = EquirectangularReflectionMapping
-  texture.needsUpdate = true
-  return texture
-}
-
 function configureShadow(light: SpotLight) {
   light.castShadow = false
   light.shadow.mapSize.set(1024, 1024)
@@ -175,7 +139,7 @@ function configureShadow(light: SpotLight) {
 }
 
 export function InteriorLighting() {
-  const { camera, gl, scene } = useThree()
+  const { camera } = useThree()
   const pointLightRefs = useRef<Array<PointLight | null>>([])
   const spotLightRefs = useRef<Array<SpotLight | null>>([])
   const spotTargets = useMemo(
@@ -190,24 +154,10 @@ export function InteriorLighting() {
   )
 
   useEffect(() => {
-    const previousEnvironment = scene.environment
-    const fillTexture = createCabinFillTexture()
-    const pmrem = new PMREMGenerator(gl)
-    pmrem.compileEquirectangularShader()
-    const environmentTarget = pmrem.fromEquirectangular(fillTexture)
-    scene.environment = environmentTarget.texture
-
     for (const light of spotLightRefs.current) {
       if (light) configureShadow(light)
     }
-
-    return () => {
-      scene.environment = previousEnvironment
-      environmentTarget.dispose()
-      fillTexture.dispose()
-      pmrem.dispose()
-    }
-  }, [gl, scene])
+  }, [])
 
   useFrame(() => {
     const factor = cabinFactor(useScrollStore.getState().progress)

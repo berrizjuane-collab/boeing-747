@@ -193,8 +193,11 @@ body {
 /* Narrative copy that sits over the aircraft/sky gets a restrained optical
    surface. It remains wholly inside the outer-third grid and keeps the model
    unobstructed, while making contrast independent of a moving white fuselage
-   or bright horizon. Data-heavy S2/S3 already use their own darker cards. */
+   or bright horizon. S3 is included explicitly because Fase E places moving
+   terrain behind it; its contrast must not depend on whatever the 3D world
+   happens to contain at that scroll position. */
 .overlay__panel--hero,
+.overlay__panel--climb,
 .overlay__panel--exit,
 .overlay__panel--interior-zone {
   padding: 1rem 1.1rem;

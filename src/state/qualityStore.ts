@@ -17,9 +17,9 @@ export interface TierSettings {
   postProcessing: 'full' | 'bloomVignette' | 'toneMappingOnly'
   particlesPct: number
   /** Real-time shadow casting for InteriorLighting.tsx's spots specifically
-   * (§7.1's "Sombras" row). The S1-S2 runway sun shadow is already scoped
-   * to a short window regardless of tier — see EnvironmentPlaceholder.tsx's
-   * SHADOW_SECTION_END — so it isn't gated here; the interior spots are the
+   * (§7.1's "Sombras" row). The S1-S2 runway contact cue is an analytical
+   * one-draw projection scoped by AircraftGroundShadow's runwayPresence, so
+   * it isn't gated here; the interior spots are the
    * "Interior en tiempo real" vs "Sólo horneadas" difference the table
    * actually names. */
   interiorRealtimeShadows: boolean
@@ -82,6 +82,15 @@ function guessInitialTier(): QualityTier {
   return cores >= 4 ? 'high' : 'mid'
 }
 
+export function qualityTierFromSearch(search: string): QualityTier | null {
+  const requested = new URLSearchParams(search).get('quality')
+  return requested === 'high' || requested === 'mid' || requested === 'low' ? requested : null
+}
+
+function requestedInitialTier(): QualityTier | null {
+  return typeof window === 'undefined' ? null : qualityTierFromSearch(window.location.search)
+}
+
 interface QualityState {
   tier: QualityTier
   /** False once the user (or, functionally the same thing, the nav toggle)
@@ -92,9 +101,14 @@ interface QualityState {
   setTier: (tier: QualityTier, source: 'auto' | 'manual') => void
 }
 
+const requestedTier = requestedInitialTier()
+
 export const useQualityStore = create<QualityState>((set, get) => ({
-  tier: guessInitialTier(),
-  auto: true,
+  // A URL-selected tier is equivalent to the user choosing the nav control:
+  // it is fixed before HDRI loading begins and auto-detection cannot mutate
+  // a supposedly single-tier visual QA sequence midway through capture.
+  tier: requestedTier ?? guessInitialTier(),
+  auto: requestedTier === null,
   setTier: (tier, source) => {
     if (source === 'auto' && !get().auto) return
     set({ tier, auto: source === 'auto' })

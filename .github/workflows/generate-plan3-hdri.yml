@@ -1,0 +1,90 @@
+name: Generate Plan 3 HDRI
+
+on:
+  push:
+    branches: [agent/plan3-phase0]
+    paths:
+      - blender/generate_hdri.py
+      - scripts/measure-hdri.mjs
+      - scripts/sync-loading-weights.mjs
+      - .github/workflows/generate-plan3-hdri.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: plan3-hdri-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  generate:
+    if: github.ref_name == 'agent/plan3-phase0'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Install Blender
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y blender python3-numpy
+
+      - name: Generate 4K scene-linear panoramas
+        run: |
+          set -o pipefail
+          mkdir -p artifacts/plan3-hdri
+          for preset in golden-hour high-altitude sunset; do
+            blender --background --factory-startup --python blender/generate_hdri.py -- \
+              --preset "$preset" \
+              --output "public/hdri/$preset.hdr" \
+              --width 4096 \
+              --height 2048 \
+              --samples 1 \
+              | tee "artifacts/plan3-hdri/$preset-generation.log"
+          done
+
+      - name: Verify calibration and synchronize measured weights
+        run: |
+          set -o pipefail
+          node scripts/measure-hdri.mjs \
+            --assert-ratio=4 \
+            --assert-median-ratio=2 \
+            --assert-resolution=4096x2048 \
+            --assert-brightest-body=high-altitude.hdr \
+            | tee artifacts/plan3-hdri/measurement.json
+          node scripts/sync-loading-weights.mjs
+          node scripts/sync-loading-weights.mjs --check
+
+      - name: Upload source evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: plan3-hdri-source-evidence
+          path: |
+            artifacts/plan3-hdri
+            public/hdri/*.hdr
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Commit generated sources to the working branch
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add public/hdri/golden-hour.hdr public/hdri/high-altitude.hdr public/hdri/sunset.hdr src/lib/loadingWeights.ts
+          if git diff --cached --quiet; then
+            echo 'Generated HDRI sources already match the branch.'
+            exit 0
+          fi
+          git commit -m 'feat: regenerate plan3 HDRI sources'
+          git push origin "HEAD:${{ github.ref_name }}"

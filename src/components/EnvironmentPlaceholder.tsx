@@ -1,24 +1,36 @@
-import { Environment } from '@react-three/drei'
 import { useFrame, useLoader, useThree } from '@react-three/fiber'
-import { useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import {
   BackSide,
+  AmbientLight,
   Color,
   DirectionalLight,
   EquirectangularReflectionMapping,
   FogExp2,
+  HemisphereLight,
+  InstancedMesh as InstancedMeshImpl,
   Mesh,
   MeshBasicMaterial,
   MeshStandardMaterial,
 } from 'three'
-import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
+import { createCabinFillTexture } from '../lib/cabinEnvironment'
 import { EXTERIOR_LIGHTS, sampleEnvironmentTheme } from '../lib/environmentTheme'
+import { exponentialFogMix, FOG_EVIDENCE_DISTANCES } from '../lib/fogMetrics'
 import { activeHdriSectionSlot, goldenHourWeight, highAltitudeWeight, sunsetWeight } from '../lib/hdriTheme'
-import { SECTIONS } from '../lib/sections'
-import { exposureMultiplier } from '../lib/thresholdLighting'
+import { getActiveSectionIndex, SECTIONS } from '../lib/sections'
+import { sampleSolarRig } from '../lib/solarLighting'
+import { exposureMultiplier, sunIntensityMultiplier } from '../lib/thresholdLighting'
 import { createSkyDomeMaterial } from '../lib/skyDomeMaterial'
+import {
+  estimatedHdriGpuBytes,
+  HDRI_GPU_WIDTH,
+  HDRI_LOADER_BY_TIER,
+  HDRI_SOURCE_RESOLUTION,
+} from '../lib/tieredHdri'
 import { exposureState } from '../state/exposureState'
+import { imagePipelineDiagnostics } from '../state/imagePipelineDiagnostics'
 import { loadingState } from '../state/loadingState'
+import { useQualityStore } from '../state/qualityStore'
 import { useScrollStore } from '../state/scrollStore'
 
 // PLAN.md §10.4: the scene reveals like a photo, exposure ramping 0 -> target
@@ -36,6 +48,24 @@ const GROUND_FADE_END = SECTIONS[2].start + 0.025
 // never strays far past S1's ~80m stand-off) — just a big sky, not a prop
 // anything is meant to get close to.
 const SKY_RADIUS = 1200
+const SKY_WIDTH_SEGMENTS = 96
+const SKY_HEIGHT_SEGMENTS = 48
+const HDRI_URLS = [
+  `${import.meta.env.BASE_URL}hdri/golden-hour.hdr`,
+  `${import.meta.env.BASE_URL}hdri/high-altitude.hdr`,
+  `${import.meta.env.BASE_URL}hdri/sunset.hdr`,
+]
+
+// The multiplier stays at 1 in production. Playwright can temporarily sweep
+// it through the QA bridge to calibrate B1 against one loaded frame instead
+// of publishing a sequence of guessed lighting values.
+let environmentQaAmbientMultiplier = 1
+const setEnvironmentQaAmbientMultiplier = (value: number) => {
+  if (!Number.isFinite(value) || value < 1 || value > 8) {
+    throw new Error(`Environment QA ambient multiplier must be finite and within 1–8; received ${value}`)
+  }
+  environmentQaAmbientMultiplier = value
+}
 
 /**
  * Ground, per-section fog/background color (environmentTheme.ts), the real
@@ -63,10 +93,14 @@ const SKY_RADIUS = 1200
  */
 export function EnvironmentPlaceholder() {
   const { scene } = useThree()
+  const tier = useQualityStore((state) => state.tier)
   const colorRef = useRef(new Color('#9f6246'))
+  const fogColorRef = useRef(new Color('#ad765e'))
   const keyRef = useRef<DirectionalLight>(null)
   const fillRef = useRef<DirectionalLight>(null)
   const rimRef = useRef<DirectionalLight>(null)
+  const hemisphereRef = useRef<HemisphereLight>(null)
+  const ambientRef = useRef<AmbientLight>(null)
   const groundRef = useRef<Mesh>(null)
   const groundMaterialRef = useRef<MeshStandardMaterial>(null)
   const skyDomeRef = useRef<Mesh>(null)
@@ -77,16 +111,14 @@ export function EnvironmentPlaceholder() {
   // the same THREE.DefaultLoadingManager useProgress reads, so it correctly
   // counts toward the S0 load gate once that's built (Fase 6), not just a
   // convenient way to fetch it. Sunset joins the same blocking call for
-  // simplicity — it's a similarly small file (~1.2MB, see public/hdri/) and
-  // splitting it into its own lazily-loaded Suspense boundary would be new
-  // architecture for a budget that's nowhere close to being a problem: all
-  // three HDRIs together are still well under §6.4's 15MB S0 ceiling.
+  // simplicity. The three 4K sources total 6.54MB on the wire and keep S0 at
+  // 8.76MB including exterior.glb, below §6.4's 15MB ceiling. The loader
+  // retains that source fidelity on High and box-filters to 2K/1K before GPU
+  // upload on Mid/Low so mobile does not inherit High's residency cost.
   // import.meta.env.BASE_URL, not bare '/hdri/...': see vite.config.ts's `base` comment.
-  const [goldenHourMap, highAltitudeMap, sunsetMap] = useLoader(RGBELoader, [
-    `${import.meta.env.BASE_URL}hdri/golden-hour.hdr`,
-    `${import.meta.env.BASE_URL}hdri/high-altitude.hdr`,
-    `${import.meta.env.BASE_URL}hdri/sunset.hdr`,
-  ])
+  const HdriLoader = HDRI_LOADER_BY_TIER[tier]
+  const [goldenHourMap, highAltitudeMap, sunsetMap] = useLoader(HdriLoader, HDRI_URLS)
+  const cabinFillMap = useMemo(createCabinFillTexture, [])
   const skyMaterial = useMemo(() => createSkyDomeMaterial(goldenHourMap, highAltitudeMap), [goldenHourMap, highAltitudeMap])
   const sunsetMaterial = useMemo(
     () =>
@@ -103,25 +135,119 @@ export function EnvironmentPlaceholder() {
   )
 
   useEffect(() => {
-    goldenHourMap.mapping = EquirectangularReflectionMapping
-    highAltitudeMap.mapping = EquirectangularReflectionMapping
-    sunsetMap.mapping = EquirectangularReflectionMapping
-  }, [goldenHourMap, highAltitudeMap, sunsetMap])
+    const maps = [goldenHourMap, highAltitudeMap, sunsetMap]
+    for (const map of maps) map.mapping = EquirectangularReflectionMapping
+    return () => {
+      for (const map of maps) map.dispose()
+      useLoader.clear(HdriLoader, HDRI_URLS)
+    }
+  }, [HdriLoader, goldenHourMap, highAltitudeMap, sunsetMap])
+
+  useEffect(() => () => skyMaterial.dispose(), [skyMaterial])
+  useEffect(() => () => sunsetMaterial.dispose(), [sunsetMaterial])
+
+  useEffect(() => () => cabinFillMap.dispose(), [cabinFillMap])
 
   useEffect(() => {
     scene.background = colorRef.current
-    scene.fog = new FogExp2(colorRef.current.getHex(), 0.0015)
+    scene.fog = new FogExp2(fogColorRef.current.getHex(), 0.0015)
   }, [scene])
 
+  const bindEnvironment = useCallback(
+    (activeIndex: number) => {
+      const exteriorSlot = activeHdriSectionSlot(activeIndex)
+      const environmentSource: 'golden' | 'high-altitude' | 'cabin' | 'sunset' =
+        activeIndex === 4 ? 'cabin' : exteriorSlot
+      scene.environment =
+        environmentSource === 'golden'
+          ? goldenHourMap
+          : environmentSource === 'high-altitude'
+            ? highAltitudeMap
+            : environmentSource === 'sunset'
+              ? sunsetMap
+              : cabinFillMap
+      imagePipelineDiagnostics.environmentSource = environmentSource
+      imagePipelineDiagnostics.environmentBound = scene.environment !== null
+      return { environmentSource, environmentBound: scene.environment !== null }
+    },
+    [cabinFillMap, goldenHourMap, highAltitudeMap, scene, sunsetMap],
+  )
+
+  const sampleEnvironmentQa = useCallback(
+    (progress: number) => {
+      const theme = sampleEnvironmentTheme(progress)
+      const solar = sampleSolarRig(progress)
+      const gpuWidth = HDRI_GPU_WIDTH[tier]
+      return {
+        ...bindEnvironment(getActiveSectionIndex(progress)),
+        effectiveExposure: exposureMultiplier(progress) * theme.exposureCompensation,
+        fogColor: theme.fogColor.getHex(),
+        fogDensity: theme.fogDensity,
+        fogSamples: FOG_EVIDENCE_DISTANCES.map((distance) => ({
+          distance,
+          mix: exponentialFogMix(theme.fogDensity, distance),
+        })),
+        hemisphereIntensity: theme.hemisphereIntensity,
+        ambientMultiplier: environmentQaAmbientMultiplier,
+        ambientIntensity: theme.ambientIntensity * environmentQaAmbientMultiplier,
+        solar: {
+          source: solar.source,
+          sunAzimuthDeg: solar.sunAzimuthDeg,
+          sunElevationDeg: solar.sunElevationDeg,
+          keyAzimuthDeg: solar.keyAzimuthDeg,
+          keyElevationDeg: solar.keyElevationDeg,
+          keyAngularErrorDeg: solar.keyAngularErrorDeg,
+        },
+        hdri: {
+          sourceResolution: [...HDRI_SOURCE_RESOLUTION] as [number, number],
+          gpuResolution: [gpuWidth, gpuWidth / 2] as [number, number],
+          mipmaps: true,
+          estimatedResidentBytes: estimatedHdriGpuBytes(tier),
+        },
+        skyDomeSegments: [SKY_WIDTH_SEGMENTS, SKY_HEIGHT_SEGMENTS] as [number, number],
+      }
+    },
+    [bindEnvironment, tier],
+  )
+
+  useEffect(() => {
+    environmentQaAmbientMultiplier = 1
+    window.__MERIDIAN_ENVIRONMENT_QA__ = {
+      sample: sampleEnvironmentQa,
+      setAmbientMultiplier: setEnvironmentQaAmbientMultiplier,
+      inspectExteriorMaterials: () =>
+        ['Airport · Hangar walls', 'Airport · Instanced grass bands'].map((name) => {
+          const mesh = scene.getObjectByName(name)
+          const attribute = mesh instanceof InstancedMeshImpl ? mesh.instanceColor : null
+          const material = mesh instanceof InstancedMeshImpl && mesh.material instanceof MeshStandardMaterial
+            ? mesh.material
+            : null
+          return {
+            name,
+            instanceColorPresent: attribute !== null,
+            materialColor: material?.color.getHexString() ?? null,
+            vertexColors: material?.vertexColors ?? null,
+          }
+        }),
+    }
+    return () => {
+      environmentQaAmbientMultiplier = 1
+      delete window.__MERIDIAN_ENVIRONMENT_QA__
+    }
+  }, [sampleEnvironmentQa, scene])
+
   useFrame(() => {
-    const { progress } = useScrollStore.getState()
+    const { progress, activeIndex } = useScrollStore.getState()
     const theme = sampleEnvironmentTheme(progress)
+    const solar = sampleSolarRig(progress)
     colorRef.current.copy(theme.background)
+    fogColorRef.current.copy(theme.fogColor)
     if (scene.fog instanceof FogExp2) {
-      scene.fog.color.copy(colorRef.current)
+      scene.fog.color.copy(fogColorRef.current)
       scene.fog.density = theme.fogDensity
     }
     scene.environmentIntensity = theme.environmentIntensity
+    bindEnvironment(activeIndex)
     if (groundMaterialRef.current) groundMaterialRef.current.color.copy(theme.ground)
     const groundFade = clamp01Reveal((GROUND_FADE_END - progress) / (GROUND_FADE_END - GROUND_FADE_START))
     if (groundRef.current) groundRef.current.visible = groundFade > 0.01
@@ -139,21 +265,67 @@ export function EnvironmentPlaceholder() {
     // uniform silently stopped doing anything. ExposurePass.tsx (mounted
     // first in PostFX's effect chain) picks it back up as a real
     // post-process multiply instead.
-    exposureState.value = exposureMultiplier(progress) * theme.exposureCompensation * loadReveal
+    const effectiveExposure = exposureMultiplier(progress) * theme.exposureCompensation * loadReveal
+    exposureState.value = effectiveExposure
+
+    const hemisphere = hemisphereRef.current
+    if (hemisphere) {
+      hemisphere.color.copy(theme.hemisphereSky)
+      hemisphere.groundColor.copy(theme.hemisphereGround)
+      hemisphere.intensity = theme.hemisphereIntensity
+      hemisphere.visible = theme.hemisphereIntensity > 0.01
+    }
+    const ambient = ambientRef.current
+    const ambientMultiplier = environmentQaAmbientMultiplier
+    const effectiveAmbientIntensity = theme.ambientIntensity * ambientMultiplier
+    if (ambient) {
+      ambient.color.copy(theme.hemisphereSky)
+      ambient.intensity = effectiveAmbientIntensity
+      ambient.visible = effectiveAmbientIntensity > 0.001
+    }
 
     const lightRefs = { key: keyRef.current, fill: fillRef.current, rim: rimRef.current }
+    const lightPositions = { key: solar.keyPosition, fill: solar.fillPosition, rim: solar.rimPosition }
     for (const role of ['key', 'fill', 'rim'] as const) {
       const light = lightRefs[role]
       if (!light) continue
       const sample = theme.lights[role]
       light.color.copy(sample.color)
-      light.intensity = sample.intensity
-      light.visible = sample.intensity > 0.01
+      const intensity = role === 'key' ? sample.intensity * sunIntensityMultiplier(progress) : sample.intensity
+      light.intensity = intensity
+      light.visible = intensity > 0.01
+      light.position.copy(lightPositions[role])
       // Runtime metadata mirrors the declared inventory and makes the light
       // rig inspectable in Three devtools / QA without parsing source text.
       light.userData.temperatureKelvin = sample.temperatureKelvin
-      light.userData.intensity = sample.intensity
+      light.userData.intensity = intensity
     }
+
+    imagePipelineDiagnostics.effectiveExposure = effectiveExposure
+    imagePipelineDiagnostics.fogColor = theme.fogColor.getHex()
+    imagePipelineDiagnostics.fogDensity = theme.fogDensity
+    imagePipelineDiagnostics.hemisphereIntensity = theme.hemisphereIntensity
+    imagePipelineDiagnostics.ambientMultiplier = ambientMultiplier
+    imagePipelineDiagnostics.ambientIntensity = effectiveAmbientIntensity
+    for (let index = 0; index < FOG_EVIDENCE_DISTANCES.length; index += 1) {
+      const distance = FOG_EVIDENCE_DISTANCES[index]
+      imagePipelineDiagnostics.fogSamples[index].mix = exponentialFogMix(theme.fogDensity, distance)
+    }
+    imagePipelineDiagnostics.solar.source = solar.source
+    imagePipelineDiagnostics.solar.sunAzimuthDeg = solar.sunAzimuthDeg
+    imagePipelineDiagnostics.solar.sunElevationDeg = solar.sunElevationDeg
+    imagePipelineDiagnostics.solar.keyAzimuthDeg = solar.keyAzimuthDeg
+    imagePipelineDiagnostics.solar.keyElevationDeg = solar.keyElevationDeg
+    imagePipelineDiagnostics.solar.keyAngularErrorDeg = solar.keyAngularErrorDeg
+    const gpuWidth = HDRI_GPU_WIDTH[tier]
+    imagePipelineDiagnostics.hdri.sourceResolution[0] = HDRI_SOURCE_RESOLUTION[0]
+    imagePipelineDiagnostics.hdri.sourceResolution[1] = HDRI_SOURCE_RESOLUTION[1]
+    imagePipelineDiagnostics.hdri.gpuResolution[0] = gpuWidth
+    imagePipelineDiagnostics.hdri.gpuResolution[1] = gpuWidth / 2
+    imagePipelineDiagnostics.hdri.mipmaps = true
+    imagePipelineDiagnostics.hdri.estimatedResidentBytes = estimatedHdriGpuBytes(tier)
+    imagePipelineDiagnostics.skyDomeSegments[0] = SKY_WIDTH_SEGMENTS
+    imagePipelineDiagnostics.skyDomeSegments[1] = SKY_HEIGHT_SEGMENTS
 
     const golden = goldenHourWeight(progress)
     const highAlt = highAltitudeWeight(progress)
@@ -166,11 +338,6 @@ export function EnvironmentPlaceholder() {
     sunsetMaterial.opacity = sunsetOpacity
     if (sunsetDomeRef.current) sunsetDomeRef.current.visible = sunsetOpacity > 1e-4
   })
-
-  const activeIndex = useScrollStore((s) => s.activeIndex)
-  const hdriSlot = activeHdriSectionSlot(activeIndex)
-  const reflectionMap =
-    hdriSlot === 'golden' ? goldenHourMap : hdriSlot === 'high-altitude' ? highAltitudeMap : hdriSlot === 'sunset' ? sunsetMap : null
 
   return (
     <>
@@ -223,6 +390,25 @@ export function EnvironmentPlaceholder() {
         }}
         castShadow={EXTERIOR_LIGHTS.rim.castsShadow}
       />
+      <hemisphereLight
+        ref={hemisphereRef}
+        name="Exterior · Hemisphere · Atmosphere"
+        args={['#c9dcf1', '#6b7055', 0.34]}
+        userData={{
+          role: 'ambient hemisphere',
+          purpose: 'Lifts exterior sky/ground irradiance without flattening the authored key-to-fill ratio.',
+        }}
+      />
+      <ambientLight
+        ref={ambientRef}
+        name="Exterior · Ambient · Shadow lift"
+        color="#c9dcf1"
+        intensity={0.18}
+        userData={{
+          role: 'ambient shadow lift',
+          purpose: 'Keeps exterior shadow-facing surfaces above black while the directional rig preserves form.',
+        }}
+      />
       <mesh
         ref={groundRef}
         name="Environment · Ground"
@@ -234,14 +420,14 @@ export function EnvironmentPlaceholder() {
         <meshStandardMaterial ref={groundMaterialRef} color="#59664d" roughness={1} transparent />
       </mesh>
       <mesh ref={skyDomeRef} renderOrder={-10} material={skyMaterial}>
-        <sphereGeometry args={[SKY_RADIUS, 32, 32]} />
+        <sphereGeometry args={[SKY_RADIUS, SKY_WIDTH_SEGMENTS, SKY_HEIGHT_SEGMENTS]} />
       </mesh>
       <mesh ref={sunsetDomeRef} renderOrder={-10} material={sunsetMaterial}>
-        <sphereGeometry args={[SKY_RADIUS, 32, 32]} />
+        <sphereGeometry args={[SKY_RADIUS, SKY_WIDTH_SEGMENTS, SKY_HEIGHT_SEGMENTS]} />
       </mesh>
-      {/* Reflection-only: background stays the sky dome above, this just feeds
-          scene.environment for PBR IBL on standard materials (the ground/runway). */}
-      {reflectionMap && <Environment map={reflectionMap} background={false} />}
+      {/* Reflection ownership is centralized in useFrame above. This prevents
+          independent mount cleanups from restoring a stale/null environment
+          at the S6/S7 boundary while the visible background stays separate. */}
     </>
   )
 }

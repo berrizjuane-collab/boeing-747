@@ -1,7 +1,10 @@
 import { BlendFunction, Effect } from 'postprocessing'
 import { Color, Uniform } from 'three'
 
-// Split-tone shift, not a full lift/gamma/gain grade: shadows get pushed
+// Display-space split-tone shift, not a full lift/gamma/gain grade: PostFX
+// places this effect immediately after ACES, so the thresholds below operate
+// on the intended 0..1 display range rather than an unbounded HDR buffer.
+// Shadows get pushed
 // toward `shadowColor`, highlights toward `highlightColor`, each shift
 // scaled down (0.35 / 0.25) and centered on the tint color's midpoint
 // (`color - 0.5`) so a light tint (e.g. S3's white acento) doesn't blow out
@@ -39,7 +42,9 @@ export class SectionGradeEffect extends Effect {
       uniforms: new Map<string, Uniform>([
         ['shadowColor', new Uniform(new Color())],
         ['highlightColor', new Uniform(new Color())],
-        ['strength', new Uniform(0.5)],
+        // Updated every frame from sectionGrading.ts; a zero default makes a
+        // missed update visibly fail instead of silently freezing at 0.5.
+        ['strength', new Uniform(0)],
       ]),
     })
   }

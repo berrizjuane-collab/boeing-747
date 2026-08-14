@@ -1,6 +1,6 @@
 import { Canvas } from '@react-three/fiber'
 import { Suspense, useRef } from 'react'
-import { ACESFilmicToneMapping, SRGBColorSpace, type Mesh } from 'three'
+import { SRGBColorSpace, type Mesh } from 'three'
 import { CameraRig } from './CameraRig'
 import { EnvironmentPlaceholder } from './EnvironmentPlaceholder'
 import { ExteriorAsset } from './ExteriorAsset'
@@ -58,7 +58,10 @@ export function SceneCanvas({ debugMode }: { debugMode: boolean }) {
       style={{ position: 'fixed', inset: 0, zIndex: 0, display: 'block' }}
       dpr={[1, dprMax]}
       camera={{ fov: 45, near: 0.1, far: 3000, position: [60, 8, 55] }}
-      gl={{ antialias: true }}
+      // The composer renders through non-MSAA targets, so context AA would
+      // allocate buffers without reaching the final image. PostFX owns the
+      // explicit SMAA path for all tiers.
+      gl={{ antialias: false }}
       onCreated={({ gl }) => {
         // See StatsCollector.tsx: a multi-pass post-processing composer
         // calls renderer.render() several times per frame, and info.reset()
@@ -66,8 +69,6 @@ export function SceneCanvas({ debugMode }: { debugMode: boolean }) {
         // out everything but the last pass's counts before anything reads
         // them. Reset manually, once per frame, from StatsCollector instead.
         gl.info.autoReset = false
-        gl.toneMapping = ACESFilmicToneMapping
-        gl.toneMappingExposure = 1
         gl.outputColorSpace = SRGBColorSpace
       }}
     >

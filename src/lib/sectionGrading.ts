@@ -23,16 +23,17 @@ const NEUTRAL = '#808080'
 export interface SectionGrade {
   key: string
   shadow: string
+  strength: number
 }
 
 export const SECTION_GRADES: SectionGrade[] = [
-  { key: '#F0A860', shadow: '#1E3A44' }, // S1 — pista
-  { key: '#F0A860', shadow: '#1E3A44' }, // S2 — despegue, "igual que S1"
-  { key: '#FFFFFF', shadow: '#4A7BA0' }, // S3 — ascenso
-  { key: '#FFFFFF', shadow: '#4A7BA0' }, // S4 — umbral, copia de S3 (ver nota arriba)
-  { key: '#D9A566', shadow: '#B8D4E8' }, // S5 — interior
-  { key: '#E89B6C', shadow: '#16203A' }, // S6 — salida
-  { key: '#E8B87A', shadow: NEUTRAL }, // S7 — footer, bookend de S0
+  { key: '#F0A860', shadow: '#1E3A44', strength: 0.38 }, // S1 — pista
+  { key: '#F0A860', shadow: '#1E3A44', strength: 0.38 }, // S2 — despegue, "igual que S1"
+  { key: '#FFFFFF', shadow: '#4A7BA0', strength: 0.18 }, // S3 — ascenso
+  { key: '#FFFFFF', shadow: '#4A7BA0', strength: 0.18 }, // S4 — umbral, copia de S3 (ver nota arriba)
+  { key: '#D9A566', shadow: '#B8D4E8', strength: 0.32 }, // S5 — interior
+  { key: '#E89B6C', shadow: '#16203A', strength: 0.64 }, // S6 — salida
+  { key: '#E8B87A', shadow: NEUTRAL, strength: 0.28 }, // S7 — footer, bookend de S0
 ]
 
 /** Same crossfade shape as environmentTheme.ts's sampleEnvironmentColor: the
@@ -46,6 +47,7 @@ export function sampleSectionGrade(progress: number): SectionGrade {
   return {
     key: lerpHex(from.key, to.key, t),
     shadow: lerpHex(from.shadow, to.shadow, t),
+    strength: from.strength + (to.strength - from.strength) * t,
   }
 }
 

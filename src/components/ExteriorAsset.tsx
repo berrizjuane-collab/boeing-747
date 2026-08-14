@@ -5,6 +5,7 @@ import { Group, Mesh, Object3D } from 'three'
 import { KTX2Loader, type GLTFLoader } from 'three-stdlib'
 import { getAircraftPose } from '../lib/aircraftPose'
 import { createDissolveHullMaterial, type DissolveHullMaterial } from '../lib/dissolveHullMaterial'
+import { mergeLandingGearMeshes, setLandingGearMergeMode } from '../lib/landingGearMerge'
 import { EXTERIOR_LOCAL_OFFSET } from '../lib/sceneLayout'
 import { SECTIONS, localProgress } from '../lib/sections'
 import { EXIT_PORTAL, NOSE_PORTAL, portalRadius } from '../lib/thresholdPortals'
@@ -69,7 +70,6 @@ export function ExteriorAsset() {
   const gearRef = useRef<Object3D | null>(null)
 
   useEffect(() => {
-    let gear: Object3D | null = null
     scene.traverse((obj) => {
       if (obj.name === 'A380' && (obj as Mesh).isMesh) {
         const mesh = obj as Mesh
@@ -77,22 +77,31 @@ export function ExteriorAsset() {
         const dissolveMaterial = createDissolveHullMaterial(sourceMaterial)
         mesh.material = dissolveMaterial
         dissolveMaterialRef.current = dissolveMaterial
-        mesh.castShadow = true
-        mesh.receiveShadow = true
-      } else if ((obj as Mesh).isMesh) {
-        const mesh = obj as Mesh
-        mesh.castShadow = true
-        mesh.receiveShadow = true
       }
-      if (obj.name === 'LandingGear') gear = obj
     })
-    gearRef.current = gear
+    const gear = scene.getObjectByName('LandingGear')
+    if (gear) {
+      const preserveSourceMeshes = new URLSearchParams(window.location.search).has('gear-qa')
+      const merged = mergeLandingGearMeshes(gear, { preserveSourceMeshes })
+      gear.userData.runtimeMerge = {
+        strategy: 'world-transform-preserving BufferGeometry merge',
+        sourceMeshCount: merged.sourceMeshCount,
+        sourceTriangleCount: merged.sourceTriangleCount,
+      }
+      if (preserveSourceMeshes) {
+        window.__MERIDIAN_GEAR_QA__ = {
+          setMode: (mode) => setLandingGearMergeMode(gear, mode),
+        }
+      }
+    }
+    gearRef.current = gear ?? null
     return () => {
       const dissolveMaterial = dissolveMaterialRef.current
       dissolveMaterial?.userData.aircraftSurfaceMaps.normal.dispose()
       dissolveMaterial?.userData.aircraftSurfaceMaps.roughness.dispose()
       dissolveMaterial?.dispose()
       dissolveMaterialRef.current = null
+      delete window.__MERIDIAN_GEAR_QA__
     }
   }, [scene])
 

@@ -18,9 +18,39 @@ jobs:
   static-checks:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    outputs:
+      run_visual: ${{ steps.qa-scope.outputs.run_visual }}
+      visual_matrix: ${{ steps.qa-scope.outputs.visual_matrix }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Resolve evidence scope
+        id: qa-scope
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$HEAD_SHA"
+          head_message="$(git show -s --format=%B "$HEAD_SHA")"
+          if [[ "$head_message" == *"[qa:static]"* ]]; then
+            echo 'run_visual=false' >> "$GITHUB_OUTPUT"
+            echo 'visual_matrix=["screenshots","video"]' >> "$GITHUB_OUTPUT"
+          elif [[ "$head_message" == *"[qa:probes]"* ]]; then
+            echo 'run_visual=true' >> "$GITHUB_OUTPUT"
+            echo 'visual_matrix=["probes"]' >> "$GITHUB_OUTPUT"
+          elif [[ "$head_message" == *"[qa:d3]"* ]]; then
+            echo 'run_visual=true' >> "$GITHUB_OUTPUT"
+            echo 'visual_matrix=["d3"]' >> "$GITHUB_OUTPUT"
+          elif [[ "$head_message" == *"[qa:b1-calibration]"* ]]; then
+            echo 'run_visual=true' >> "$GITHUB_OUTPUT"
+            echo 'visual_matrix=["b1-calibration"]' >> "$GITHUB_OUTPUT"
+          elif [[ "$head_message" == *"[qa:b1]"* ]]; then
+            echo 'run_visual=true' >> "$GITHUB_OUTPUT"
+            echo 'visual_matrix=["b1"]' >> "$GITHUB_OUTPUT"
+          else
+            echo 'run_visual=true' >> "$GITHUB_OUTPUT"
+            echo 'visual_matrix=["screenshots","video"]' >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -41,15 +71,16 @@ jobs:
 
   visual-evidence:
     needs: static-checks
+    if: needs.static-checks.outputs.run_visual == 'true'
     runs-on: ubuntu-latest
-    # Full-resolution High screenshots take ~47 minutes on GitHub's shared
-    # SwiftShader runner. The recorded tour is independent evidence, so run
-    # both modes in parallel with isolated time budgets and reports.
-    timeout-minutes: 75
+    # Full-resolution High screenshots plus the six-frame D3 continuity
+    # series can exceed 75 minutes on GitHub's shared SwiftShader runner.
+    # The recorded tour remains independent and runs in parallel.
+    timeout-minutes: 105
     strategy:
       fail-fast: false
       matrix:
-        mode: [screenshots, video]
+        mode: ${{ fromJSON(needs.static-checks.outputs.visual_matrix) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -88,9 +119,18 @@ jobs:
           exit 1
 
       - name: Capture final product
+        if: matrix.mode != 'd3'
         run: npm run qa:visual
         env:
           VISUAL_QA_MODE: ${{ matrix.mode }}
+
+      - name: Capture S3 sky continuity series
+        if: matrix.mode == 'screenshots' || matrix.mode == 'd3'
+        run: npm run qa:d3
+        env:
+          D3_QA_POINTS: 0.30,0.32,0.34,0.36,0.38,0.40
+          D3_QA_QUALITY: high
+          D3_QA_DIR: artifacts/final-visuals/d3-sky-series
 
       - name: Cut short MP4 clips
         if: matrix.mode == 'video'
