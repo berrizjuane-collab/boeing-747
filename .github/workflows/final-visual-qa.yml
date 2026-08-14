@@ -114,6 +114,14 @@ jobs:
         env:
           VISUAL_QA_MODE: ${{ matrix.mode }}
 
+      - name: Capture S3 sky continuity series
+        if: matrix.mode == 'screenshots'
+        run: npm run qa:d3
+        env:
+          D3_QA_POINTS: 0.30,0.32,0.34,0.36,0.38,0.40
+          D3_QA_QUALITY: high
+          D3_QA_DIR: artifacts/final-visuals/d3-sky-series
+
       - name: Cut short MP4 clips
         if: matrix.mode == 'video'
         run: npm run qa:clips

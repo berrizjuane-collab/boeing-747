@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { after, test } from 'node:test'
-import { stat } from 'node:fs/promises'
+import { readFile, stat } from 'node:fs/promises'
 import { createServer } from 'vite'
 
 const server = await createServer({
@@ -14,7 +14,8 @@ after(async () => {
 })
 
 const { sampleCamera } = await server.ssrLoadModule('/src/lib/cameraPath.ts')
-const { EXTERIOR_LIGHTS, SECTION_ENVIRONMENT } = await server.ssrLoadModule('/src/lib/environmentTheme.ts')
+const { EXTERIOR_LIGHTS, SECTION_ENVIRONMENT, sampleEnvironmentTheme } =
+  await server.ssrLoadModule('/src/lib/environmentTheme.ts')
 const { EXIT_PORTAL, frameVisibility } = await server.ssrLoadModule('/src/lib/thresholdPortals.ts')
 const { createRunwayMarkingsGeometry, RUNWAY_SURFACE_Y } = await server.ssrLoadModule('/src/lib/runwayGeometry.ts')
 const { mergeLandingGearMeshes, MERGED_LANDING_GEAR_NAME, setLandingGearMergeMode } =
@@ -23,6 +24,17 @@ const { BLOCKING_ASSET_WEIGHTS, BLOCKING_TOTAL_WEIGHT } =
   await server.ssrLoadModule('/src/lib/loadingWeights.ts')
 const { activeHdriSectionSlot } = await server.ssrLoadModule('/src/lib/hdriTheme.ts')
 const { SECTION_GRADES, sampleSectionGrade } = await server.ssrLoadModule('/src/lib/sectionGrading.ts')
+const { exponentialFogMix, FOG_EVIDENCE_DISTANCES } = await server.ssrLoadModule('/src/lib/fogMetrics.ts')
+const { HDRI_SUN_PRESETS, sampleSolarRig } = await server.ssrLoadModule('/src/lib/solarLighting.ts')
+const {
+  HDRI_GPU_WIDTH,
+  HDRI_SOURCE_RESOLUTION,
+  HighHdriLoader,
+  MidHdriLoader,
+  LowHdriLoader,
+  estimatedHdriGpuBytes,
+} = await server.ssrLoadModule('/src/lib/tieredHdri.ts')
+const { exposureMultiplier } = await server.ssrLoadModule('/src/lib/thresholdLighting.ts')
 const { BoxGeometry, Group, Mesh, MeshStandardMaterial } = await import('three')
 
 test('A2/A3: exterior rig and atmosphere have complete finite section anchors', () => {
@@ -32,8 +44,12 @@ test('A2/A3: exterior rig and atmosphere have complete finite section anchors', 
 
   for (const [sectionIndex, section] of SECTION_ENVIRONMENT.entries()) {
     assert.ok(section.fogDensity > 0 && section.fogDensity < 0.002, `fog density S${sectionIndex + 1}`)
-    assert.ok(section.exposureCompensation > 0 && section.exposureCompensation <= 1.1)
+    assert.ok(section.exposureCompensation > 0 && section.exposureCompensation <= 1.5)
     assert.ok(section.environmentIntensity > 0 && section.environmentIntensity <= 1)
+    assert.match(section.fogColor, /^#[\da-f]{6}$/i)
+    assert.match(section.hemisphereSky, /^#[\da-f]{6}$/i)
+    assert.match(section.hemisphereGround, /^#[\da-f]{6}$/i)
+    assert.ok(section.hemisphereIntensity >= 0 && section.hemisphereIntensity <= 0.5)
     for (const role of ['key', 'fill', 'rim']) {
       const light = section.lights[role]
       assert.ok(light.temperatureKelvin >= 2500 && light.temperatureKelvin <= 9000, `${role} CCT S${sectionIndex + 1}`)
@@ -169,4 +185,69 @@ test('plan3 A4: every narrative section resolves to a non-null exterior HDRI fal
     Array.from({ length: 7 }, (_, index) => activeHdriSectionSlot(index)),
     ['golden', 'golden', 'high-altitude', 'high-altitude', 'high-altitude', 'sunset', 'sunset'],
   )
+})
+
+test('plan3 B1: exterior hemisphere irradiance lifts S1/S2 without replacing the authored key', () => {
+  for (const progress of [0.01, 0.13, 0.24]) {
+    const theme = sampleEnvironmentTheme(progress)
+    assert.ok(theme.hemisphereIntensity >= 0.3, `hemisphere intensity at ${progress}`)
+    assert.ok(theme.lights.key.intensity > theme.hemisphereIntensity * 3, `key/ambient separation at ${progress}`)
+  }
+})
+
+test('plan3 B2: key direction matches every authored HDRI sun exactly', async () => {
+  const samples = [
+    [0.1, 'golden', HDRI_SUN_PRESETS.golden],
+    [0.36, 'high-altitude', HDRI_SUN_PRESETS['high-altitude']],
+    [0.88, 'sunset', HDRI_SUN_PRESETS.sunset],
+  ]
+  for (const [progress, source, expected] of samples) {
+    const rig = sampleSolarRig(progress)
+    assert.equal(rig.source, source)
+    assert.ok(Math.abs(rig.sunAzimuthDeg - expected.azimuthDeg) <= 1e-9)
+    assert.ok(Math.abs(rig.sunElevationDeg - expected.elevationDeg) <= 1e-9)
+    assert.ok(rig.keyAngularErrorDeg <= 1e-6)
+  }
+
+  const generator = await readFile('blender/generate_hdri.py', 'utf8')
+  for (const preset of Object.values(HDRI_SUN_PRESETS)) {
+    assert.ok(generator.includes(`math.radians(${preset.azimuthDeg.toFixed(1)})`), `generator azimuth ${preset.azimuthDeg}`)
+    assert.ok(
+      generator.includes(`math.radians(${preset.elevationDeg.toFixed(1)})`),
+      `generator elevation ${preset.elevationDeg}`,
+    )
+  }
+})
+
+test('plan3 B5: 4K HDRI sources are mipmapped and tier-filtered before GPU upload', async () => {
+  assert.deepEqual(HDRI_SOURCE_RESOLUTION, [4096, 2048])
+  assert.deepEqual(HDRI_GPU_WIDTH, { high: 4096, mid: 2048, low: 1024 })
+  const source = await readFile('public/hdri/golden-hour.hdr')
+  const buffer = source.buffer.slice(source.byteOffset, source.byteOffset + source.byteLength)
+  for (const [Loader, width] of [
+    [HighHdriLoader, 4096],
+    [MidHdriLoader, 2048],
+    [LowHdriLoader, 1024],
+  ]) {
+    const parsed = new Loader().parse(buffer)
+    assert.equal(parsed.width, width)
+    assert.equal(parsed.height, width / 2)
+    assert.equal(parsed.generateMipmaps, true)
+  }
+  assert.equal(estimatedHdriGpuBytes('high'), 268_435_456)
+  assert.equal(estimatedHdriGpuBytes('mid'), 67_108_864)
+  assert.equal(estimatedHdriGpuBytes('low'), 16_777_216)
+})
+
+test('plan3 B6/B7: S6 haze stays warm with distance and effective exposure is neutral', () => {
+  for (const progress of [0.82, 0.86, 0.88, 0.92, 0.95]) {
+    const theme = sampleEnvironmentTheme(progress)
+    const effectiveExposure = exposureMultiplier(progress) * theme.exposureCompensation
+    assert.ok(effectiveExposure >= 0.88 && effectiveExposure <= 1.1, `effective exposure at ${progress}`)
+  }
+
+  const dusk = sampleEnvironmentTheme(0.88)
+  assert.ok(dusk.fogColor.r > dusk.fogColor.b, 'S6 distance haze has a warm red-over-blue bias')
+  const mixes = FOG_EVIDENCE_DISTANCES.map((distance) => exponentialFogMix(dusk.fogDensity, distance))
+  assert.ok(mixes[0] > 0 && mixes[0] < mixes[1] && mixes[1] < mixes[2] && mixes[2] < 1)
 })

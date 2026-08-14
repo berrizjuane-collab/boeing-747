@@ -109,6 +109,40 @@ function measureSilhouetteEdges(lumaValues, width, height) {
   }
 }
 
+function measureLumaRegion(lumaValues, width, height, bounds) {
+  const histogram = new Uint32Array(256)
+  const left = Math.max(0, Math.floor(bounds.x))
+  const top = Math.max(0, Math.floor(bounds.y))
+  const right = Math.min(width, Math.ceil(bounds.x + bounds.width))
+  const bottom = Math.min(height, Math.ceil(bounds.y + bounds.height))
+  let pixels = 0
+  let sum = 0
+  let nearBlack = 0
+
+  for (let y = top; y < bottom; y += 1) {
+    for (let x = left; x < right; x += 1) {
+      const luma = lumaValues[y * width + x]
+      histogram[luma] += 1
+      sum += luma
+      if (luma <= 2) nearBlack += 1
+      pixels += 1
+    }
+  }
+
+  const p05Luma = percentileFromHistogram(histogram, pixels, 0.05) * 255
+  const p95Luma = percentileFromHistogram(histogram, pixels, 0.95) * 255
+  return {
+    bounds: { x: left, y: top, width: right - left, height: bottom - top },
+    pixels,
+    meanLuma: pixels > 0 ? sum / pixels : null,
+    p05Luma,
+    p50Luma: percentileFromHistogram(histogram, pixels, 0.5) * 255,
+    p95Luma,
+    nearBlackPct: pixels > 0 ? (nearBlack / pixels) * 100 : null,
+    contrastRatio: (p95Luma + 5) / (p05Luma + 5),
+  }
+}
+
 async function measureScreenshot(file, panelBounds, measureSilhouette = false) {
   const { data, info } = await sharp(file).removeAlpha().raw().toBuffer({ resolveWithObject: true })
   const pixels = info.width * info.height
@@ -193,6 +227,14 @@ async function measureScreenshot(file, panelBounds, measureSilhouette = false) {
     edgeGradientP95: percentileFromHistogram(edgeHistogram, edgeSamples, 0.95) * 255,
     intermediateEdgePct: (intermediateEdges / edgeSamples) * 100,
     silhouetteEdges: measureSilhouette ? measureSilhouetteEdges(lumaValues, info.width, info.height) : null,
+    s2ExteriorSurface: path.basename(file) === '02-takeoff.png'
+      ? measureLumaRegion(lumaValues, info.width, info.height, {
+          x: info.width * 0.104,
+          y: info.height * 0.389,
+          width: info.width * 0.139,
+          height: info.height * 0.078,
+        })
+      : null,
     panelContrastEstimate: null,
   }
 
@@ -529,6 +571,15 @@ if (runNarrativeScreenshots) {
         `${nullEnvironmentSamples.length} null)`,
     )
   }
+  const misalignedSunSamples = report.environmentSweep.filter(
+    ({ solar }) => !solar || !Number.isFinite(solar.keyAngularErrorDeg) || solar.keyAngularErrorDeg > 0.001,
+  )
+  if (misalignedSunSamples.length > 0) {
+    report.assertionFailures.push(
+      `HDRI sun/key alignment must stay within 0.001° at all 101 samples ` +
+        `(received ${misalignedSunSamples.length} misaligned samples)`,
+    )
+  }
   await desktop.close()
 
   const mobile = await browser.newContext({
@@ -797,6 +848,25 @@ for (const capture of report.captures) {
     if (!capture.imagePipeline.environmentBound) {
       report.assertionFailures.push(`${capture.name}: scene.environment is null`)
     }
+    if ((capture.imagePipeline.solar?.keyAngularErrorDeg ?? Infinity) > 0.001) {
+      report.assertionFailures.push(
+        `${capture.name}: HDRI sun/key angular error must be <= 0.001° ` +
+          `(received ${capture.imagePipeline.solar?.keyAngularErrorDeg ?? 'missing'})`,
+      )
+    }
+    const expectedGpuWidth = { high: 4096, mid: 2048, low: 1024 }[capture.quality]
+    const hdri = capture.imagePipeline.hdri
+    if (!hdri || hdri.sourceResolution?.[0] !== 4096 || hdri.sourceResolution?.[1] !== 2048 ||
+        hdri.gpuResolution?.[0] !== expectedGpuWidth || hdri.gpuResolution?.[1] !== expectedGpuWidth / 2 ||
+        hdri.mipmaps !== true) {
+      report.assertionFailures.push(
+        `${capture.name}: tiered 4K HDRI/mipmap diagnostics are invalid (${JSON.stringify(hdri)})`,
+      )
+    }
+    const dome = capture.imagePipeline.skyDomeSegments
+    if (!dome || dome[0] < 96 || dome[1] < 48) {
+      report.assertionFailures.push(`${capture.name}: sky dome must be at least 96x48 (${JSON.stringify(dome)})`)
+    }
   }
 }
 
@@ -805,6 +875,16 @@ if (runNarrativeScreenshots) {
   if (!hero || hero.imageMetrics.clippedWhitePct >= 2) {
     report.assertionFailures.push(
       `01-hero.png: clipped-white pixels must stay below 2% (measured ${hero?.imageMetrics.clippedWhitePct ?? 'missing'}%)`,
+    )
+  }
+
+  const s2 = report.captures.find(({ name }) => name === '02-takeoff.png')
+  const s2Surface = s2?.imageMetrics.s2ExteriorSurface
+  if (!s2Surface || s2Surface.p05Luma < 1 || s2Surface.p50Luma < 4 || s2Surface.nearBlackPct > 50 ||
+      s2.imageMetrics.lumaContrastRatio < 6) {
+    report.assertionFailures.push(
+      `02-takeoff.png: illuminated hangar/vegetation ROI must clear the declared luma floor without flattening contrast ` +
+        `(surface ${JSON.stringify(s2Surface)}, scene ratio ${s2?.imageMetrics.lumaContrastRatio ?? 'missing'})`,
     )
   }
 
@@ -841,6 +921,32 @@ if (runNarrativeScreenshots) {
       `S6 display-space grade must expose an active strength and measurable highlight-key distance ` +
         `(received strength ${s6Grade?.imagePipeline?.gradingStrength ?? 'missing'}, distance ` +
         `${s6Grade?.imageMetrics.highlightKeyDistance ?? 'missing'})`,
+    )
+  }
+
+  const s6ExposureCaptures = ['06b-exit-clean-86.png', '06c-sunset-clean-88.png', '06d-sunset-outro.png']
+    .map((name) => report.captures.find((capture) => capture.name === name))
+  for (const capture of s6ExposureCaptures) {
+    const effectiveExposure = capture?.imagePipeline?.effectiveExposure
+    if (!capture || !Number.isFinite(effectiveExposure) || effectiveExposure < 0.88 || effectiveExposure > 1.1 ||
+        capture.imageMetrics.clippedWhitePct >= 2) {
+      report.assertionFailures.push(
+        `${capture?.name ?? 'missing S6 capture'}: effective exposure must stay within 0.88–1.10 and clipped white below 2% ` +
+          `(received ${effectiveExposure ?? 'missing'}, ${capture?.imageMetrics.clippedWhitePct ?? 'missing'}%)`,
+      )
+    }
+  }
+
+  const s6Dusk = report.captures.find(({ name }) => name === '06c-sunset-clean-88.png')
+  const fogHex = s6Dusk?.imagePipeline?.fogColor
+  const fogSamples = s6Dusk?.imagePipeline?.fogSamples
+  const fogRed = Number.isFinite(fogHex) ? (fogHex >> 16) & 0xff : 0
+  const fogBlue = Number.isFinite(fogHex) ? fogHex & 0xff : 255
+  if (!Array.isArray(fogSamples) || fogSamples.length !== 3 || fogRed <= fogBlue ||
+      !(fogSamples[0].mix > 0 && fogSamples[0].mix < fogSamples[1].mix && fogSamples[1].mix < fogSamples[2].mix)) {
+    report.assertionFailures.push(
+      `06c-sunset-clean-88.png: S6 aerial perspective must be warm and increase at 100/400/800m ` +
+        `(fog #${Number(fogHex ?? 0).toString(16).padStart(6, '0')}, samples ${JSON.stringify(fogSamples)})`,
     )
   }
 
