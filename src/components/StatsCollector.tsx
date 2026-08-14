@@ -13,6 +13,26 @@ declare global {
       sample: (progress: number) => {
         environmentSource: 'golden' | 'high-altitude' | 'cabin' | 'sunset'
         environmentBound: boolean
+        effectiveExposure: number
+        fogColor: number
+        fogDensity: number
+        fogSamples: Array<{ distance: number; mix: number }>
+        hemisphereIntensity: number
+        solar: {
+          source: string
+          sunAzimuthDeg: number
+          sunElevationDeg: number
+          keyAzimuthDeg: number
+          keyElevationDeg: number
+          keyAngularErrorDeg: number
+        }
+        hdri: {
+          sourceResolution: [number, number]
+          gpuResolution: [number, number]
+          mipmaps: boolean
+          estimatedResidentBytes: number
+        }
+        skyDomeSegments: [number, number]
       }
     }
     __MERIDIAN_GEAR_QA__?: {

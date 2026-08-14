@@ -15,7 +15,12 @@ interface LightAnchor {
 interface SectionEnvironmentAnchor {
   background: string
   ground: string
+  /** Distance haze is authored independently from the clear-sky background. */
+  fogColor: string
   fogDensity: number
+  hemisphereSky: string
+  hemisphereGround: string
+  hemisphereIntensity: number
   /** Multiplies the threshold exposure curve; S5 therefore keeps its existing 0.62 value. */
   exposureCompensation: number
   /** PBR image-based-light strength; lower exterior values preserve form on white paint. */
@@ -42,21 +47,21 @@ export const EXTERIOR_LIGHTS: Record<ExteriorLightRole, ExteriorLightDefinition>
     name: 'Exterior · Key · Sun',
     role: 'key',
     purpose: 'Primary form; the moving runway contact shadow is an analytical one-draw projection.',
-    position: [80, 100, 40],
+    position: [68.029, 20.906, -186.909],
     castsShadow: false,
   },
   fill: {
     name: 'Exterior · Fill · Sky',
     role: 'fill',
     purpose: 'Cool frontal lift that preserves detail on the aircraft shadow side.',
-    position: [-105, 48, 72],
+    position: [-164.696, 61.803, 95.106],
     castsShadow: false,
   },
   rim: {
     name: 'Exterior · Rim · Separation',
     role: 'rim',
     purpose: 'Rear three-quarter edge light separating the white fuselage from sky.',
-    position: [44, 76, -170],
+    position: [138.37, 41.582, 138.37],
     castsShadow: false,
   },
 }
@@ -70,8 +75,12 @@ export const SECTION_ENVIRONMENT: readonly SectionEnvironmentAnchor[] = [
   {
     background: '#9f6246',
     ground: '#59664d',
+    fogColor: '#ad765e',
     fogDensity: 0.0015,
-    exposureCompensation: 0.78,
+    hemisphereSky: '#c9dcf1',
+    hemisphereGround: '#6b7055',
+    hemisphereIntensity: 0.34,
+    exposureCompensation: 0.82,
     environmentIntensity: 0.72,
     lights: {
       key: { temperatureKelvin: 4300, color: '#ffd0a0', intensity: 1.55 },
@@ -82,8 +91,12 @@ export const SECTION_ENVIRONMENT: readonly SectionEnvironmentAnchor[] = [
   {
     background: '#b77752',
     ground: '#526154',
+    fogColor: '#b98565',
     fogDensity: 0.0013,
-    exposureCompensation: 0.78,
+    hemisphereSky: '#d3e3f5',
+    hemisphereGround: '#626c57',
+    hemisphereIntensity: 0.38,
+    exposureCompensation: 0.82,
     environmentIntensity: 0.68,
     lights: {
       key: { temperatureKelvin: 4700, color: '#ffdbb3', intensity: 1.7 },
@@ -94,7 +107,11 @@ export const SECTION_ENVIRONMENT: readonly SectionEnvironmentAnchor[] = [
   {
     background: '#719fbe',
     ground: '#46545d',
+    fogColor: '#89b4cf',
     fogDensity: 0.00055,
+    hemisphereSky: '#b8d8ef',
+    hemisphereGround: '#536a78',
+    hemisphereIntensity: 0.42,
     exposureCompensation: 0.68,
     environmentIntensity: 0.58,
     lights: {
@@ -106,7 +123,11 @@ export const SECTION_ENVIRONMENT: readonly SectionEnvironmentAnchor[] = [
   {
     background: '#354b5d',
     ground: '#28343b',
+    fogColor: '#42586a',
     fogDensity: 0.0003,
+    hemisphereSky: '#a9c5dc',
+    hemisphereGround: '#394853',
+    hemisphereIntensity: 0.16,
     exposureCompensation: 1,
     environmentIntensity: 0.75,
     lights: {
@@ -118,7 +139,11 @@ export const SECTION_ENVIRONMENT: readonly SectionEnvironmentAnchor[] = [
   {
     background: '#171310',
     ground: '#151311',
+    fogColor: '#211a16',
     fogDensity: 0.00015,
+    hemisphereSky: '#776d66',
+    hemisphereGround: '#2d2925',
+    hemisphereIntensity: 0.04,
     exposureCompensation: 1,
     environmentIntensity: 1,
     lights: {
@@ -130,21 +155,29 @@ export const SECTION_ENVIRONMENT: readonly SectionEnvironmentAnchor[] = [
   {
     background: '#27344e',
     ground: '#1b2430',
+    fogColor: '#8b5f57',
     fogDensity: 0.00125,
-    exposureCompensation: 1.05,
-    environmentIntensity: 0.68,
+    hemisphereSky: '#d89979',
+    hemisphereGround: '#424a5c',
+    hemisphereIntensity: 0.32,
+    exposureCompensation: 1.45,
+    environmentIntensity: 0.58,
     lights: {
-      key: { temperatureKelvin: 3600, color: '#ffb27c', intensity: 1.05 },
-      fill: { temperatureKelvin: 7600, color: '#b9d2ff', intensity: 0.24 },
-      rim: { temperatureKelvin: 4200, color: '#ffc29f', intensity: 1.45 },
+      key: { temperatureKelvin: 3600, color: '#ffb27c', intensity: 1.25 },
+      fill: { temperatureKelvin: 7600, color: '#b9d2ff', intensity: 0.32 },
+      rim: { temperatureKelvin: 4200, color: '#ffc29f', intensity: 0.72 },
     },
   },
   {
     background: '#080a0e',
     ground: '#090b0e',
+    fogColor: '#5a3f45',
     fogDensity: 0.0018,
-    exposureCompensation: 0.82,
-    environmentIntensity: 0.4,
+    hemisphereSky: '#8f6b68',
+    hemisphereGround: '#252733',
+    hemisphereIntensity: 0.12,
+    exposureCompensation: 1.05,
+    environmentIntensity: 0.42,
     lights: {
       key: { temperatureKelvin: 3000, color: '#ff9f63', intensity: 0.12 },
       fill: { temperatureKelvin: 7000, color: '#bfd5ff', intensity: 0.08 },
@@ -156,7 +189,11 @@ export const SECTION_ENVIRONMENT: readonly SectionEnvironmentAnchor[] = [
 export interface SampledEnvironmentTheme {
   background: Color
   ground: Color
+  fogColor: Color
   fogDensity: number
+  hemisphereSky: Color
+  hemisphereGround: Color
+  hemisphereIntensity: number
   exposureCompensation: number
   environmentIntensity: number
   lights: Record<ExteriorLightRole, { color: Color; temperatureKelvin: number; intensity: number }>
@@ -165,7 +202,11 @@ export interface SampledEnvironmentTheme {
 const sampledTheme: SampledEnvironmentTheme = {
   background: new Color(),
   ground: new Color(),
+  fogColor: new Color(),
   fogDensity: 0,
+  hemisphereSky: new Color(),
+  hemisphereGround: new Color(),
+  hemisphereIntensity: 0,
   exposureCompensation: 1,
   environmentIntensity: 1,
   lights: {
@@ -193,7 +234,11 @@ export function sampleEnvironmentTheme(progress: number): SampledEnvironmentThem
 
   sampledTheme.background.set(from.background).lerp(colorScratch.set(to.background), t)
   sampledTheme.ground.set(from.ground).lerp(colorScratch.set(to.ground), t)
+  sampledTheme.fogColor.set(from.fogColor).lerp(colorScratch.set(to.fogColor), t)
   sampledTheme.fogDensity = lerp(from.fogDensity, to.fogDensity, t)
+  sampledTheme.hemisphereSky.set(from.hemisphereSky).lerp(colorScratch.set(to.hemisphereSky), t)
+  sampledTheme.hemisphereGround.set(from.hemisphereGround).lerp(colorScratch.set(to.hemisphereGround), t)
+  sampledTheme.hemisphereIntensity = lerp(from.hemisphereIntensity, to.hemisphereIntensity, t)
   sampledTheme.exposureCompensation = lerp(from.exposureCompensation, to.exposureCompensation, t)
   sampledTheme.environmentIntensity = lerp(from.environmentIntensity, to.environmentIntensity, t)
 
