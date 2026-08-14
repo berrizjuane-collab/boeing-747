@@ -287,7 +287,8 @@ function DistantAirport() {
       )}
       <instancedMesh ref={wallsRef} name="Airport · Hangar walls" args={[undefined, undefined, HANGARS.length]} receiveShadow>
         <boxGeometry args={[1, 1, 1]} />
-        <meshStandardMaterial color="#606970" roughness={0.82} vertexColors />
+        {/* Instance colors are the authored wall albedo; a tinted base would multiply and darken them twice. */}
+        <meshStandardMaterial color="#ffffff" roughness={0.82} vertexColors />
       </instancedMesh>
       <instancedMesh
         ref={roofsRef}
