@@ -14,9 +14,9 @@
 // Sizes are measured (`ls -la public/models public/hdri`), not estimated.
 export const BLOCKING_ASSET_WEIGHTS: Record<string, number> = {
   '/models/exterior.glb': 2_213_004,
-  '/hdri/golden-hour.hdr': 1_392_889,
-  '/hdri/high-altitude.hdr': 400_475,
-  '/hdri/sunset.hdr': 1_191_614,
+  '/hdri/golden-hour.hdr': 3_198_560,
+  '/hdri/high-altitude.hdr': 855_629,
+  '/hdri/sunset.hdr': 2_488_147,
 }
 
 export const BLOCKING_TOTAL_WEIGHT = Object.values(BLOCKING_ASSET_WEIGHTS).reduce((sum, w) => sum + w, 0)
