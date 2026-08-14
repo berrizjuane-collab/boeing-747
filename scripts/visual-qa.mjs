@@ -121,6 +121,29 @@ async function measureScreenshot(file, panelBounds) {
   return result
 }
 
+async function measureExactPixelDiff(referenceFile, candidateFile) {
+  const [reference, candidate] = await Promise.all([
+    sharp(referenceFile).removeAlpha().raw().toBuffer({ resolveWithObject: true }),
+    sharp(candidateFile).removeAlpha().raw().toBuffer({ resolveWithObject: true }),
+  ])
+  if (reference.info.width !== candidate.info.width || reference.info.height !== candidate.info.height ||
+      reference.info.channels !== candidate.info.channels) {
+    throw new Error('Exact pixel comparison requires images with matching dimensions and channels')
+  }
+  let differingPixels = 0
+  let maximumChannelDelta = 0
+  for (let offset = 0; offset < reference.data.length; offset += reference.info.channels) {
+    let pixelDiffers = false
+    for (let channel = 0; channel < reference.info.channels; channel += 1) {
+      const delta = Math.abs(reference.data[offset + channel] - candidate.data[offset + channel])
+      if (delta > 0) pixelDiffers = true
+      maximumChannelDelta = Math.max(maximumChannelDelta, delta)
+    }
+    if (pixelDiffers) differingPixels += 1
+  }
+  return { differingPixels, maximumChannelDelta }
+}
+
 function watch(page, label) {
   page.on('console', (message) => {
     if (message.type() === 'error') report.consoleErrors.push({ label, text: message.text() })
@@ -293,6 +316,42 @@ if (runScreenshots) {
     await screenshot(mobilePage, name, progress)
   }
   await mobile.close()
+
+  // Desktop High includes time-seeded film grain, so two screenshots taken
+  // even from the same unchanged build are not a valid pixel oracle. This
+  // dedicated low-tier page keeps the desktop viewport and the exact scene,
+  // but removes temporal post FX and toggles the preserved source hierarchy
+  // against the runtime merge inside one build.
+  const gearComparison = await browser.newContext({
+    viewport: { width: 1440, height: 900 },
+    deviceScaleFactor: 1,
+  })
+  const gearPage = await gearComparison.newPage()
+  const gearQaURL = new URL(baseURL)
+  gearQaURL.searchParams.set('gear-qa', '1')
+  watch(gearPage, 'gear-comparison')
+  await gearPage.goto(gearQaURL.href, { waitUntil: 'networkidle', timeout: 120_000 })
+  await gearPage.locator('.loading-screen').waitFor({ state: 'detached', timeout: 120_000 })
+  await gearPage.waitForTimeout(initialSettleMs)
+  await setQuality(gearPage, 'low')
+  await setProgress(gearPage, 0.01)
+  const sourceFile = path.join(outputDir, 'qa-gear-source.png')
+  const mergedFile = path.join(outputDir, 'qa-gear-merged.png')
+  await gearPage.evaluate(() => window.__MERIDIAN_GEAR_QA__?.setMode('source'))
+  await gearPage.waitForTimeout(scrollSettleMs)
+  await gearPage.screenshot({ path: sourceFile, fullPage: false, animations: 'disabled', timeout: screenshotTimeoutMs })
+  await gearPage.evaluate(() => window.__MERIDIAN_GEAR_QA__?.setMode('merged'))
+  await gearPage.waitForTimeout(scrollSettleMs)
+  await gearPage.screenshot({ path: mergedFile, fullPage: false, animations: 'disabled', timeout: screenshotTimeoutMs })
+  report.gearPixelEquivalence = await measureExactPixelDiff(sourceFile, mergedFile)
+  if (report.gearPixelEquivalence.differingPixels !== 0) {
+    report.assertionFailures.push(
+      `LandingGear runtime merge must be pixel-exact in the deterministic desktop probe ` +
+        `(measured ${report.gearPixelEquivalence.differingPixels} pixels, max channel delta ` +
+        `${report.gearPixelEquivalence.maximumChannelDelta})`,
+    )
+  }
+  await gearComparison.close()
 }
 
 if (runVideo) {

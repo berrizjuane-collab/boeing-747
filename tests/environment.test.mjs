@@ -17,7 +17,7 @@ const { sampleCamera } = await server.ssrLoadModule('/src/lib/cameraPath.ts')
 const { EXTERIOR_LIGHTS, SECTION_ENVIRONMENT } = await server.ssrLoadModule('/src/lib/environmentTheme.ts')
 const { EXIT_PORTAL, frameVisibility } = await server.ssrLoadModule('/src/lib/thresholdPortals.ts')
 const { createRunwayMarkingsGeometry, RUNWAY_SURFACE_Y } = await server.ssrLoadModule('/src/lib/runwayGeometry.ts')
-const { mergeLandingGearMeshes, MERGED_LANDING_GEAR_NAME } =
+const { mergeLandingGearMeshes, MERGED_LANDING_GEAR_NAME, setLandingGearMergeMode } =
   await server.ssrLoadModule('/src/lib/landingGearMerge.ts')
 const { BLOCKING_ASSET_WEIGHTS, BLOCKING_TOTAL_WEIGHT } =
   await server.ssrLoadModule('/src/lib/loadingWeights.ts')
@@ -95,6 +95,33 @@ test('F0-02: landing-gear merge preserves child transforms and one shared materi
   assert.deepEqual(result.mesh.geometry.boundingBox.min.toArray(), [-2.5, -0.5, -0.5])
   assert.deepEqual(result.mesh.geometry.boundingBox.max.toArray(), [3.5, 1.5, 0.5])
 
+  result.mesh.geometry.dispose()
+  material.dispose()
+})
+
+test('F0-02: deterministic QA can alternate preserved source and merged render paths', () => {
+  const gear = new Group()
+  gear.name = 'LandingGear'
+  const material = new MeshStandardMaterial()
+  const left = new Mesh(new BoxGeometry(1, 1, 1), material)
+  const right = new Mesh(new BoxGeometry(1, 1, 1), material)
+  gear.add(left, right)
+
+  const result = mergeLandingGearMeshes(gear, { preserveSourceMeshes: true })
+  assert.equal(left.visible, false)
+  assert.equal(right.visible, false)
+  assert.equal(result.mesh.visible, true)
+  setLandingGearMergeMode(gear, 'source')
+  assert.equal(left.visible, true)
+  assert.equal(right.visible, true)
+  assert.equal(result.mesh.visible, false)
+  setLandingGearMergeMode(gear, 'merged')
+  assert.equal(left.visible, false)
+  assert.equal(right.visible, false)
+  assert.equal(result.mesh.visible, true)
+
+  left.geometry.dispose()
+  right.geometry.dispose()
   result.mesh.geometry.dispose()
   material.dispose()
 })

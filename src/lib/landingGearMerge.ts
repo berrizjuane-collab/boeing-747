@@ -9,6 +9,36 @@ export interface LandingGearMergeResult {
   sourceTriangleCount: number
 }
 
+export interface LandingGearMergeOptions {
+  /** Keep the source meshes hidden so visual QA can compare both render paths. */
+  preserveSourceMeshes?: boolean
+}
+
+const preservedSourceMeshes = new WeakMap<Object3D, Mesh[]>()
+
+function matrixRelativeToAncestor(object: Object3D, ancestor: Object3D, target: Matrix4) {
+  const matrices: Matrix4[] = []
+  let current: Object3D | null = object
+  while (current && current !== ancestor) {
+    current.updateMatrix()
+    matrices.unshift(current.matrix)
+    current = current.parent
+  }
+  if (current !== ancestor) throw new Error(`${object.name || '(unnamed mesh)'} is not below ${ancestor.name || '(root)'}`)
+  target.identity()
+  for (const matrix of matrices) target.multiply(matrix)
+  return target
+}
+
+/** Switches the preserved QA hierarchy without changing production behavior. */
+export function setLandingGearMergeMode(gear: Object3D, mode: 'merged' | 'source') {
+  const merged = gear.getObjectByName(MERGED_LANDING_GEAR_NAME) as Mesh | undefined
+  const sources = preservedSourceMeshes.get(gear)
+  if (!merged || !sources) throw new Error('LandingGear source meshes were not preserved for comparison')
+  merged.visible = mode === 'merged'
+  for (const source of sources) source.visible = mode === 'source'
+}
+
 /**
  * Collapses every opaque landing-gear mesh into the coordinate system of the
  * `LandingGear` group. The result is pixel-equivalent to the source hierarchy:
@@ -20,7 +50,7 @@ export interface LandingGearMergeResult {
  * primitives share one material, which would break both the hull dissolve and
  * the independently animated gear retraction.
  */
-export function mergeLandingGearMeshes(gear: Object3D): LandingGearMergeResult {
+export function mergeLandingGearMeshes(gear: Object3D, options: LandingGearMergeOptions = {}): LandingGearMergeResult {
   const existing = gear.getObjectByName(MERGED_LANDING_GEAR_NAME)
   if (existing && (existing as Mesh).isMesh) {
     const mesh = existing as Mesh
@@ -31,8 +61,6 @@ export function mergeLandingGearMeshes(gear: Object3D): LandingGearMergeResult {
     }
   }
 
-  gear.updateWorldMatrix(true, true)
-  const gearWorldInverse = gear.matrixWorld.clone().invert()
   const sourceMeshes: Mesh[] = []
   gear.traverse((object) => {
     if (object !== gear && (object as Mesh).isMesh) sourceMeshes.push(object as Mesh)
@@ -50,9 +78,13 @@ export function mergeLandingGearMeshes(gear: Object3D): LandingGearMergeResult {
   const transform = new Matrix4()
   let sourceTriangleCount = 0
   const transformed = sourceMeshes.map((mesh) => {
-    mesh.updateWorldMatrix(true, false)
     const geometry = mesh.geometry.clone()
-    transform.multiplyMatrices(gearWorldInverse, mesh.matrixWorld)
+    // Compose only the local matrices below LandingGear. Using
+    // inverse(gear.matrixWorld) * mesh.matrixWorld is algebraically equal,
+    // but its extra world-space round trips moved three edge pixels in the
+    // Mobile Low reference. The local chain is also exactly what the source
+    // hierarchy contributes before LandingGear's own animated transform.
+    matrixRelativeToAncestor(mesh, gear, transform)
     geometry.applyMatrix4(transform)
     const index = geometry.getIndex()
     sourceTriangleCount += index ? index.count / 3 : geometry.getAttribute('position').count / 3
@@ -73,9 +105,14 @@ export function mergeLandingGearMeshes(gear: Object3D): LandingGearMergeResult {
   mergedMesh.userData.sourceMeshCount = sourceMeshes.length
   mergedMesh.userData.sourceTriangleCount = sourceTriangleCount
 
-  for (const mesh of sourceMeshes) {
-    mesh.removeFromParent()
-    mesh.geometry.dispose()
+  if (options.preserveSourceMeshes) {
+    preservedSourceMeshes.set(gear, sourceMeshes)
+    for (const mesh of sourceMeshes) mesh.visible = false
+  } else {
+    for (const mesh of sourceMeshes) {
+      mesh.removeFromParent()
+      mesh.geometry.dispose()
+    }
   }
   gear.add(mergedMesh)
 

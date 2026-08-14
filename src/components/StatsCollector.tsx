@@ -5,6 +5,9 @@ import { perfStats } from '../state/perfStats'
 
 declare global {
   interface Window {
+    __MERIDIAN_GEAR_QA__?: {
+      setMode: (mode: 'merged' | 'source') => void
+    }
     __MERIDIAN_PERF__?: {
       fps: number
       drawCalls: number
