@@ -406,6 +406,12 @@ async function openReady(page, label, url = baseURL) {
   await page.waitForTimeout(initialSettleMs)
 }
 
+function withQuality(url, quality) {
+  const target = new URL(url)
+  target.searchParams.set('quality', quality)
+  return target.href
+}
+
 async function setProgress(page, progress) {
   await page.evaluate((value) => {
     const max = document.documentElement.scrollHeight - window.innerHeight
@@ -482,18 +488,18 @@ async function screenshotWithAlteredBackground(page, name, progress) {
 
 async function setQuality(page, target) {
   const control = page.locator('.site-nav__quality')
-  if (!(await control.count())) return
-  // Force at least one manual interaction even if auto-detection guessed the
-  // requested label; otherwise a pending auto downgrade can mutate the tier
-  // midway through a supposedly fixed-quality capture sequence.
-  await control.click({ force: true, timeout: 120_000 })
-  await page.waitForTimeout(400)
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    const label = (await control.textContent())?.toLowerCase() ?? ''
+  await control.waitFor({ state: 'attached', timeout: 120_000 })
+  // Every QA context requests its tier in the initial URL, which both locks
+  // auto-detection and avoids decoding all three 4K HDRI sets repeatedly.
+  // Clicking remains a fallback so this helper also fails usefully if that
+  // startup contract regresses.
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const label = (await control.textContent({ timeout: 120_000 }))?.toLowerCase() ?? ''
     if (label.includes(target)) return
     await control.click({ force: true, timeout: 120_000 })
     await page.waitForTimeout(400)
   }
+  throw new Error(`Could not select quality tier ${target}`)
 }
 
 async function sweepEnvironment(page) {
@@ -537,7 +543,7 @@ if (runNarrativeScreenshots) {
     deviceScaleFactor: 1,
   })
   const desktopPage = await desktop.newPage()
-  await openReady(desktopPage, 'desktop')
+  await openReady(desktopPage, 'desktop', withQuality(baseURL, 'high'))
   await setQuality(desktopPage, 'high')
   await desktopPage.waitForTimeout(scrollSettleMs)
 
@@ -591,7 +597,7 @@ if (runNarrativeScreenshots) {
       'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1',
   })
   const mobilePage = await mobile.newPage()
-  await openReady(mobilePage, 'mobile')
+  await openReady(mobilePage, 'mobile', withQuality(baseURL, 'low'))
   await setQuality(mobilePage, 'low')
   await mobilePage.waitForTimeout(scrollSettleMs)
   for (const [name, progress] of [
@@ -622,6 +628,7 @@ if (runDeterministicProbes) {
   const gearQaURL = new URL(baseURL)
   gearQaURL.searchParams.set('gear-qa', '1')
   gearQaURL.searchParams.set('grade-qa', '1')
+  gearQaURL.searchParams.set('quality', 'low')
   watch(gearPage, 'gear-comparison')
   await gearPage.goto(gearQaURL.href, { waitUntil: 'networkidle', timeout: 120_000 })
   await gearPage.locator('.loading-screen').waitFor({ state: 'detached', timeout: 120_000 })
@@ -678,6 +685,7 @@ if (runDeterministicProbes) {
   const aaOffPage = await aaOffComparison.newPage()
   const aaOffURL = new URL(baseURL)
   aaOffURL.searchParams.set('aa', 'off')
+  aaOffURL.searchParams.set('quality', 'low')
   await openReady(aaOffPage, 'aa-off-comparison', aaOffURL.href)
   await setQuality(aaOffPage, 'low')
   await setProgress(aaOffPage, 0.01)
@@ -709,7 +717,7 @@ if (runVideo) {
   const videoStartedAt = Date.now()
   const videoPage = await video.newPage()
   report.videoTimeline = { samples: [], ranges: [] }
-  await openReady(videoPage, 'video')
+  await openReady(videoPage, 'video', withQuality(baseURL, 'low'))
   await setQuality(videoPage, 'low')
   const videoRanges = [
     [0.01, 0.30, 5200],

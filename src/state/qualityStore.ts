@@ -82,6 +82,15 @@ function guessInitialTier(): QualityTier {
   return cores >= 4 ? 'high' : 'mid'
 }
 
+export function qualityTierFromSearch(search: string): QualityTier | null {
+  const requested = new URLSearchParams(search).get('quality')
+  return requested === 'high' || requested === 'mid' || requested === 'low' ? requested : null
+}
+
+function requestedInitialTier(): QualityTier | null {
+  return typeof window === 'undefined' ? null : qualityTierFromSearch(window.location.search)
+}
+
 interface QualityState {
   tier: QualityTier
   /** False once the user (or, functionally the same thing, the nav toggle)
@@ -92,9 +101,14 @@ interface QualityState {
   setTier: (tier: QualityTier, source: 'auto' | 'manual') => void
 }
 
+const requestedTier = requestedInitialTier()
+
 export const useQualityStore = create<QualityState>((set, get) => ({
-  tier: guessInitialTier(),
-  auto: true,
+  // A URL-selected tier is equivalent to the user choosing the nav control:
+  // it is fixed before HDRI loading begins and auto-detection cannot mutate
+  // a supposedly single-tier visual QA sequence midway through capture.
+  tier: requestedTier ?? guessInitialTier(),
+  auto: requestedTier === null,
   setTier: (tier, source) => {
     if (source === 'auto' && !get().auto) return
     set({ tier, auto: source === 'auto' })

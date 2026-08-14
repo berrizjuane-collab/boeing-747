@@ -35,6 +35,7 @@ const {
   estimatedHdriGpuBytes,
 } = await server.ssrLoadModule('/src/lib/tieredHdri.ts')
 const { exposureMultiplier } = await server.ssrLoadModule('/src/lib/thresholdLighting.ts')
+const { qualityTierFromSearch } = await server.ssrLoadModule('/src/state/qualityStore.ts')
 const { BoxGeometry, Group, Mesh, MeshStandardMaterial } = await import('three')
 
 test('A2/A3: exterior rig and atmosphere have complete finite section anchors', () => {
@@ -237,6 +238,14 @@ test('plan3 B5: 4K HDRI sources are mipmapped and tier-filtered before GPU uploa
   assert.equal(estimatedHdriGpuBytes('high'), 268_435_456)
   assert.equal(estimatedHdriGpuBytes('mid'), 67_108_864)
   assert.equal(estimatedHdriGpuBytes('low'), 16_777_216)
+})
+
+test('plan3 B5: visual evidence locks one valid tier before HDRI loading begins', () => {
+  assert.equal(qualityTierFromSearch('?quality=high'), 'high')
+  assert.equal(qualityTierFromSearch('?gear-qa=1&quality=low'), 'low')
+  assert.equal(qualityTierFromSearch('?quality=mid'), 'mid')
+  assert.equal(qualityTierFromSearch('?quality=ultra'), null)
+  assert.equal(qualityTierFromSearch(''), null)
 })
 
 test('plan3 B6/B7: S6 haze stays warm with distance and effective exposure is neutral', () => {
