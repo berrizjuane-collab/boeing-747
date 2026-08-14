@@ -2,6 +2,7 @@ import { useFrame, useLoader, useThree } from '@react-three/fiber'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import {
   BackSide,
+  AmbientLight,
   Color,
   DirectionalLight,
   EquirectangularReflectionMapping,
@@ -87,6 +88,7 @@ export function EnvironmentPlaceholder() {
   const fillRef = useRef<DirectionalLight>(null)
   const rimRef = useRef<DirectionalLight>(null)
   const hemisphereRef = useRef<HemisphereLight>(null)
+  const ambientRef = useRef<AmbientLight>(null)
   const groundRef = useRef<Mesh>(null)
   const groundMaterialRef = useRef<MeshStandardMaterial>(null)
   const skyDomeRef = useRef<Mesh>(null)
@@ -174,6 +176,7 @@ export function EnvironmentPlaceholder() {
           mix: exponentialFogMix(theme.fogDensity, distance),
         })),
         hemisphereIntensity: theme.hemisphereIntensity,
+        ambientIntensity: theme.ambientIntensity,
         solar: {
           source: solar.source,
           sunAzimuthDeg: solar.sunAzimuthDeg,
@@ -242,6 +245,12 @@ export function EnvironmentPlaceholder() {
       hemisphere.intensity = theme.hemisphereIntensity
       hemisphere.visible = theme.hemisphereIntensity > 0.01
     }
+    const ambient = ambientRef.current
+    if (ambient) {
+      ambient.color.copy(theme.hemisphereSky)
+      ambient.intensity = theme.ambientIntensity
+      ambient.visible = theme.ambientIntensity > 0.001
+    }
 
     const lightRefs = { key: keyRef.current, fill: fillRef.current, rim: rimRef.current }
     const lightPositions = { key: solar.keyPosition, fill: solar.fillPosition, rim: solar.rimPosition }
@@ -264,6 +273,7 @@ export function EnvironmentPlaceholder() {
     imagePipelineDiagnostics.fogColor = theme.fogColor.getHex()
     imagePipelineDiagnostics.fogDensity = theme.fogDensity
     imagePipelineDiagnostics.hemisphereIntensity = theme.hemisphereIntensity
+    imagePipelineDiagnostics.ambientIntensity = theme.ambientIntensity
     for (let index = 0; index < FOG_EVIDENCE_DISTANCES.length; index += 1) {
       const distance = FOG_EVIDENCE_DISTANCES[index]
       imagePipelineDiagnostics.fogSamples[index].mix = exponentialFogMix(theme.fogDensity, distance)
@@ -354,6 +364,16 @@ export function EnvironmentPlaceholder() {
         userData={{
           role: 'ambient hemisphere',
           purpose: 'Lifts exterior sky/ground irradiance without flattening the authored key-to-fill ratio.',
+        }}
+      />
+      <ambientLight
+        ref={ambientRef}
+        name="Exterior · Ambient · Shadow lift"
+        color="#c9dcf1"
+        intensity={0.18}
+        userData={{
+          role: 'ambient shadow lift',
+          purpose: 'Keeps exterior shadow-facing surfaces above black while the directional rig preserves form.',
         }}
       />
       <mesh

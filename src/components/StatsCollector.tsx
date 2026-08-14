@@ -18,6 +18,7 @@ declare global {
         fogDensity: number
         fogSamples: Array<{ distance: number; mix: number }>
         hemisphereIntensity: number
+        ambientIntensity: number
         solar: {
           source: string
           sunAzimuthDeg: number

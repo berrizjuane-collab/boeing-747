@@ -51,6 +51,7 @@ test('A2/A3: exterior rig and atmosphere have complete finite section anchors', 
     assert.match(section.hemisphereSky, /^#[\da-f]{6}$/i)
     assert.match(section.hemisphereGround, /^#[\da-f]{6}$/i)
     assert.ok(section.hemisphereIntensity >= 0 && section.hemisphereIntensity <= 0.5)
+    assert.ok(section.ambientIntensity >= 0 && section.ambientIntensity <= 0.2)
     for (const role of ['key', 'fill', 'rim']) {
       const light = section.lights[role]
       assert.ok(light.temperatureKelvin >= 2500 && light.temperatureKelvin <= 9000, `${role} CCT S${sectionIndex + 1}`)
@@ -192,8 +193,10 @@ test('plan3 B1: exterior hemisphere irradiance lifts S1/S2 without replacing the
   for (const progress of [0.01, 0.13, 0.24]) {
     const theme = sampleEnvironmentTheme(progress)
     assert.ok(theme.hemisphereIntensity >= 0.3, `hemisphere intensity at ${progress}`)
+    assert.ok(theme.ambientIntensity >= 0.08, `ambient shadow lift at ${progress}`)
     assert.ok(theme.lights.key.intensity > theme.hemisphereIntensity * 3, `key/ambient separation at ${progress}`)
   }
+  assert.ok(sampleEnvironmentTheme(0.6).ambientIntensity < 0.03, 'S5 keeps its authored darkness')
 })
 
 test('plan3 B2: key direction matches every authored HDRI sun exactly', async () => {

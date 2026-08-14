@@ -21,6 +21,8 @@ interface SectionEnvironmentAnchor {
   hemisphereSky: string
   hemisphereGround: string
   hemisphereIntensity: number
+  /** Isotropic shadow lift; kept low and section-authored so S5/S7 remain dark. */
+  ambientIntensity: number
   /** Multiplies the threshold exposure curve; S5 therefore keeps its existing 0.62 value. */
   exposureCompensation: number
   /** PBR image-based-light strength; lower exterior values preserve form on white paint. */
@@ -80,6 +82,7 @@ export const SECTION_ENVIRONMENT: readonly SectionEnvironmentAnchor[] = [
     hemisphereSky: '#c9dcf1',
     hemisphereGround: '#6b7055',
     hemisphereIntensity: 0.34,
+    ambientIntensity: 0.18,
     exposureCompensation: 0.82,
     environmentIntensity: 0.72,
     lights: {
@@ -96,6 +99,7 @@ export const SECTION_ENVIRONMENT: readonly SectionEnvironmentAnchor[] = [
     hemisphereSky: '#d3e3f5',
     hemisphereGround: '#626c57',
     hemisphereIntensity: 0.38,
+    ambientIntensity: 0.2,
     exposureCompensation: 0.82,
     environmentIntensity: 0.68,
     lights: {
@@ -112,6 +116,7 @@ export const SECTION_ENVIRONMENT: readonly SectionEnvironmentAnchor[] = [
     hemisphereSky: '#b8d8ef',
     hemisphereGround: '#536a78',
     hemisphereIntensity: 0.42,
+    ambientIntensity: 0.09,
     exposureCompensation: 0.68,
     environmentIntensity: 0.58,
     lights: {
@@ -128,6 +133,7 @@ export const SECTION_ENVIRONMENT: readonly SectionEnvironmentAnchor[] = [
     hemisphereSky: '#a9c5dc',
     hemisphereGround: '#394853',
     hemisphereIntensity: 0.16,
+    ambientIntensity: 0.03,
     exposureCompensation: 1,
     environmentIntensity: 0.75,
     lights: {
@@ -144,6 +150,7 @@ export const SECTION_ENVIRONMENT: readonly SectionEnvironmentAnchor[] = [
     hemisphereSky: '#776d66',
     hemisphereGround: '#2d2925',
     hemisphereIntensity: 0.04,
+    ambientIntensity: 0.008,
     exposureCompensation: 1,
     environmentIntensity: 1,
     lights: {
@@ -160,6 +167,7 @@ export const SECTION_ENVIRONMENT: readonly SectionEnvironmentAnchor[] = [
     hemisphereSky: '#d89979',
     hemisphereGround: '#424a5c',
     hemisphereIntensity: 0.32,
+    ambientIntensity: 0.08,
     exposureCompensation: 1.45,
     environmentIntensity: 0.58,
     lights: {
@@ -176,6 +184,7 @@ export const SECTION_ENVIRONMENT: readonly SectionEnvironmentAnchor[] = [
     hemisphereSky: '#8f6b68',
     hemisphereGround: '#252733',
     hemisphereIntensity: 0.12,
+    ambientIntensity: 0.025,
     exposureCompensation: 1.05,
     environmentIntensity: 0.42,
     lights: {
@@ -194,6 +203,7 @@ export interface SampledEnvironmentTheme {
   hemisphereSky: Color
   hemisphereGround: Color
   hemisphereIntensity: number
+  ambientIntensity: number
   exposureCompensation: number
   environmentIntensity: number
   lights: Record<ExteriorLightRole, { color: Color; temperatureKelvin: number; intensity: number }>
@@ -207,6 +217,7 @@ const sampledTheme: SampledEnvironmentTheme = {
   hemisphereSky: new Color(),
   hemisphereGround: new Color(),
   hemisphereIntensity: 0,
+  ambientIntensity: 0,
   exposureCompensation: 1,
   environmentIntensity: 1,
   lights: {
@@ -239,6 +250,7 @@ export function sampleEnvironmentTheme(progress: number): SampledEnvironmentThem
   sampledTheme.hemisphereSky.set(from.hemisphereSky).lerp(colorScratch.set(to.hemisphereSky), t)
   sampledTheme.hemisphereGround.set(from.hemisphereGround).lerp(colorScratch.set(to.hemisphereGround), t)
   sampledTheme.hemisphereIntensity = lerp(from.hemisphereIntensity, to.hemisphereIntensity, t)
+  sampledTheme.ambientIntensity = lerp(from.ambientIntensity, to.ambientIntensity, t)
   sampledTheme.exposureCompensation = lerp(from.exposureCompensation, to.exposureCompensation, t)
   sampledTheme.environmentIntensity = lerp(from.environmentIntensity, to.environmentIntensity, t)
 
