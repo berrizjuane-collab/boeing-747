@@ -6,7 +6,7 @@ import sharp from 'sharp'
 const baseURL = process.env.VISUAL_QA_URL ?? 'http://127.0.0.1:4173/boeing-747/'
 const outputDir = path.resolve(process.env.VISUAL_QA_DIR ?? 'artifacts/final-visuals')
 const mode = process.env.VISUAL_QA_MODE ?? 'all'
-const validModes = new Set(['all', 'screenshots', 'probes', 'video', 'b1'])
+const validModes = new Set(['all', 'screenshots', 'probes', 'video', 'b1', 'b1-calibration'])
 if (!validModes.has(mode)) {
   throw new Error(`VISUAL_QA_MODE must be one of ${[...validModes].join(', ')}; received ${JSON.stringify(mode)}`)
 }
@@ -14,6 +14,7 @@ const runNarrativeScreenshots = mode === 'all' || mode === 'screenshots'
 const runDeterministicProbes = mode === 'all' || mode === 'screenshots' || mode === 'probes'
 const runVideo = mode === 'all' || mode === 'video'
 const runB1Probe = mode === 'b1'
+const runB1Calibration = mode === 'b1-calibration'
 // SwiftShader needs ~45s to compile the textured PBR+dissolve hull shader in
 // this project. A shorter wait can produce a perfectly plausible screenshot
 // with the aircraft missing, so these are evidence constraints, not cosmetic
@@ -228,7 +229,7 @@ async function measureScreenshot(file, panelBounds, measureSilhouette = false) {
     edgeGradientP95: percentileFromHistogram(edgeHistogram, edgeSamples, 0.95) * 255,
     intermediateEdgePct: (intermediateEdges / edgeSamples) * 100,
     silhouetteEdges: measureSilhouette ? measureSilhouetteEdges(lumaValues, info.width, info.height) : null,
-    s2ExteriorSurface: path.basename(file) === '02-takeoff.png'
+    s2ExteriorSurface: path.basename(file).startsWith('02-takeoff')
       ? measureLumaRegion(lumaValues, info.width, info.height, {
           x: info.width * 0.104,
           y: info.height * 0.389,
@@ -538,7 +539,7 @@ async function sampleAnimationFrameTimes(page, frameCount = 9) {
   )
 }
 
-if (runNarrativeScreenshots || runB1Probe) {
+if (runNarrativeScreenshots || runB1Probe || runB1Calibration) {
   const desktop = await browser.newContext({
     viewport: { width: 1440, height: 900 },
     deviceScaleFactor: 1,
@@ -550,6 +551,8 @@ if (runNarrativeScreenshots || runB1Probe) {
 
   const desktopCaptures = runB1Probe
     ? [['02-takeoff.png', 0.19]]
+    : runB1Calibration
+      ? []
     : [
         ['01-hero.png', 0.01],
         ['02-takeoff.png', 0.19],
@@ -573,7 +576,17 @@ if (runNarrativeScreenshots || runB1Probe) {
       await screenshotWithAlteredBackground(desktopPage, '03a-spec-sheet-background-probe.png', progress)
     }
   }
-  if (!runB1Probe) {
+  if (runB1Calibration) {
+    for (const multiplier of [1, 2, 3, 4, 6, 8]) {
+      await desktopPage.evaluate((value) => {
+        if (!window.__MERIDIAN_ENVIRONMENT_QA__) throw new Error('Environment QA bridge is unavailable')
+        window.__MERIDIAN_ENVIRONMENT_QA__.setAmbientMultiplier(value)
+      }, multiplier)
+      await screenshot(desktopPage, `02-takeoff-ambient-${multiplier}x.png`, 0.19)
+    }
+    await desktopPage.evaluate(() => window.__MERIDIAN_ENVIRONMENT_QA__?.setAmbientMultiplier(1))
+  }
+  if (!runB1Probe && !runB1Calibration) {
     report.environmentSweep = await sweepEnvironment(desktopPage)
     const nullEnvironmentSamples = report.environmentSweep.filter(({ environmentBound }) => !environmentBound)
     if (report.environmentSweep.length !== 101 || nullEnvironmentSamples.length > 0) {
@@ -825,7 +838,8 @@ const budgets = {
 
 for (const capture of report.captures) {
   if (!capture.canvas) report.assertionFailures.push(`${capture.name}: no WebGL canvas found`)
-  const expected = expectedPanelText[capture.name]
+  const expected = expectedPanelText[capture.name] ??
+    (capture.name.startsWith('02-takeoff-ambient-') ? 'S2 — Rodaje y despegue' : undefined)
   const narrativePanels = capture.activePanels.filter(
     ({ className }) => className.includes('overlay__panel') || className.includes('overlay__threshold-line'),
   )
@@ -883,6 +897,41 @@ for (const capture of report.captures) {
     if (!dome || dome[0] < 96 || dome[1] < 48) {
       report.assertionFailures.push(`${capture.name}: sky dome must be at least 96x48 (${JSON.stringify(dome)})`)
     }
+  }
+}
+
+if (runB1Calibration) {
+  const samples = report.captures
+    .filter(({ name }) => name.startsWith('02-takeoff-ambient-'))
+    .map((capture) => {
+      const surface = capture.imageMetrics.s2ExteriorSurface
+      const passes = Boolean(
+        surface &&
+        surface.p05Luma >= 1 &&
+        surface.p50Luma >= 4 &&
+        surface.nearBlackPct <= 50 &&
+        capture.imageMetrics.lumaContrastRatio >= 6 &&
+        capture.imageMetrics.clippedWhitePct < 2,
+      )
+      return {
+        name: capture.name,
+        multiplier: capture.imagePipeline?.ambientMultiplier ?? null,
+        ambientIntensity: capture.imagePipeline?.ambientIntensity ?? null,
+        surface,
+        sceneContrastRatio: capture.imageMetrics.lumaContrastRatio,
+        clippedWhitePct: capture.imageMetrics.clippedWhitePct,
+        passes,
+      }
+    })
+  report.b1Calibration = {
+    samples,
+    selected: samples.find(({ passes }) => passes) ?? null,
+  }
+  if (samples.length !== 6 || !report.b1Calibration.selected) {
+    report.assertionFailures.push(
+      `B1 ambient calibration must capture six ordered candidates and find one that clears every unchanged threshold ` +
+        `(${JSON.stringify(report.b1Calibration)})`,
+    )
   }
 }
 

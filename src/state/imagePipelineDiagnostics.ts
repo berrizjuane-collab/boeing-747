@@ -12,6 +12,7 @@ export interface ImagePipelineDiagnostics {
   fogDensity: number
   fogSamples: Array<{ distance: number; mix: number }>
   hemisphereIntensity: number
+  ambientMultiplier: number
   ambientIntensity: number
   solar: {
     source: string | null
@@ -49,6 +50,7 @@ export const imagePipelineDiagnostics: ImagePipelineDiagnostics = {
     { distance: 800, mix: 0 },
   ],
   hemisphereIntensity: 0,
+  ambientMultiplier: 1,
   ambientIntensity: 0,
   solar: {
     source: null,

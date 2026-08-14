@@ -41,6 +41,9 @@ jobs:
           elif [[ "$head_message" == *"[qa:d3]"* ]]; then
             echo 'run_visual=true' >> "$GITHUB_OUTPUT"
             echo 'visual_matrix=["d3"]' >> "$GITHUB_OUTPUT"
+          elif [[ "$head_message" == *"[qa:b1-calibration]"* ]]; then
+            echo 'run_visual=true' >> "$GITHUB_OUTPUT"
+            echo 'visual_matrix=["b1-calibration"]' >> "$GITHUB_OUTPUT"
           elif [[ "$head_message" == *"[qa:b1]"* ]]; then
             echo 'run_visual=true' >> "$GITHUB_OUTPUT"
             echo 'visual_matrix=["b1"]' >> "$GITHUB_OUTPUT"

@@ -55,6 +55,17 @@ const HDRI_URLS = [
   `${import.meta.env.BASE_URL}hdri/sunset.hdr`,
 ]
 
+// The multiplier stays at 1 in production. Playwright can temporarily sweep
+// it through the QA bridge to calibrate B1 against one loaded frame instead
+// of publishing a sequence of guessed lighting values.
+let environmentQaAmbientMultiplier = 1
+const setEnvironmentQaAmbientMultiplier = (value: number) => {
+  if (!Number.isFinite(value) || value < 1 || value > 8) {
+    throw new Error(`Environment QA ambient multiplier must be finite and within 1–8; received ${value}`)
+  }
+  environmentQaAmbientMultiplier = value
+}
+
 /**
  * Ground, per-section fog/background color (environmentTheme.ts), the real
  * S1/S3 HDRI sky dome (skyDomeMaterial.ts, hdriTheme.ts — Fase 3 closure
@@ -176,7 +187,8 @@ export function EnvironmentPlaceholder() {
           mix: exponentialFogMix(theme.fogDensity, distance),
         })),
         hemisphereIntensity: theme.hemisphereIntensity,
-        ambientIntensity: theme.ambientIntensity,
+        ambientMultiplier: environmentQaAmbientMultiplier,
+        ambientIntensity: theme.ambientIntensity * environmentQaAmbientMultiplier,
         solar: {
           source: solar.source,
           sunAzimuthDeg: solar.sunAzimuthDeg,
@@ -198,10 +210,13 @@ export function EnvironmentPlaceholder() {
   )
 
   useEffect(() => {
+    environmentQaAmbientMultiplier = 1
     window.__MERIDIAN_ENVIRONMENT_QA__ = {
       sample: sampleEnvironmentQa,
+      setAmbientMultiplier: setEnvironmentQaAmbientMultiplier,
     }
     return () => {
+      environmentQaAmbientMultiplier = 1
       delete window.__MERIDIAN_ENVIRONMENT_QA__
     }
   }, [sampleEnvironmentQa])
@@ -246,10 +261,12 @@ export function EnvironmentPlaceholder() {
       hemisphere.visible = theme.hemisphereIntensity > 0.01
     }
     const ambient = ambientRef.current
+    const ambientMultiplier = environmentQaAmbientMultiplier
+    const effectiveAmbientIntensity = theme.ambientIntensity * ambientMultiplier
     if (ambient) {
       ambient.color.copy(theme.hemisphereSky)
-      ambient.intensity = theme.ambientIntensity
-      ambient.visible = theme.ambientIntensity > 0.001
+      ambient.intensity = effectiveAmbientIntensity
+      ambient.visible = effectiveAmbientIntensity > 0.001
     }
 
     const lightRefs = { key: keyRef.current, fill: fillRef.current, rim: rimRef.current }
@@ -273,7 +290,8 @@ export function EnvironmentPlaceholder() {
     imagePipelineDiagnostics.fogColor = theme.fogColor.getHex()
     imagePipelineDiagnostics.fogDensity = theme.fogDensity
     imagePipelineDiagnostics.hemisphereIntensity = theme.hemisphereIntensity
-    imagePipelineDiagnostics.ambientIntensity = theme.ambientIntensity
+    imagePipelineDiagnostics.ambientMultiplier = ambientMultiplier
+    imagePipelineDiagnostics.ambientIntensity = effectiveAmbientIntensity
     for (let index = 0; index < FOG_EVIDENCE_DISTANCES.length; index += 1) {
       const distance = FOG_EVIDENCE_DISTANCES[index]
       imagePipelineDiagnostics.fogSamples[index].mix = exponentialFogMix(theme.fogDensity, distance)

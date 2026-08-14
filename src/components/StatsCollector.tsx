@@ -10,6 +10,7 @@ declare global {
       setEnabled: (enabled: boolean) => void
     }
     __MERIDIAN_ENVIRONMENT_QA__?: {
+      setAmbientMultiplier: (multiplier: number) => void
       sample: (progress: number) => {
         environmentSource: 'golden' | 'high-altitude' | 'cabin' | 'sunset'
         environmentBound: boolean
@@ -18,6 +19,7 @@ declare global {
         fogDensity: number
         fogSamples: Array<{ distance: number; mix: number }>
         hemisphereIntensity: number
+        ambientMultiplier: number
         ambientIntensity: number
         solar: {
           source: string
