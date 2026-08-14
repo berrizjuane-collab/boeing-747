@@ -20,8 +20,7 @@ const { EXIT_PORTAL, frameVisibility } = await server.ssrLoadModule('/src/lib/th
 const { createRunwayMarkingsGeometry, RUNWAY_SURFACE_Y } = await server.ssrLoadModule('/src/lib/runwayGeometry.ts')
 const { mergeLandingGearMeshes, MERGED_LANDING_GEAR_NAME, setLandingGearMergeMode } =
   await server.ssrLoadModule('/src/lib/landingGearMerge.ts')
-const { createStaticInstanceColorAttribute, writeInstanceColor } =
-  await server.ssrLoadModule('/src/lib/instanceColors.ts')
+const { EXTERIOR_SURFACE_MATERIALS } = await server.ssrLoadModule('/src/lib/exteriorSurfaceMaterials.ts')
 const { BLOCKING_ASSET_WEIGHTS, BLOCKING_TOTAL_WEIGHT } =
   await server.ssrLoadModule('/src/lib/loadingWeights.ts')
 const { activeHdriSectionSlot } = await server.ssrLoadModule('/src/lib/hdriTheme.ts')
@@ -38,7 +37,7 @@ const {
 } = await server.ssrLoadModule('/src/lib/tieredHdri.ts')
 const { exposureMultiplier } = await server.ssrLoadModule('/src/lib/thresholdLighting.ts')
 const { qualityTierFromSearch } = await server.ssrLoadModule('/src/state/qualityStore.ts')
-const { BoxGeometry, Color, Group, Mesh, MeshStandardMaterial, StaticDrawUsage } = await import('three')
+const { BoxGeometry, Color, Group, Mesh, MeshStandardMaterial } = await import('three')
 
 test('A2/A3: exterior rig and atmosphere have complete finite section anchors', () => {
   assert.deepEqual(Object.keys(EXTERIOR_LIGHTS).sort(), ['fill', 'key', 'rim'])
@@ -201,20 +200,13 @@ test('plan3 B1: exterior hemisphere irradiance lifts S1/S2 without replacing the
   assert.ok(sampleEnvironmentTheme(0.6).ambientIntensity < 0.03, 'S5 keeps its authored darkness')
 })
 
-test('plan3 B1: instanced exterior colors exist before first render and retain authored albedo', () => {
-  const colors = createStaticInstanceColorAttribute(3)
-  assert.equal(colors.count, 3)
-  assert.equal(colors.usage, StaticDrawUsage)
-  assert.deepEqual(Array.from(colors.array), Array(9).fill(1))
-
-  const authored = ['#596168', '#697078', '#515a62'].map((value) => new Color(value))
-  authored.forEach((color, index) => writeInstanceColor(colors, index, color))
-  authored.forEach((color, index) => {
-    assert.deepEqual(
-      Array.from(colors.array.slice(index * 3, index * 3 + 3)),
-      color.toArray().map((value) => Math.fround(value)),
-    )
-  })
+test('plan3 B1: exterior uniform albedos bypass the invalid instance-color multiplication path', () => {
+  assert.deepEqual(Object.keys(EXTERIOR_SURFACE_MATERIALS).sort(), ['grass', 'hangar'])
+  for (const surface of Object.values(EXTERIOR_SURFACE_MATERIALS)) {
+    const color = new Color(surface.color)
+    const linearLuma = color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722
+    assert.ok(linearLuma > 0.1, `${surface.color} must retain a visible diffuse floor`)
+  }
 })
 
 test('plan3 B2: key direction matches every authored HDRI sun exactly', async () => {

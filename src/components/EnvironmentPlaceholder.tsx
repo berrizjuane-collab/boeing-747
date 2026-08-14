@@ -215,7 +215,7 @@ export function EnvironmentPlaceholder() {
     window.__MERIDIAN_ENVIRONMENT_QA__ = {
       sample: sampleEnvironmentQa,
       setAmbientMultiplier: setEnvironmentQaAmbientMultiplier,
-      inspectInstanceColors: () =>
+      inspectExteriorMaterials: () =>
         ['Airport · Hangar walls', 'Airport · Instanced grass bands'].map((name) => {
           const mesh = scene.getObjectByName(name)
           const attribute = mesh instanceof InstancedMeshImpl ? mesh.instanceColor : null
@@ -224,10 +224,9 @@ export function EnvironmentPlaceholder() {
             : null
           return {
             name,
-            present: attribute !== null,
-            count: attribute?.count ?? 0,
-            firstValues: attribute ? Array.from(attribute.array.slice(0, Math.min(12, attribute.array.length))) : [],
+            instanceColorPresent: attribute !== null,
             materialColor: material?.color.getHexString() ?? null,
+            vertexColors: material?.vertexColors ?? null,
           }
         }),
     }

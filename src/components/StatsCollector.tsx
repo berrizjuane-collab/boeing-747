@@ -11,12 +11,11 @@ declare global {
     }
     __MERIDIAN_ENVIRONMENT_QA__?: {
       setAmbientMultiplier: (multiplier: number) => void
-      inspectInstanceColors: () => Array<{
+      inspectExteriorMaterials: () => Array<{
         name: string
-        present: boolean
-        count: number
-        firstValues: number[]
+        instanceColorPresent: boolean
         materialColor: string | null
+        vertexColors: boolean | null
       }>
       sample: (progress: number) => {
         environmentSource: 'golden' | 'high-altitude' | 'cabin' | 'sunset'

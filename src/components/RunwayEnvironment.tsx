@@ -16,7 +16,7 @@ import {
   UniformsUtils,
 } from 'three'
 import { getAircraftPose } from '../lib/aircraftPose'
-import { createStaticInstanceColorAttribute, writeInstanceColor } from '../lib/instanceColors'
+import { EXTERIOR_SURFACE_MATERIALS } from '../lib/exteriorSurfaceMaterials'
 import { createRunwayMarkingsGeometry, RUNWAY_SURFACE_Y } from '../lib/runwayGeometry'
 import { SECTIONS } from '../lib/sections'
 import { TIER_SETTINGS, type QualityTier, useQualityStore } from '../state/qualityStore'
@@ -165,16 +165,12 @@ function VegetationBands() {
   const meshRef = useRef<InstancedMeshImpl>(null)
   const tier = useQualityStore((state) => state.tier)
   const grassGeometry = useMemo(createGrassClumpGeometry, [])
-  const grassColors = useMemo(() => createStaticInstanceColorAttribute(VEGETATION_MAX), [])
 
   useLayoutEffect(() => {
     const mesh = meshRef.current
     if (!mesh) return
     const random = seededRandom(0xa38026)
     const dummy = new Object3D()
-    const coolGreen = new Color('#52664c')
-    const sunlitGreen = new Color('#96a269')
-    const instanceColor = new Color()
 
     mesh.instanceMatrix.setUsage(StaticDrawUsage)
     for (let index = 0; index < VEGETATION_MAX; index += 1) {
@@ -186,12 +182,11 @@ function VegetationBands() {
       dummy.scale.set(0.65 + random() * 1.1, height, 0.65 + random() * 1.1)
       dummy.updateMatrix()
       mesh.setMatrixAt(index, dummy.matrix)
-      writeInstanceColor(grassColors, index, instanceColor.copy(coolGreen).lerp(sunlitGreen, random()))
+      random() // Preserve the authored placement sequence after removing per-instance color variation.
     }
     mesh.instanceMatrix.needsUpdate = true
-    grassColors.needsUpdate = true
     mesh.computeBoundingSphere()
-  }, [grassColors])
+  }, [])
 
   return (
     <instancedMesh
@@ -201,23 +196,21 @@ function VegetationBands() {
       count={VEGETATION_COUNT[tier]}
       receiveShadow
     >
-      <primitive object={grassColors} attach="instanceColor" />
       <meshStandardMaterial
-        color="#ffffff"
-        emissive="#314431"
-        emissiveIntensity={0.42}
-        roughness={1}
+        color={EXTERIOR_SURFACE_MATERIALS.grass.color}
+        emissive={EXTERIOR_SURFACE_MATERIALS.grass.emissive}
+        emissiveIntensity={EXTERIOR_SURFACE_MATERIALS.grass.emissiveIntensity}
+        roughness={EXTERIOR_SURFACE_MATERIALS.grass.roughness}
         side={DoubleSide}
-        vertexColors
       />
     </instancedMesh>
   )
 }
 
 const HANGARS = [
-  { position: [-105, 6, -35] as const, size: [38, 12, 30] as const, color: '#596168' },
-  { position: [-101, 5, 4] as const, size: [30, 10, 24] as const, color: '#697078' },
-  { position: [-24, 7, -102] as const, size: [44, 14, 34] as const, color: '#515a62' },
+  { position: [-105, 6, -35] as const, size: [38, 12, 30] as const },
+  { position: [-101, 5, 4] as const, size: [30, 10, 24] as const },
+  { position: [-24, 7, -102] as const, size: [44, 14, 34] as const },
 ] as const
 
 function createGableRoofGeometry() {
@@ -248,7 +241,6 @@ function DistantAirport() {
   const wallsRef = useRef<InstancedMeshImpl>(null)
   const roofsRef = useRef<InstancedMeshImpl>(null)
   const roofGeometry = useMemo(createGableRoofGeometry, [])
-  const wallColors = useMemo(() => createStaticInstanceColorAttribute(HANGARS.length), [])
   const tier = useQualityStore((state) => state.tier)
   const showLowPriorityDetails = tier !== 'low'
 
@@ -257,7 +249,6 @@ function DistantAirport() {
     const roofs = roofsRef.current
     if (!walls || !roofs) return
     const dummy = new Object3D()
-    const instanceColor = new Color()
 
     HANGARS.forEach((hangar, index) => {
       const [width, height, depth] = hangar.size
@@ -265,7 +256,6 @@ function DistantAirport() {
       dummy.scale.set(width, height, depth)
       dummy.updateMatrix()
       walls.setMatrixAt(index, dummy.matrix)
-      writeInstanceColor(wallColors, index, instanceColor.set(hangar.color))
 
       dummy.position.set(hangar.position[0], hangar.position[1] + height / 2, hangar.position[2])
       dummy.scale.set(width * 1.06, 5, depth * 1.08)
@@ -276,10 +266,9 @@ function DistantAirport() {
     roofs.instanceMatrix.setUsage(StaticDrawUsage)
     walls.instanceMatrix.needsUpdate = true
     roofs.instanceMatrix.needsUpdate = true
-    wallColors.needsUpdate = true
     walls.computeBoundingSphere()
     roofs.computeBoundingSphere()
-  }, [wallColors])
+  }, [])
 
   return (
     <group name="Airport · Terminal silhouettes" visible={tier !== 'low'}>
@@ -291,9 +280,10 @@ function DistantAirport() {
       )}
       <instancedMesh ref={wallsRef} name="Airport · Hangar walls" args={[undefined, undefined, HANGARS.length]} receiveShadow>
         <boxGeometry args={[1, 1, 1]} />
-        <primitive object={wallColors} attach="instanceColor" />
-        {/* Instance colors are the authored wall albedo; a tinted base would multiply and darken them twice. */}
-        <meshStandardMaterial color="#ffffff" roughness={0.82} vertexColors />
+        <meshStandardMaterial
+          color={EXTERIOR_SURFACE_MATERIALS.hangar.color}
+          roughness={EXTERIOR_SURFACE_MATERIALS.hangar.roughness}
+        />
       </instancedMesh>
       <instancedMesh
         ref={roofsRef}

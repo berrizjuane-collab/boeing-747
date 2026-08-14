@@ -458,7 +458,7 @@ async function screenshot(page, name, progress) {
       quality,
       performance: window.__MERIDIAN_PERF__ ?? null,
       imagePipeline: window.__MERIDIAN_IMAGE_PIPELINE__ ?? null,
-      instanceColors: window.__MERIDIAN_ENVIRONMENT_QA__?.inspectInstanceColors() ?? null,
+      exteriorMaterials: window.__MERIDIAN_ENVIRONMENT_QA__?.inspectExteriorMaterials() ?? null,
     }
   })
   const imageMetrics = await measureScreenshot(target, state.panelBounds, name === '11-mobile-outro.png')
@@ -939,14 +939,18 @@ if (runB1Calibration) {
 if (runNarrativeScreenshots || runB1Probe) {
   const s2 = report.captures.find(({ name }) => name === '02-takeoff.png')
   const s2Surface = s2?.imageMetrics.s2ExteriorSurface
-  const invalidInstanceColors = s2?.instanceColors?.filter(
-    ({ present, count, firstValues }) =>
-      !present || count < 1 || firstValues.length < 3 || firstValues.some((value) => !Number.isFinite(value) || value <= 0),
+  const expectedExteriorMaterials = new Map([
+    ['Airport · Hangar walls', '697078'],
+    ['Airport · Instanced grass bands', '7a885c'],
+  ])
+  const invalidExteriorMaterials = s2?.exteriorMaterials?.filter(
+    ({ name, instanceColorPresent, materialColor, vertexColors }) =>
+      instanceColorPresent || vertexColors !== false || materialColor !== expectedExteriorMaterials.get(name),
   )
-  if (!Array.isArray(s2?.instanceColors) || s2.instanceColors.length !== 2 || invalidInstanceColors?.length) {
+  if (!Array.isArray(s2?.exteriorMaterials) || s2.exteriorMaterials.length !== 2 || invalidExteriorMaterials?.length) {
     report.assertionFailures.push(
-      `02-takeoff.png: hangar/grass instance-color buffers must be present and non-black before rendering ` +
-        `(${JSON.stringify(s2?.instanceColors ?? null)})`,
+      `02-takeoff.png: hangar/grass must use the declared uniform albedos without instance-color multiplication ` +
+        `(${JSON.stringify(s2?.exteriorMaterials ?? null)})`,
     )
   }
   if (!s2Surface || s2Surface.p05Luma < 1 || s2Surface.p50Luma < 4 || s2Surface.nearBlackPct > 50 ||
