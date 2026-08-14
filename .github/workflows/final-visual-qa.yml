@@ -73,10 +73,10 @@ jobs:
     needs: static-checks
     if: needs.static-checks.outputs.run_visual == 'true'
     runs-on: ubuntu-latest
-    # Full-resolution High screenshots take ~47 minutes on GitHub's shared
-    # SwiftShader runner. The recorded tour is independent evidence, so run
-    # both modes in parallel with isolated time budgets and reports.
-    timeout-minutes: 75
+    # Full-resolution High screenshots plus the six-frame D3 continuity
+    # series can exceed 75 minutes on GitHub's shared SwiftShader runner.
+    # The recorded tour remains independent and runs in parallel.
+    timeout-minutes: 105
     strategy:
       fail-fast: false
       matrix:
