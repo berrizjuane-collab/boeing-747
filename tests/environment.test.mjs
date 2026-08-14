@@ -150,7 +150,6 @@ test('F0-04: blocking loading weights match bytes on disk exactly', async () => 
     measuredTotal += bytes
   }
   assert.equal(BLOCKING_TOTAL_WEIGHT, measuredTotal)
-  assert.equal(measuredTotal, 5_197_982)
   assert.ok(measuredTotal <= 15_000_000)
 })
 

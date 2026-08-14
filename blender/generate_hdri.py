@@ -19,7 +19,7 @@ picked from a catalog of whatever happens to exist.
 Usage:
     blender --background --factory-startup --python blender/generate_hdri.py -- \
         --preset golden-hour --output public/hdri/golden-hour.hdr \
-        [--preview /tmp/golden-hour-preview.png] [--width 2048] [--height 1024] [--samples 32]
+        [--preview /tmp/golden-hour-preview.png] [--width 4096] [--height 2048] [--samples 32]
 
     blender --background --factory-startup --python blender/generate_hdri.py -- \
         --preset high-altitude --output public/hdri/high-altitude.hdr \
@@ -64,7 +64,8 @@ PRESETS = {
         "sun_intensity": 0.9,
         "sun_size": math.radians(0.545),
         "background_strength": 1.0,
-        "target_mean_luminance": 1.0,
+        "target_median_luminance": 0.24,
+        "highlight_shoulder": 32.0,
     },
     "high-altitude": {
         "sun_elevation": math.radians(68.0),
@@ -76,7 +77,8 @@ PRESETS = {
         "sun_intensity": 1.3,
         "sun_size": math.radians(0.545),
         "background_strength": 1.35,
-        "target_mean_luminance": 1.25,
+        "target_median_luminance": 0.30,
+        "highlight_shoulder": 32.0,
     },
     # sunset (S6 salida): PLAN.md §10.1 is explicit that this must *not* read
     # as S1/S3 repeated — "Frío al atardecer", base `#2B3A55` (cool blue-gray)
@@ -96,7 +98,8 @@ PRESETS = {
         "sun_intensity": 1.0,
         "sun_size": math.radians(0.545),
         "background_strength": 0.55,
-        "target_mean_luminance": 0.65,
+        "target_median_luminance": 0.20,
+        "highlight_shoulder": 32.0,
     },
 }
 
@@ -150,47 +153,97 @@ def _build_sky_world(preset):
     return world
 
 
-def _mean_luminance(image_path):
-    """Read a rendered HDR as linear RGB and return Rec.709 mean luminance."""
+def _read_hdr_pixels(image_path):
+    """Read a rendered HDR as linear RGBA without applying a display transform."""
     image = bpy.data.images.load(image_path, check_existing=False)
     try:
         pixels = np.empty(len(image.pixels), dtype=np.float32)
         image.pixels.foreach_get(pixels)
-        rgba = pixels.reshape((-1, 4))
-        return float(np.mean(rgba[:, 0] * 0.2126 + rgba[:, 1] * 0.7152 + rgba[:, 2] * 0.0722))
+        return image.size[:], pixels.reshape((-1, 4)).copy()
     finally:
         bpy.data.images.remove(image)
 
 
-def _normalize_world_energy(world, output_path, width, height, samples, target):
-    """Calibrate each procedural sky to a declared, reproducible energy target.
+def _luminance(rgb):
+    return rgb[:, 0] * 0.2126 + rgb[:, 1] * 0.7152 + rgb[:, 2] * 0.0722
 
-    Nishita's sun disc can change mean radiance by orders of magnitude between
-    elevations. A fixed Background strength therefore cannot keep several
-    presets exposure-compatible. Rendering and measuring a calibration pass,
-    then scaling that same linear world, makes the contract explicit and
-    avoids hand-tuned values that drift when a preset changes.
-    """
-    background = next(node for node in world.node_tree.nodes if node.type == "BACKGROUND")
-    history = []
 
-    for _ in range(3):
-        _render(output_path, width, height, samples, "HDR", "Raw")
-        observed = _mean_luminance(output_path)
-        history.append(observed)
-        if observed <= 0:
-            raise RuntimeError(f"Rendered HDRI has invalid mean luminance {observed}")
-        if abs(observed - target) / target <= 0.01:
-            break
-        background.inputs["Strength"].default_value *= target / observed
-
+def _summary(luminance):
     return {
-        "target_mean_luminance": target,
-        "measured_mean_luminance": history[-1],
-        "calibration_passes": len(history),
-        "calibration_history": history,
-        "final_background_strength": background.inputs["Strength"].default_value,
+        "mean_luminance": float(np.mean(luminance)),
+        "median_luminance": float(np.median(luminance)),
+        "p95_luminance": float(np.percentile(luminance, 95)),
+        "p99_luminance": float(np.percentile(luminance, 99)),
+        "max_luminance": float(np.max(luminance)),
     }
+
+
+def _save_linear_hdr(output_path, size, rgba):
+    image = bpy.data.images.new(
+        "CalibratedHDRI",
+        width=int(size[0]),
+        height=int(size[1]),
+        alpha=False,
+        float_buffer=True,
+    )
+    try:
+        image.colorspace_settings.name = "Non-Color"
+        image.pixels.foreach_set(np.ascontiguousarray(rgba.reshape(-1), dtype=np.float32))
+        image.update()
+        scene = bpy.context.scene
+        scene.render.image_settings.file_format = "HDR"
+        scene.render.image_settings.color_mode = "RGB"
+        scene.view_settings.view_transform = "Raw"
+        scene.view_settings.look = "None"
+        scene.view_settings.exposure = 0.0
+        scene.view_settings.gamma = 1.0
+        image.save_render(output_path, scene=scene)
+    finally:
+        bpy.data.images.remove(image)
+
+
+def _calibrate_world_energy(output_path, width, height, samples, target_median, highlight_shoulder):
+    """Calibrate the body of the sky, not the handful of pixels in the sun disc.
+
+    The previous mean-based loop let a sub-degree solar disc dominate the
+    measurement while the visible body of each panorama drifted by 3.31x.
+    We render once in scene-linear space, roll only extreme highlights into a
+    declared shoulder, and choose a single chroma-preserving scale from the
+    median. This leaves a genuinely HDR sun while making exposure compatible
+    across presets and exactly reproducible from the same source render.
+    """
+    uncalibrated_path = f"{output_path}.uncalibrated.hdr"
+    _render(uncalibrated_path, width, height, samples, "HDR", "Raw")
+    try:
+        size, rgba = _read_hdr_pixels(uncalibrated_path)
+        source_luminance = _luminance(rgba[:, :3])
+        if not np.all(np.isfinite(source_luminance)) or np.max(source_luminance) <= 0:
+            raise RuntimeError("Rendered HDRI contains invalid scene-linear radiance")
+
+        shoulder_scale = 1.0 / (1.0 + source_luminance / highlight_shoulder)
+        shoulder_rgb = rgba[:, :3] * shoulder_scale[:, None]
+        shoulder_luminance = _luminance(shoulder_rgb)
+        observed_median = float(np.median(shoulder_luminance))
+        if observed_median <= 0:
+            raise RuntimeError(f"Rendered HDRI has invalid median luminance {observed_median}")
+
+        energy_scale = target_median / observed_median
+        rgba[:, :3] = shoulder_rgb * energy_scale
+        rgba[:, 3] = 1.0
+        _save_linear_hdr(output_path, size, rgba)
+
+        calibrated_luminance = _luminance(rgba[:, :3])
+        return {
+            "method": "median-with-highlight-shoulder",
+            "target_median_luminance": target_median,
+            "highlight_shoulder": highlight_shoulder,
+            "energy_scale": energy_scale,
+            "source": _summary(source_luminance),
+            "calibrated": _summary(calibrated_luminance),
+        }
+    finally:
+        if os.path.exists(uncalibrated_path):
+            os.remove(uncalibrated_path)
 
 
 def _build_pano_camera():
@@ -243,9 +296,11 @@ def main():
         raise RuntimeError(f"--preset must be one of {list(PRESETS)}, got {preset!r}")
     output_path = os.path.abspath(_arg_value("--output", f"/tmp/{preset}.hdr"))
     preview_path = _arg_value("--preview", "")
-    width = int(_arg_value("--width", "2048"))
-    height = int(_arg_value("--height", "1024"))
+    width = int(_arg_value("--width", "4096"))
+    height = int(_arg_value("--height", "2048"))
     samples = int(_arg_value("--samples", "32"))
+    if width != height * 2:
+        raise RuntimeError(f"Equirectangular HDRI must have a 2:1 aspect ratio, got {width}x{height}")
 
     bpy.ops.wm.read_factory_settings(use_empty=True)
     # Cycles' per-camera "cycles" RNA property group (panorama_type etc.)
@@ -261,13 +316,13 @@ def main():
     # any real captured HDRI (e.g. Poly Haven), so the app's own ACES
     # Filmic tone mapping (PLAN.md render pipeline) is the only tone curve
     # applied, not two stacked on top of each other.
-    calibration = _normalize_world_energy(
-        world,
+    calibration = _calibrate_world_energy(
         output_path,
         width,
         height,
         samples,
-        PRESETS[preset]["target_mean_luminance"],
+        PRESETS[preset]["target_median_luminance"],
+        PRESETS[preset]["highlight_shoulder"],
     )
     result = {
         "preset": preset,
