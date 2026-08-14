@@ -136,7 +136,7 @@ function AircraftGroundShadow() {
 }
 
 const VEGETATION_MAX = 720
-const VEGETATION_COUNT: Record<QualityTier, number> = { high: 720, mid: 360, low: 144 }
+const VEGETATION_COUNT: Record<QualityTier, number> = { high: 720, mid: 360, low: 0 }
 
 function createGrassClumpGeometry() {
   const positions: number[] = []
@@ -197,7 +197,6 @@ function VegetationBands() {
       name="Airport · Instanced grass bands"
       args={[grassGeometry, undefined, VEGETATION_MAX]}
       count={VEGETATION_COUNT[tier]}
-      visible={tier !== 'low'}
       receiveShadow
     >
       <meshStandardMaterial

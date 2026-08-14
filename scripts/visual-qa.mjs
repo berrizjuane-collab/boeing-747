@@ -65,29 +65,133 @@ function linearChannel(byte) {
   return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
 }
 
-async function measureScreenshot(file, panelBounds) {
+function measureSilhouetteEdges(lumaValues, width, height) {
+  // Stable Mobile Low crop around the A380 in 11-mobile-outro.png. That tier
+  // has no temporal grain, and the crop excludes the overlay card, so this is
+  // a repeatable silhouette-against-sky AA measurement rather than a whole-
+  // frame edge statistic polluted by UI text.
+  const bounds = {
+    x: 0,
+    y: Math.floor(height * 0.28),
+    width: Math.floor(width * 0.88),
+    height: Math.floor(height * 0.35),
+  }
+  const histogram = new Uint32Array(256)
+  let candidates = 0
+  let intermediate = 0
+  let evaluated = 0
+  const right = Math.min(width - 1, bounds.x + bounds.width)
+  const bottom = Math.min(height - 1, bounds.y + bounds.height)
+
+  for (let y = Math.max(1, bounds.y); y < bottom; y += 1) {
+    for (let x = Math.max(1, bounds.x); x < right; x += 1) {
+      const index = y * width + x
+      const dx = Math.abs(lumaValues[index + 1] - lumaValues[index - 1]) * 0.5
+      const dy = Math.abs(lumaValues[index + width] - lumaValues[index - width]) * 0.5
+      const gradient = Math.min(255, Math.round(Math.hypot(dx, dy)))
+      evaluated += 1
+      if (gradient < 4) continue
+      histogram[gradient] += 1
+      candidates += 1
+      if (gradient <= 80) intermediate += 1
+    }
+  }
+
+  return {
+    bounds,
+    evaluatedPixels: evaluated,
+    edgePixels: candidates,
+    edgeDensityPct: evaluated > 0 ? (candidates / evaluated) * 100 : 0,
+    edgeGradientP50: candidates > 0 ? percentileFromHistogram(histogram, candidates, 0.5) * 255 : null,
+    edgeGradientP95: candidates > 0 ? percentileFromHistogram(histogram, candidates, 0.95) * 255 : null,
+    intermediateEdgePct: candidates > 0 ? (intermediate / candidates) * 100 : null,
+  }
+}
+
+async function measureScreenshot(file, panelBounds, measureSilhouette = false) {
   const { data, info } = await sharp(file).removeAlpha().raw().toBuffer({ resolveWithObject: true })
+  const pixels = info.width * info.height
+  const lumaValues = new Uint8Array(pixels)
   const luminanceHistogram = new Uint32Array(256)
   let lumaSum = 0
+  let saturationSum = 0
   let clippedWhite = 0
+  let pixelIndex = 0
 
   for (let offset = 0; offset < data.length; offset += info.channels) {
     const red = data[offset]
     const green = data[offset + 1]
     const blue = data[offset + 2]
     const luma = Math.round(red * 0.2126 + green * 0.7152 + blue * 0.0722)
+    lumaValues[pixelIndex] = luma
     luminanceHistogram[luma] += 1
     lumaSum += luma
+    const maximum = Math.max(red, green, blue)
+    const minimum = Math.min(red, green, blue)
+    saturationSum += maximum === 0 ? 0 : (maximum - minimum) / maximum
     if (red >= 250 && green >= 250 && blue >= 250) clippedWhite += 1
+    pixelIndex += 1
   }
 
-  const pixels = info.width * info.height
+  const p05Luma = percentileFromHistogram(luminanceHistogram, pixels, 0.05) * 255
+  const p90Luma = percentileFromHistogram(luminanceHistogram, pixels, 0.9) * 255
+  const p95Luma = percentileFromHistogram(luminanceHistogram, pixels, 0.95) * 255
+  let highlightCount = 0
+  let highlightRed = 0
+  let highlightGreen = 0
+  let highlightBlue = 0
+  for (let index = 0; index < pixels; index += 1) {
+    if (lumaValues[index] < p90Luma) continue
+    const offset = index * info.channels
+    highlightRed += data[offset]
+    highlightGreen += data[offset + 1]
+    highlightBlue += data[offset + 2]
+    highlightCount += 1
+  }
+  const highlightMeanRgb = highlightCount > 0
+    ? [highlightRed / highlightCount, highlightGreen / highlightCount, highlightBlue / highlightCount]
+    : null
+  const s6Key = [0xe8 / 255, 0x9b / 255, 0x6c / 255]
+  const highlightKeyDistance = highlightMeanRgb
+    ? Math.hypot(
+        highlightMeanRgb[0] / 255 - s6Key[0],
+        highlightMeanRgb[1] / 255 - s6Key[1],
+        highlightMeanRgb[2] / 255 - s6Key[2],
+      )
+    : null
+
+  const edgeHistogram = new Uint32Array(256)
+  let edgeSamples = 0
+  let intermediateEdges = 0
+  const edgeLeft = Math.floor(info.width * 0.2)
+  const edgeRight = Math.ceil(info.width * 0.95)
+  const edgeTop = Math.floor(info.height * 0.15)
+  const edgeBottom = Math.ceil(info.height * 0.85)
+  for (let y = edgeTop + 1; y < edgeBottom - 1; y += 1) {
+    for (let x = edgeLeft + 1; x < edgeRight - 1; x += 1) {
+      const index = y * info.width + x
+      const dx = Math.abs(lumaValues[index + 1] - lumaValues[index - 1]) * 0.5
+      const dy = Math.abs(lumaValues[index + info.width] - lumaValues[index - info.width]) * 0.5
+      const gradient = Math.min(255, Math.round(Math.hypot(dx, dy)))
+      edgeHistogram[gradient] += 1
+      if (gradient >= 8 && gradient <= 80) intermediateEdges += 1
+      edgeSamples += 1
+    }
+  }
+
   const result = {
     meanLuma: lumaSum / pixels,
-    p05Luma: percentileFromHistogram(luminanceHistogram, pixels, 0.05) * 255,
+    meanSaturation: saturationSum / pixels,
+    p05Luma,
     p50Luma: percentileFromHistogram(luminanceHistogram, pixels, 0.5) * 255,
-    p95Luma: percentileFromHistogram(luminanceHistogram, pixels, 0.95) * 255,
+    p95Luma,
+    lumaContrastRatio: (p95Luma + 5) / (p05Luma + 5),
     clippedWhitePct: (clippedWhite / pixels) * 100,
+    highlightMeanRgb,
+    highlightKeyDistance,
+    edgeGradientP95: percentileFromHistogram(edgeHistogram, edgeSamples, 0.95) * 255,
+    intermediateEdgePct: (intermediateEdges / edgeSamples) * 100,
+    silhouetteEdges: measureSilhouette ? measureSilhouetteEdges(lumaValues, info.width, info.height) : null,
     panelContrastEstimate: null,
   }
 
@@ -164,9 +268,9 @@ function watch(page, label) {
   })
 }
 
-async function openReady(page, label) {
+async function openReady(page, label, url = baseURL) {
   watch(page, label)
-  await page.goto(baseURL, { waitUntil: 'networkidle', timeout: 120_000 })
+  await page.goto(url, { waitUntil: 'networkidle', timeout: 120_000 })
   await page.locator('.loading-screen').waitFor({ state: 'detached', timeout: 120_000 })
   await page.waitForTimeout(initialSettleMs)
 }
@@ -214,9 +318,10 @@ async function screenshot(page, name, progress) {
         : null,
       quality,
       performance: window.__MERIDIAN_PERF__ ?? null,
+      imagePipeline: window.__MERIDIAN_IMAGE_PIPELINE__ ?? null,
     }
   })
-  const imageMetrics = await measureScreenshot(target, state.panelBounds)
+  const imageMetrics = await measureScreenshot(target, state.panelBounds, name === '11-mobile-outro.png')
   report.captures.push({ name, progress, ...state, imageMetrics })
   console.log(
     `[visual-qa] captured ${name}: ${state.quality ?? 'unknown'} · ` +
@@ -260,6 +365,41 @@ async function setQuality(page, target) {
   }
 }
 
+async function sweepEnvironment(page) {
+  return page.evaluate(() => {
+    if (!window.__MERIDIAN_ENVIRONMENT_QA__) throw new Error('Environment QA bridge is unavailable')
+    return Array.from({ length: 101 }, (_, index) => {
+      const progress = index / 100
+      return { progress, ...window.__MERIDIAN_ENVIRONMENT_QA__.sample(progress) }
+    })
+  })
+}
+
+async function sampleAnimationFrameTimes(page, frameCount = 9) {
+  return page.evaluate(
+    (count) =>
+      new Promise((resolve) => {
+        const deltas = []
+        let previous = null
+        function sample(now) {
+          if (previous !== null) deltas.push(now - previous)
+          previous = now
+          if (deltas.length >= count) {
+            const sorted = [...deltas].sort((a, b) => a - b)
+            resolve({
+              samples: deltas.map((value) => Number(value.toFixed(3))),
+              medianMs: Number(sorted[Math.floor(sorted.length / 2)].toFixed(3)),
+            })
+            return
+          }
+          requestAnimationFrame(sample)
+        }
+        requestAnimationFrame(sample)
+      }),
+    frameCount,
+  )
+}
+
 if (runScreenshots) {
   const desktop = await browser.newContext({
     viewport: { width: 1440, height: 900 },
@@ -283,12 +423,22 @@ if (runScreenshots) {
     ['06b-exit-clean-86.png', 0.86],
     ['06c-sunset-clean-88.png', 0.88],
     ['06d-sunset-outro.png', 0.92],
+    ['06e-environment-94.png', 0.94],
+    ['06f-environment-96.png', 0.96],
     ['07-footer.png', 0.97],
   ]) {
     await screenshot(desktopPage, name, progress)
     if (name === '03-spec-sheet.png') {
       await screenshotWithAlteredBackground(desktopPage, '03a-spec-sheet-background-probe.png', progress)
     }
+  }
+  report.environmentSweep = await sweepEnvironment(desktopPage)
+  const nullEnvironmentSamples = report.environmentSweep.filter(({ environmentBound }) => !environmentBound)
+  if (report.environmentSweep.length !== 101 || nullEnvironmentSamples.length > 0) {
+    report.assertionFailures.push(
+      `scene.environment must be bound at all 101 samples (received ${report.environmentSweep.length}, ` +
+        `${nullEnvironmentSamples.length} null)`,
+    )
   }
   await desktop.close()
 
@@ -351,7 +501,40 @@ if (runScreenshots) {
         `${report.gearPixelEquivalence.maximumChannelDelta})`,
     )
   }
+  const aaOnTiming = await sampleAnimationFrameTimes(gearPage)
+  const aaOnState = await gearPage.evaluate(() => ({
+    pipeline: window.__MERIDIAN_IMAGE_PIPELINE__ ?? null,
+    performance: window.__MERIDIAN_PERF__ ?? null,
+  }))
   await gearComparison.close()
+
+  const aaOffComparison = await browser.newContext({
+    viewport: { width: 1440, height: 900 },
+    deviceScaleFactor: 1,
+  })
+  const aaOffPage = await aaOffComparison.newPage()
+  const aaOffURL = new URL(baseURL)
+  aaOffURL.searchParams.set('aa', 'off')
+  await openReady(aaOffPage, 'aa-off-comparison', aaOffURL.href)
+  await setQuality(aaOffPage, 'low')
+  await setProgress(aaOffPage, 0.01)
+  const aaOffTiming = await sampleAnimationFrameTimes(aaOffPage)
+  const aaOffState = await aaOffPage.evaluate(() => ({
+    pipeline: window.__MERIDIAN_IMAGE_PIPELINE__ ?? null,
+    performance: window.__MERIDIAN_PERF__ ?? null,
+  }))
+  report.aaCost = {
+    viewport: '1440x900',
+    tier: 'low',
+    renderer: 'SwiftShader diagnostic — not physical-hardware FPS evidence',
+    enabled: { ...aaOnTiming, ...aaOnState },
+    disabled: { ...aaOffTiming, ...aaOffState },
+    medianDeltaMs: Number((aaOnTiming.medianMs - aaOffTiming.medianMs).toFixed(3)),
+  }
+  if (aaOnState.pipeline?.antialiasing !== 'SMAA' || aaOffState.pipeline?.antialiasing !== 'disabled-for-qa') {
+    report.assertionFailures.push(`AA cost probe did not toggle the expected pipeline: ${JSON.stringify(report.aaCost)}`)
+  }
+  await aaOffComparison.close()
 }
 
 if (runVideo) {
@@ -444,6 +627,8 @@ const expectedPanelText = {
   '06b-exit-clean-86.png': 'Fin del recorrido',
   '06c-sunset-clean-88.png': 'Fin del recorrido',
   '06d-sunset-outro.png': 'Fin del recorrido',
+  '06e-environment-94.png': 'Fin del recorrido',
+  '06f-environment-96.png': 'Créditos y licencias',
   '07-footer.png': 'Créditos y licencias',
   '08-mobile-hero.png': 'MERIDIAN',
   '08a-mobile-taxi-13.png': 'S2 — Rodaje y despegue',
@@ -484,6 +669,23 @@ for (const capture of report.captures) {
       )
     }
   }
+
+  if (!capture.imagePipeline) {
+    report.assertionFailures.push(`${capture.name}: image-pipeline diagnostics are missing`)
+  } else {
+    if (capture.imagePipeline.toneMappingMode !== 6 || capture.imagePipeline.toneMappingModeName !== 'ACES_FILMIC') {
+      report.assertionFailures.push(
+        `${capture.name}: effective tone mapping must be ACES_FILMIC/6, received ` +
+          `${capture.imagePipeline.toneMappingModeName}/${capture.imagePipeline.toneMappingMode}`,
+      )
+    }
+    if (capture.imagePipeline.antialiasing !== 'SMAA') {
+      report.assertionFailures.push(`${capture.name}: SMAA must be active in the production pipeline`)
+    }
+    if (!capture.imagePipeline.environmentBound) {
+      report.assertionFailures.push(`${capture.name}: scene.environment is null`)
+    }
+  }
 }
 
 if (runScreenshots) {
@@ -505,7 +707,37 @@ if (runScreenshots) {
       (specSheetProbe.imageMetrics.panelContrastEstimate ?? 0) < 4.5) {
     report.assertionFailures.push(
       `03a-spec-sheet-background-probe.png: S3 contrast must remain at least 4.5:1 with a deliberately altered 3D background ` +
-        `(measured ${specSheetProbe?.imageMetrics.panelContrastEstimate ?? 'missing'})`,
+      `(measured ${specSheetProbe?.imageMetrics.panelContrastEstimate ?? 'missing'})`,
+    )
+  }
+
+  const boundary94 = report.captures.find(({ name }) => name === '06e-environment-94.png')
+  const boundary96 = report.captures.find(({ name }) => name === '06f-environment-96.png')
+  if (boundary94?.imagePipeline?.environmentSource !== 'sunset' ||
+      boundary96?.imagePipeline?.environmentSource !== 'sunset') {
+    report.assertionFailures.push(
+      `S6/S7 environment boundary must retain sunset IBL at 0.94 and 0.96 ` +
+        `(received ${boundary94?.imagePipeline?.environmentSource ?? 'missing'} / ` +
+        `${boundary96?.imagePipeline?.environmentSource ?? 'missing'})`,
+    )
+  }
+
+  const s6Grade = report.captures.find(({ name }) => name === '06b-exit-clean-86.png')
+  if (!s6Grade || (s6Grade.imagePipeline?.gradingStrength ?? 0) <= 0.4 ||
+      !Number.isFinite(s6Grade.imageMetrics.highlightKeyDistance)) {
+    report.assertionFailures.push(
+      `S6 display-space grade must expose an active strength and measurable highlight-key distance ` +
+        `(received strength ${s6Grade?.imagePipeline?.gradingStrength ?? 'missing'}, distance ` +
+        `${s6Grade?.imageMetrics.highlightKeyDistance ?? 'missing'})`,
+    )
+  }
+
+  const mobileSilhouette = report.captures.find(({ name }) => name === '11-mobile-outro.png')
+  if (!mobileSilhouette?.imageMetrics.silhouetteEdges ||
+      mobileSilhouette.imageMetrics.silhouetteEdges.edgePixels < 100) {
+    report.assertionFailures.push(
+      `11-mobile-outro.png: deterministic A380 silhouette edge sample is missing or too small ` +
+        `(received ${mobileSilhouette?.imageMetrics.silhouetteEdges?.edgePixels ?? 'missing'} edge pixels)`,
     )
   }
 }

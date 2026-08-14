@@ -1,6 +1,5 @@
-import { Environment } from '@react-three/drei'
 import { useFrame, useLoader, useThree } from '@react-three/fiber'
-import { useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import {
   BackSide,
   Color,
@@ -12,12 +11,14 @@ import {
   MeshStandardMaterial,
 } from 'three'
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
+import { createCabinFillTexture } from '../lib/cabinEnvironment'
 import { EXTERIOR_LIGHTS, sampleEnvironmentTheme } from '../lib/environmentTheme'
 import { activeHdriSectionSlot, goldenHourWeight, highAltitudeWeight, sunsetWeight } from '../lib/hdriTheme'
-import { SECTIONS } from '../lib/sections'
+import { getActiveSectionIndex, SECTIONS } from '../lib/sections'
 import { exposureMultiplier } from '../lib/thresholdLighting'
 import { createSkyDomeMaterial } from '../lib/skyDomeMaterial'
 import { exposureState } from '../state/exposureState'
+import { imagePipelineDiagnostics } from '../state/imagePipelineDiagnostics'
 import { loadingState } from '../state/loadingState'
 import { useScrollStore } from '../state/scrollStore'
 
@@ -87,6 +88,7 @@ export function EnvironmentPlaceholder() {
     `${import.meta.env.BASE_URL}hdri/high-altitude.hdr`,
     `${import.meta.env.BASE_URL}hdri/sunset.hdr`,
   ])
+  const cabinFillMap = useMemo(createCabinFillTexture, [])
   const skyMaterial = useMemo(() => createSkyDomeMaterial(goldenHourMap, highAltitudeMap), [goldenHourMap, highAltitudeMap])
   const sunsetMaterial = useMemo(
     () =>
@@ -108,13 +110,44 @@ export function EnvironmentPlaceholder() {
     sunsetMap.mapping = EquirectangularReflectionMapping
   }, [goldenHourMap, highAltitudeMap, sunsetMap])
 
+  useEffect(() => () => cabinFillMap.dispose(), [cabinFillMap])
+
   useEffect(() => {
     scene.background = colorRef.current
     scene.fog = new FogExp2(colorRef.current.getHex(), 0.0015)
   }, [scene])
 
+  const bindEnvironment = useCallback(
+    (activeIndex: number) => {
+      const exteriorSlot = activeHdriSectionSlot(activeIndex)
+      const environmentSource: 'golden' | 'high-altitude' | 'cabin' | 'sunset' =
+        activeIndex === 4 ? 'cabin' : exteriorSlot
+      scene.environment =
+        environmentSource === 'golden'
+          ? goldenHourMap
+          : environmentSource === 'high-altitude'
+            ? highAltitudeMap
+            : environmentSource === 'sunset'
+              ? sunsetMap
+              : cabinFillMap
+      imagePipelineDiagnostics.environmentSource = environmentSource
+      imagePipelineDiagnostics.environmentBound = scene.environment !== null
+      return { environmentSource, environmentBound: scene.environment !== null }
+    },
+    [cabinFillMap, goldenHourMap, highAltitudeMap, scene, sunsetMap],
+  )
+
+  useEffect(() => {
+    window.__MERIDIAN_ENVIRONMENT_QA__ = {
+      sample: (progress) => bindEnvironment(getActiveSectionIndex(progress)),
+    }
+    return () => {
+      delete window.__MERIDIAN_ENVIRONMENT_QA__
+    }
+  }, [bindEnvironment])
+
   useFrame(() => {
-    const { progress } = useScrollStore.getState()
+    const { progress, activeIndex } = useScrollStore.getState()
     const theme = sampleEnvironmentTheme(progress)
     colorRef.current.copy(theme.background)
     if (scene.fog instanceof FogExp2) {
@@ -122,6 +155,7 @@ export function EnvironmentPlaceholder() {
       scene.fog.density = theme.fogDensity
     }
     scene.environmentIntensity = theme.environmentIntensity
+    bindEnvironment(activeIndex)
     if (groundMaterialRef.current) groundMaterialRef.current.color.copy(theme.ground)
     const groundFade = clamp01Reveal((GROUND_FADE_END - progress) / (GROUND_FADE_END - GROUND_FADE_START))
     if (groundRef.current) groundRef.current.visible = groundFade > 0.01
@@ -166,11 +200,6 @@ export function EnvironmentPlaceholder() {
     sunsetMaterial.opacity = sunsetOpacity
     if (sunsetDomeRef.current) sunsetDomeRef.current.visible = sunsetOpacity > 1e-4
   })
-
-  const activeIndex = useScrollStore((s) => s.activeIndex)
-  const hdriSlot = activeHdriSectionSlot(activeIndex)
-  const reflectionMap =
-    hdriSlot === 'golden' ? goldenHourMap : hdriSlot === 'high-altitude' ? highAltitudeMap : hdriSlot === 'sunset' ? sunsetMap : null
 
   return (
     <>
@@ -239,9 +268,9 @@ export function EnvironmentPlaceholder() {
       <mesh ref={sunsetDomeRef} renderOrder={-10} material={sunsetMaterial}>
         <sphereGeometry args={[SKY_RADIUS, 32, 32]} />
       </mesh>
-      {/* Reflection-only: background stays the sky dome above, this just feeds
-          scene.environment for PBR IBL on standard materials (the ground/runway). */}
-      {reflectionMap && <Environment map={reflectionMap} background={false} />}
+      {/* Reflection ownership is centralized in useFrame above. This prevents
+          independent mount cleanups from restoring a stale/null environment
+          at the S6/S7 boundary while the visible background stays separate. */}
     </>
   )
 }

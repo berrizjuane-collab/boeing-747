@@ -21,6 +21,8 @@ const { mergeLandingGearMeshes, MERGED_LANDING_GEAR_NAME, setLandingGearMergeMod
   await server.ssrLoadModule('/src/lib/landingGearMerge.ts')
 const { BLOCKING_ASSET_WEIGHTS, BLOCKING_TOTAL_WEIGHT } =
   await server.ssrLoadModule('/src/lib/loadingWeights.ts')
+const { activeHdriSectionSlot } = await server.ssrLoadModule('/src/lib/hdriTheme.ts')
+const { SECTION_GRADES, sampleSectionGrade } = await server.ssrLoadModule('/src/lib/sectionGrading.ts')
 const { BoxGeometry, Group, Mesh, MeshStandardMaterial } = await import('three')
 
 test('A2/A3: exterior rig and atmosphere have complete finite section anchors', () => {
@@ -142,4 +144,22 @@ test('F0-04: blocking loading weights match bytes on disk exactly', async () => 
   assert.equal(BLOCKING_TOTAL_WEIGHT, measuredTotal)
   assert.equal(measuredTotal, 5_197_982)
   assert.ok(measuredTotal <= 15_000_000)
+})
+
+test('plan3 A2: grading strength is authored per section and interpolated at runtime', () => {
+  assert.equal(SECTION_GRADES.length, 7)
+  assert.equal(SECTION_GRADES[5].strength, 0.64)
+  assert.ok(new Set(SECTION_GRADES.map(({ strength }) => strength)).size > 1)
+  const startS6 = sampleSectionGrade(0.82)
+  const laterS6 = sampleSectionGrade(0.9)
+  assert.equal(startS6.strength, 0.64)
+  assert.ok(laterS6.strength < startS6.strength)
+  assert.ok(laterS6.strength > SECTION_GRADES[6].strength)
+})
+
+test('plan3 A4: every narrative section resolves to a non-null exterior HDRI fallback', () => {
+  assert.deepEqual(
+    Array.from({ length: 7 }, (_, index) => activeHdriSectionSlot(index)),
+    ['golden', 'golden', 'high-altitude', 'high-altitude', 'high-altitude', 'sunset', 'sunset'],
+  )
 })

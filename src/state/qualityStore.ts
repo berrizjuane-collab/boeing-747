@@ -17,9 +17,9 @@ export interface TierSettings {
   postProcessing: 'full' | 'bloomVignette' | 'toneMappingOnly'
   particlesPct: number
   /** Real-time shadow casting for InteriorLighting.tsx's spots specifically
-   * (§7.1's "Sombras" row). The S1-S2 runway sun shadow is already scoped
-   * to a short window regardless of tier — see EnvironmentPlaceholder.tsx's
-   * SHADOW_SECTION_END — so it isn't gated here; the interior spots are the
+   * (§7.1's "Sombras" row). The S1-S2 runway contact cue is an analytical
+   * one-draw projection scoped by AircraftGroundShadow's runwayPresence, so
+   * it isn't gated here; the interior spots are the
    * "Interior en tiempo real" vs "Sólo horneadas" difference the table
    * actually names. */
   interiorRealtimeShadows: boolean

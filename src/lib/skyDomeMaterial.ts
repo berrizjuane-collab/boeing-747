@@ -53,6 +53,8 @@ export function createSkyDomeMaterial(goldenHourMap: Texture, highAltitudeMap: T
         vec3 golden = texture2D(goldenHourMap, vSkyUv).rgb;
         vec3 highAltitude = texture2D(highAltitudeMap, vSkyUv).rgb;
         gl_FragColor = vec4(mix(golden, highAltitude, mixFactor), opacity);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
       }
     `,
   })

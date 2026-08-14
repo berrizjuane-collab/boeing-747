@@ -2,20 +2,29 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { useRef } from 'react'
 import { Frustum, InstancedMesh, Matrix4, Mesh, type Camera, type Scene } from 'three'
 import { perfStats } from '../state/perfStats'
+import { imagePipelineDiagnostics, type ImagePipelineDiagnostics } from '../state/imagePipelineDiagnostics'
 
 declare global {
   interface Window {
+    __MERIDIAN_ENVIRONMENT_QA__?: {
+      sample: (progress: number) => {
+        environmentSource: 'golden' | 'high-altitude' | 'cabin' | 'sunset'
+        environmentBound: boolean
+      }
+    }
     __MERIDIAN_GEAR_QA__?: {
       setMode: (mode: 'merged' | 'source') => void
     }
     __MERIDIAN_PERF__?: {
       fps: number
+      frameTimeMedianMs: number
       drawCalls: number
       /** Visible scene geometry once, matching PLAN.md's "triangles on screen" budget. */
       triangles: number
       /** All submitted triangles across scene/shadow/post passes, retained as a diagnostic. */
       submittedTriangles: number
     }
+    __MERIDIAN_IMAGE_PIPELINE__?: ImagePipelineDiagnostics
   }
 }
 
@@ -66,6 +75,9 @@ function visibleSceneTriangles(scene: Scene, camera: Camera, frustum: Frustum, p
 export function StatsCollector() {
   const { camera, gl, scene } = useThree()
   const lastTime = useRef(performance.now())
+  const previousFrameTime = useRef(performance.now())
+  const frameDeltas = useRef<number[]>([])
+  const frameTimeMedianMs = useRef(0)
   const frames = useRef(0)
   const frustum = useRef(new Frustum())
   const projection = useRef(new Matrix4())
@@ -73,6 +85,14 @@ export function StatsCollector() {
   useFrame(() => {
     frames.current += 1
     const now = performance.now()
+    const frameDelta = now - previousFrameTime.current
+    previousFrameTime.current = now
+    if (frameDelta > 0 && frameDelta < 5_000) {
+      frameDeltas.current.push(frameDelta)
+      if (frameDeltas.current.length > 31) frameDeltas.current.shift()
+      const sorted = [...frameDeltas.current].sort((a, b) => a - b)
+      frameTimeMedianMs.current = sorted[Math.floor(sorted.length / 2)]
+    }
     const elapsed = now - lastTime.current
     if (elapsed >= 250) {
       perfStats.fps = Math.round((frames.current * 1000) / elapsed)
@@ -86,10 +106,12 @@ export function StatsCollector() {
     // affecting React state or adding any visible instrumentation.
     window.__MERIDIAN_PERF__ = {
       fps: perfStats.fps,
+      frameTimeMedianMs: Number(frameTimeMedianMs.current.toFixed(3)),
       drawCalls: perfStats.drawCalls,
       triangles: perfStats.triangles,
       submittedTriangles: gl.info.render.triangles,
     }
+    window.__MERIDIAN_IMAGE_PIPELINE__ = { ...imagePipelineDiagnostics }
     gl.info.reset()
   }, 2)
 

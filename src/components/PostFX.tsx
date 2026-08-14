@@ -1,7 +1,10 @@
-import { Bloom, DepthOfField, EffectComposer, GodRays, Noise, ToneMapping, Vignette } from '@react-three/postprocessing'
-import type { JSX, RefObject } from 'react'
+import { Bloom, DepthOfField, EffectComposer, GodRays, Noise, SMAA, ToneMapping, Vignette } from '@react-three/postprocessing'
+import { useFrame } from '@react-three/fiber'
+import { SMAAPreset, ToneMappingEffect, ToneMappingMode } from 'postprocessing'
+import { useRef, type JSX, type RefObject } from 'react'
 import type { Mesh } from 'three'
 import { TIER_SETTINGS, useQualityStore } from '../state/qualityStore'
+import { imagePipelineDiagnostics } from '../state/imagePipelineDiagnostics'
 import { useScrollStore } from '../state/scrollStore'
 import { ExposurePass } from './ExposurePass'
 import { SectionGrade } from './SectionGrade'
@@ -14,35 +17,56 @@ const INTERIOR_SECTION_INDEX = 4 // S5
  * PLAN.md §7's explicit requirement, because this library merges every
  * effect below into as few actual shader passes as it can, where the
  * native one chains a full screen pass per effect. ACES Filmic runs as the
- * last effect in the chain (`<ToneMapping>`) rather than as a
- * `gl.toneMapping` renderer flag: mounting `<EffectComposer>` forces the
- * renderer to NoToneMapping internally (avoiding a double curve if both
- * applied), so the tone curve has to live here to keep applying at every
- * tier — §7.4 wants ACES "en todos los tiers", including the tone-mapping-only
- * floor tier below.
+ * explicit `ToneMappingMode.ACES_FILMIC` effect rather than a renderer flag:
+ * mounting `<EffectComposer>` forces the renderer to NoToneMapping internally
+ * (avoiding a double curve if both applied), so the tone curve has to live
+ * here at every tier. SectionGrade follows it intentionally and therefore
+ * operates on display-range values instead of applying LDR thresholds to HDR.
  *
  * Effect set per tier follows §7.1's table literally: Desktop High gets
  * everything (bloom, DoF, godrays as the enhancement §7.4 describes,
  * vignette, grain), the middle tier gets bloom+vignette only, the floor
- * tier gets tone mapping and nothing else. Grading (SectionGrade) and
+ * tier gets tone mapping plus baseline SMAA. Grading (SectionGrade) and
  * exposure (ExposurePass) aren't tier-gated rows in that table — they're
  * cheap (one extra blended pass each, no extra render target) and part of
  * the site's baseline look at every tier, same reasoning as tone mapping
- * itself. ExposurePass specifically has to be here at all, in every branch,
+ * itself. SMAA is the explicit AA path because the composer's render targets
+ * bypass the canvas context's antialiasing. ExposurePass has to be here at all,
  * because mounting this composer is what broke gl.toneMappingExposure in
  * the first place — see exposureState.ts.
  */
+function AcesToneMapping() {
+  const effectRef = useRef<ToneMappingEffect>(null)
+  useFrame(() => {
+    const mode = effectRef.current?.mode ?? null
+    imagePipelineDiagnostics.toneMappingMode = mode
+    imagePipelineDiagnostics.toneMappingModeName = mode === ToneMappingMode.ACES_FILMIC ? 'ACES_FILMIC' : `unexpected:${mode}`
+  })
+  return <ToneMapping ref={effectRef} mode={ToneMappingMode.ACES_FILMIC} />
+}
+
+function PipelineAntialiasing({ disabled, preset, label }: { disabled: boolean; preset: SMAAPreset; label: string }) {
+  imagePipelineDiagnostics.antialiasing = disabled ? 'disabled-for-qa' : 'SMAA'
+  imagePipelineDiagnostics.antialiasingPreset = disabled ? null : label
+  if (disabled) return null
+  return <SMAA preset={preset} />
+}
+
 export function PostFX({ sunRef }: { sunRef: RefObject<Mesh | null> }) {
   const tier = useQualityStore((s) => s.tier)
   const activeIndex = useScrollStore((s) => s.activeIndex)
   const settings = TIER_SETTINGS[tier]
+  const aaDisabledForQa = new URLSearchParams(window.location.search).get('aa') === 'off'
+  const smaaPreset = tier === 'high' ? SMAAPreset.HIGH : tier === 'mid' ? SMAAPreset.MEDIUM : SMAAPreset.LOW
+  const smaaLabel = tier === 'high' ? 'HIGH' : tier === 'mid' ? 'MEDIUM' : 'LOW'
 
   if (settings.postProcessing === 'toneMappingOnly') {
     return (
       <EffectComposer multisampling={0}>
         <ExposurePass />
+        <AcesToneMapping />
         <SectionGrade />
-        <ToneMapping />
+        <PipelineAntialiasing disabled={aaDisabledForQa} preset={smaaPreset} label={smaaLabel} />
       </EffectComposer>
     )
   }
@@ -54,9 +78,10 @@ export function PostFX({ sunRef }: { sunRef: RefObject<Mesh | null> }) {
       <EffectComposer multisampling={0}>
         <ExposurePass />
         <Bloom luminanceThreshold={0.8} luminanceSmoothing={0.25} mipmapBlur intensity={0.6} />
+        <AcesToneMapping />
         <SectionGrade />
         <Vignette eskil={false} offset={0.15} darkness={0.6} />
-        <ToneMapping />
+        <PipelineAntialiasing disabled={aaDisabledForQa} preset={smaaPreset} label={smaaLabel} />
       </EffectComposer>
     )
   }
@@ -101,10 +126,11 @@ export function PostFX({ sunRef }: { sunRef: RefObject<Mesh | null> }) {
     )
   }
   effects.push(
+    <AcesToneMapping key="tonemap" />,
     <SectionGrade key="grade" />,
+    <PipelineAntialiasing key="smaa" disabled={aaDisabledForQa} preset={smaaPreset} label={smaaLabel} />,
     <Vignette key="vignette" eskil={false} offset={0.15} darkness={0.6} />,
     <Noise key="noise" opacity={0.035} premultiply />,
-    <ToneMapping key="tonemap" />,
   )
 
   return <EffectComposer multisampling={0}>{effects}</EffectComposer>

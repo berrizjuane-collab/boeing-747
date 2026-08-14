@@ -77,12 +77,6 @@ export function ExteriorAsset() {
         const dissolveMaterial = createDissolveHullMaterial(sourceMaterial)
         mesh.material = dissolveMaterial
         dissolveMaterialRef.current = dissolveMaterial
-        mesh.castShadow = true
-        mesh.receiveShadow = true
-      } else if ((obj as Mesh).isMesh) {
-        const mesh = obj as Mesh
-        mesh.castShadow = true
-        mesh.receiveShadow = true
       }
     })
     const gear = scene.getObjectByName('LandingGear')

@@ -52,9 +52,8 @@ export function sunsetWeight(progress: number): number {
  * index (already a discrete, render-cheap value — see scrollStore.ts), not
  * raw progress, so it changes at most three times across the whole page.
  */
-export function activeHdriSectionSlot(sectionIndex: number): 'golden' | 'high-altitude' | 'sunset' | null {
+export function activeHdriSectionSlot(sectionIndex: number): 'golden' | 'high-altitude' | 'sunset' {
   if (sectionIndex <= 1) return 'golden'
-  if (sectionIndex === 2) return 'high-altitude'
-  if (sectionIndex >= 5) return 'sunset'
-  return null
+  if (sectionIndex <= 4) return 'high-altitude'
+  return 'sunset'
 }

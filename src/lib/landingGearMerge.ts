@@ -100,8 +100,6 @@ export function mergeLandingGearMeshes(gear: Object3D, options: LandingGearMerge
 
   const mergedMesh = new Mesh(mergedGeometry, material as Material)
   mergedMesh.name = MERGED_LANDING_GEAR_NAME
-  mergedMesh.castShadow = sourceMeshes.some((mesh) => mesh.castShadow)
-  mergedMesh.receiveShadow = sourceMeshes.some((mesh) => mesh.receiveShadow)
   mergedMesh.userData.sourceMeshCount = sourceMeshes.length
   mergedMesh.userData.sourceTriangleCount = sourceTriangleCount
 
