@@ -7,8 +7,10 @@ se denominan **MERIDIAN — Airbus A380-800**.
 
 **Documentación completa y estado real:** [`PLAN.md`](./PLAN.md) y
 [`PROGRESS.md`](./PROGRESS.md) conservan la primera entrega; la ronda de
-corrección visual se especifica en [`plan2.md`](./plan2.md) y su evidencia
-activa queda en [`progress2.md`](./progress2.md).
+corrección visual quedó registrada en [`plan2.md`](./plan2.md) y
+[`progress2.md`](./progress2.md). Los **documentos activos** son
+[`plan3.md`](./plan3.md) —ronda de fidelidad de entorno y dirección de
+arte— y su checklist de evidencia [`progress3.md`](./progress3.md).
 
 ## Estado actual
 

@@ -1,5 +1,7 @@
 # PLAN 2 — Corrección y Finalización Visual
 
+> ⚠️ **Este documento está cerrado — ver [`plan3.md`](./plan3.md).** Sus ítems fueron completados con evidencia y así están marcados en `progress2.md`. Una revisión posterior concluyó que, con las causas raíz de esta ronda ya corregidas, lo que sigue por debajo del brief es **fidelidad de entorno y dirección de arte** (vegetación, terreno, edificios, naturaleza de fondo, atardecer, y la ausencia de mundo terrestre a partir de 30,5 % de scroll). `plan3.md` y `progress3.md` son los documentos activos; este queda como registro de la ronda 2.
+>
 > **Estado de los documentos previos.** `PLAN.md` y `PROGRESS.md` (los archivos que en el pedido se nombran como `plan1`/`progress1`) corresponden a la ronda anterior y quedan **cerrados**: sus 10 fases (0–9) fueron completadas y así están marcadas. Este documento, `plan2.md`, es el **documento activo** de aquí en adelante, junto con su checklist espejo `progress2.md`. No se vuelve a marcar nada en `PROGRESS.md`.
 >
 > **Sesión de planificación.** Ni una línea de este documento es código de implementación. Los únicos entregables de esta sesión son `plan2.md` y `progress2.md`.
