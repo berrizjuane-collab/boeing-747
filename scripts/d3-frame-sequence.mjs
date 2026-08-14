@@ -17,6 +17,7 @@ const explicitPoints = process.env.D3_QA_POINTS
 const viewportWidth = Number(process.env.D3_QA_WIDTH ?? 1440)
 const viewportHeight = Number(process.env.D3_QA_HEIGHT ?? 900)
 const qualityTarget = process.env.D3_QA_QUALITY?.toLowerCase() ?? 'high'
+const validQualityTargets = new Set(['high', 'mid', 'low'])
 
 function percentileFromHistogram(histogram, count, fraction) {
   const threshold = Math.max(0, Math.ceil(count * fraction) - 1)
@@ -77,6 +78,9 @@ if (!(start >= 0 && end <= 1 && start <= end && step > 0)) {
 if (explicitPoints?.some((value) => value < 0 || value > 1)) {
   throw new Error('Every D3_QA_POINTS value must be within [0, 1]')
 }
+if (!validQualityTargets.has(qualityTarget)) {
+  throw new Error(`D3_QA_QUALITY must be high, mid or low; received ${JSON.stringify(qualityTarget)}`)
+}
 
 await mkdir(outputDir, { recursive: true })
 
@@ -103,21 +107,15 @@ page.on('response', (response) => {
   if (response.status() >= 400) errors.push({ type: 'http', text: `${response.status()} ${response.url()}` })
 })
 
-await page.goto(baseURL, { waitUntil: 'networkidle', timeout: 120_000 })
+const targetURL = new URL(baseURL)
+targetURL.searchParams.set('quality', qualityTarget)
+await page.goto(targetURL.href, { waitUntil: 'networkidle', timeout: 120_000 })
 await page.locator('.loading-screen').waitFor({ state: 'detached', timeout: 120_000 })
-if (qualityTarget) {
-  const qualityControl = page.locator('.site-nav__quality')
-  // A click is required even when the guessed label already matches: it
-  // marks the choice as manual so TierAutoDetect cannot silently downgrade
-  // the evidence run a few seconds later.
-  await qualityControl.click({ force: true, timeout: 120_000 })
-  await page.waitForTimeout(400)
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    const label = (await qualityControl.textContent())?.toLowerCase() ?? ''
-    if (label.includes(qualityTarget)) break
-    await qualityControl.click({ force: true, timeout: 120_000 })
-    await page.waitForTimeout(400)
-  }
+const qualityControl = page.locator('.site-nav__quality')
+await qualityControl.waitFor({ state: 'attached', timeout: 120_000 })
+const qualityLabel = (await qualityControl.textContent({ timeout: 120_000 }))?.toLowerCase() ?? ''
+if (!qualityLabel.includes(qualityTarget)) {
+  throw new Error(`D3 tier lock requested ${qualityTarget}, received ${JSON.stringify(qualityLabel)}`)
 }
 await page.waitForTimeout(initialSettleMs)
 

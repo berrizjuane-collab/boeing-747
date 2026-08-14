@@ -38,6 +38,9 @@ jobs:
           elif [[ "$head_message" == *"[qa:probes]"* ]]; then
             echo 'run_visual=true' >> "$GITHUB_OUTPUT"
             echo 'visual_matrix=["probes"]' >> "$GITHUB_OUTPUT"
+          elif [[ "$head_message" == *"[qa:d3]"* ]]; then
+            echo 'run_visual=true' >> "$GITHUB_OUTPUT"
+            echo 'visual_matrix=["d3"]' >> "$GITHUB_OUTPUT"
           else
             echo 'run_visual=true' >> "$GITHUB_OUTPUT"
             echo 'visual_matrix=["screenshots","video"]' >> "$GITHUB_OUTPUT"
@@ -110,12 +113,13 @@ jobs:
           exit 1
 
       - name: Capture final product
+        if: matrix.mode != 'd3'
         run: npm run qa:visual
         env:
           VISUAL_QA_MODE: ${{ matrix.mode }}
 
       - name: Capture S3 sky continuity series
-        if: matrix.mode == 'screenshots'
+        if: matrix.mode == 'screenshots' || matrix.mode == 'd3'
         run: npm run qa:d3
         env:
           D3_QA_POINTS: 0.30,0.32,0.34,0.36,0.38,0.40
