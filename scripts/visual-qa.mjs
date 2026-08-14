@@ -6,13 +6,14 @@ import sharp from 'sharp'
 const baseURL = process.env.VISUAL_QA_URL ?? 'http://127.0.0.1:4173/boeing-747/'
 const outputDir = path.resolve(process.env.VISUAL_QA_DIR ?? 'artifacts/final-visuals')
 const mode = process.env.VISUAL_QA_MODE ?? 'all'
-const validModes = new Set(['all', 'screenshots', 'probes', 'video'])
+const validModes = new Set(['all', 'screenshots', 'probes', 'video', 'b1'])
 if (!validModes.has(mode)) {
   throw new Error(`VISUAL_QA_MODE must be one of ${[...validModes].join(', ')}; received ${JSON.stringify(mode)}`)
 }
 const runNarrativeScreenshots = mode === 'all' || mode === 'screenshots'
 const runDeterministicProbes = mode === 'all' || mode === 'screenshots' || mode === 'probes'
 const runVideo = mode === 'all' || mode === 'video'
+const runB1Probe = mode === 'b1'
 // SwiftShader needs ~45s to compile the textured PBR+dissolve hull shader in
 // this project. A shorter wait can produce a perfectly plausible screenshot
 // with the aircraft missing, so these are evidence constraints, not cosmetic
@@ -537,7 +538,7 @@ async function sampleAnimationFrameTimes(page, frameCount = 9) {
   )
 }
 
-if (runNarrativeScreenshots) {
+if (runNarrativeScreenshots || runB1Probe) {
   const desktop = await browser.newContext({
     viewport: { width: 1440, height: 900 },
     deviceScaleFactor: 1,
@@ -547,71 +548,78 @@ if (runNarrativeScreenshots) {
   await setQuality(desktopPage, 'high')
   await desktopPage.waitForTimeout(scrollSettleMs)
 
-  for (const [name, progress] of [
-    ['01-hero.png', 0.01],
-    ['02-takeoff.png', 0.19],
-    ['03-spec-sheet.png', 0.36],
-    ['04-threshold.png', 0.47],
-    ['05a-interior-cockpit.png', 0.515],
-    ['05b-interior-economy.png', 0.6],
-    ['05c-interior-stair.png', 0.715],
-    ['05d-interior-upper-deck.png', 0.795],
-    ['06a-exit-frame.png', 0.83],
-    ['06b-exit-clean-86.png', 0.86],
-    ['06c-sunset-clean-88.png', 0.88],
-    ['06d-sunset-outro.png', 0.92],
-    ['06e-environment-94.png', 0.94],
-    ['06f-environment-96.png', 0.96],
-    ['07-footer.png', 0.97],
-  ]) {
+  const desktopCaptures = runB1Probe
+    ? [['02-takeoff.png', 0.19]]
+    : [
+        ['01-hero.png', 0.01],
+        ['02-takeoff.png', 0.19],
+        ['03-spec-sheet.png', 0.36],
+        ['04-threshold.png', 0.47],
+        ['05a-interior-cockpit.png', 0.515],
+        ['05b-interior-economy.png', 0.6],
+        ['05c-interior-stair.png', 0.715],
+        ['05d-interior-upper-deck.png', 0.795],
+        ['06a-exit-frame.png', 0.83],
+        ['06b-exit-clean-86.png', 0.86],
+        ['06c-sunset-clean-88.png', 0.88],
+        ['06d-sunset-outro.png', 0.92],
+        ['06e-environment-94.png', 0.94],
+        ['06f-environment-96.png', 0.96],
+        ['07-footer.png', 0.97],
+      ]
+  for (const [name, progress] of desktopCaptures) {
     await screenshot(desktopPage, name, progress)
     if (name === '03-spec-sheet.png') {
       await screenshotWithAlteredBackground(desktopPage, '03a-spec-sheet-background-probe.png', progress)
     }
   }
-  report.environmentSweep = await sweepEnvironment(desktopPage)
-  const nullEnvironmentSamples = report.environmentSweep.filter(({ environmentBound }) => !environmentBound)
-  if (report.environmentSweep.length !== 101 || nullEnvironmentSamples.length > 0) {
-    report.assertionFailures.push(
-      `scene.environment must be bound at all 101 samples (received ${report.environmentSweep.length}, ` +
-        `${nullEnvironmentSamples.length} null)`,
+  if (!runB1Probe) {
+    report.environmentSweep = await sweepEnvironment(desktopPage)
+    const nullEnvironmentSamples = report.environmentSweep.filter(({ environmentBound }) => !environmentBound)
+    if (report.environmentSweep.length !== 101 || nullEnvironmentSamples.length > 0) {
+      report.assertionFailures.push(
+        `scene.environment must be bound at all 101 samples (received ${report.environmentSweep.length}, ` +
+          `${nullEnvironmentSamples.length} null)`,
+      )
+    }
+    const misalignedSunSamples = report.environmentSweep.filter(
+      ({ solar }) => !solar || !Number.isFinite(solar.keyAngularErrorDeg) || solar.keyAngularErrorDeg > 0.001,
     )
-  }
-  const misalignedSunSamples = report.environmentSweep.filter(
-    ({ solar }) => !solar || !Number.isFinite(solar.keyAngularErrorDeg) || solar.keyAngularErrorDeg > 0.001,
-  )
-  if (misalignedSunSamples.length > 0) {
-    report.assertionFailures.push(
-      `HDRI sun/key alignment must stay within 0.001° at all 101 samples ` +
-        `(received ${misalignedSunSamples.length} misaligned samples)`,
-    )
+    if (misalignedSunSamples.length > 0) {
+      report.assertionFailures.push(
+        `HDRI sun/key alignment must stay within 0.001° at all 101 samples ` +
+          `(received ${misalignedSunSamples.length} misaligned samples)`,
+      )
+    }
   }
   await desktop.close()
 
-  const mobile = await browser.newContext({
-    viewport: { width: 390, height: 844 },
-    deviceScaleFactor: 1,
-    isMobile: true,
-    hasTouch: true,
-    userAgent:
-      'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1',
-  })
-  const mobilePage = await mobile.newPage()
-  await openReady(mobilePage, 'mobile', withQuality(baseURL, 'low'))
-  await setQuality(mobilePage, 'low')
-  await mobilePage.waitForTimeout(scrollSettleMs)
-  for (const [name, progress] of [
-    ['08-mobile-hero.png', 0.01],
-    ['08a-mobile-taxi-13.png', 0.13],
-    ['08b-mobile-gear-24.png', 0.24],
-    ['08c-mobile-ground-30.png', 0.30],
-    ['09-mobile-spec-sheet.png', 0.36],
-    ['10-mobile-interior.png', 0.6],
-    ['11-mobile-outro.png', 0.91],
-  ]) {
-    await screenshot(mobilePage, name, progress)
+  if (runNarrativeScreenshots) {
+    const mobile = await browser.newContext({
+      viewport: { width: 390, height: 844 },
+      deviceScaleFactor: 1,
+      isMobile: true,
+      hasTouch: true,
+      userAgent:
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1',
+    })
+    const mobilePage = await mobile.newPage()
+    await openReady(mobilePage, 'mobile', withQuality(baseURL, 'low'))
+    await setQuality(mobilePage, 'low')
+    await mobilePage.waitForTimeout(scrollSettleMs)
+    for (const [name, progress] of [
+      ['08-mobile-hero.png', 0.01],
+      ['08a-mobile-taxi-13.png', 0.13],
+      ['08b-mobile-gear-24.png', 0.24],
+      ['08c-mobile-ground-30.png', 0.30],
+      ['09-mobile-spec-sheet.png', 0.36],
+      ['10-mobile-interior.png', 0.6],
+      ['11-mobile-outro.png', 0.91],
+    ]) {
+      await screenshot(mobilePage, name, progress)
+    }
+    await mobile.close()
   }
-  await mobile.close()
 }
 
 if (runDeterministicProbes) {
@@ -878,14 +886,7 @@ for (const capture of report.captures) {
   }
 }
 
-if (runNarrativeScreenshots) {
-  const hero = report.captures.find(({ name }) => name === '01-hero.png')
-  if (!hero || hero.imageMetrics.clippedWhitePct >= 2) {
-    report.assertionFailures.push(
-      `01-hero.png: clipped-white pixels must stay below 2% (measured ${hero?.imageMetrics.clippedWhitePct ?? 'missing'}%)`,
-    )
-  }
-
+if (runNarrativeScreenshots || runB1Probe) {
   const s2 = report.captures.find(({ name }) => name === '02-takeoff.png')
   const s2Surface = s2?.imageMetrics.s2ExteriorSurface
   if (!s2Surface || s2Surface.p05Luma < 1 || s2Surface.p50Luma < 4 || s2Surface.nearBlackPct > 50 ||
@@ -893,6 +894,15 @@ if (runNarrativeScreenshots) {
     report.assertionFailures.push(
       `02-takeoff.png: illuminated hangar/vegetation ROI must clear the declared luma floor without flattening contrast ` +
         `(surface ${JSON.stringify(s2Surface)}, scene ratio ${s2?.imageMetrics.lumaContrastRatio ?? 'missing'})`,
+    )
+  }
+}
+
+if (runNarrativeScreenshots) {
+  const hero = report.captures.find(({ name }) => name === '01-hero.png')
+  if (!hero || hero.imageMetrics.clippedWhitePct >= 2) {
+    report.assertionFailures.push(
+      `01-hero.png: clipped-white pixels must stay below 2% (measured ${hero?.imageMetrics.clippedWhitePct ?? 'missing'}%)`,
     )
   }
 
