@@ -1,7 +1,7 @@
-import { Bloom, DepthOfField, EffectComposer, GodRays, Noise, SMAA, ToneMapping, Vignette } from '@react-three/postprocessing'
+import { Bloom, DepthOfField, EffectComposer, GodRays, Noise, SMAA, Vignette } from '@react-three/postprocessing'
 import { useFrame } from '@react-three/fiber'
 import { SMAAPreset, ToneMappingEffect, ToneMappingMode } from 'postprocessing'
-import { useRef, type JSX, type RefObject } from 'react'
+import { useEffect, useMemo, type JSX, type RefObject } from 'react'
 import type { Mesh } from 'three'
 import { TIER_SETTINGS, useQualityStore } from '../state/qualityStore'
 import { imagePipelineDiagnostics } from '../state/imagePipelineDiagnostics'
@@ -36,13 +36,20 @@ const INTERIOR_SECTION_INDEX = 4 // S5
  * the first place — see exposureState.ts.
  */
 function AcesToneMapping() {
-  const effectRef = useRef<ToneMappingEffect>(null)
+  // Construct the effect directly instead of going through the package's
+  // wrapper. package-lock intentionally pins @react-three/postprocessing
+  // 3.0.4, whose old wrapper tries to JSON.stringify a mounted ref on every
+  // re-render and crashes on the effect's circular Three.js object graph.
+  // A primitive is also how this project mounts its custom grade/exposure
+  // effects, and lets QA read the actual live mode without a wrapper ref.
+  const effect = useMemo(() => new ToneMappingEffect({ mode: ToneMappingMode.ACES_FILMIC }), [])
+  useEffect(() => () => effect.dispose(), [effect])
   useFrame(() => {
-    const mode = effectRef.current?.mode ?? null
+    const mode = effect.mode
     imagePipelineDiagnostics.toneMappingMode = mode
     imagePipelineDiagnostics.toneMappingModeName = mode === ToneMappingMode.ACES_FILMIC ? 'ACES_FILMIC' : `unexpected:${mode}`
   })
-  return <ToneMapping ref={effectRef} mode={ToneMappingMode.ACES_FILMIC} />
+  return <primitive object={effect} dispose={null} />
 }
 
 function PipelineAntialiasing({ disabled, preset, label }: { disabled: boolean; preset: SMAAPreset; label: string }) {
