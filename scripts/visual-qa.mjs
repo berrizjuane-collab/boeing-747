@@ -6,11 +6,12 @@ import sharp from 'sharp'
 const baseURL = process.env.VISUAL_QA_URL ?? 'http://127.0.0.1:4173/boeing-747/'
 const outputDir = path.resolve(process.env.VISUAL_QA_DIR ?? 'artifacts/final-visuals')
 const mode = process.env.VISUAL_QA_MODE ?? 'all'
-const validModes = new Set(['all', 'screenshots', 'video'])
+const validModes = new Set(['all', 'screenshots', 'probes', 'video'])
 if (!validModes.has(mode)) {
   throw new Error(`VISUAL_QA_MODE must be one of ${[...validModes].join(', ')}; received ${JSON.stringify(mode)}`)
 }
-const runScreenshots = mode === 'all' || mode === 'screenshots'
+const runNarrativeScreenshots = mode === 'all' || mode === 'screenshots'
+const runDeterministicProbes = mode === 'all' || mode === 'screenshots' || mode === 'probes'
 const runVideo = mode === 'all' || mode === 'video'
 // SwiftShader needs ~45s to compile the textured PBR+dissolve hull shader in
 // this project. A shorter wait can produce a perfectly plausible screenshot
@@ -488,7 +489,7 @@ async function sampleAnimationFrameTimes(page, frameCount = 9) {
   )
 }
 
-if (runScreenshots) {
+if (runNarrativeScreenshots) {
   const desktop = await browser.newContext({
     viewport: { width: 1440, height: 900 },
     deviceScaleFactor: 1,
@@ -554,7 +555,9 @@ if (runScreenshots) {
     await screenshot(mobilePage, name, progress)
   }
   await mobile.close()
+}
 
+if (runDeterministicProbes) {
   // Desktop High includes time-seeded film grain, so two screenshots taken
   // even from the same unchanged build are not a valid pixel oracle. This
   // dedicated low-tier page keeps the desktop viewport and the exact scene,
@@ -797,7 +800,7 @@ for (const capture of report.captures) {
   }
 }
 
-if (runScreenshots) {
+if (runNarrativeScreenshots) {
   const hero = report.captures.find(({ name }) => name === '01-hero.png')
   if (!hero || hero.imageMetrics.clippedWhitePct >= 2) {
     report.assertionFailures.push(

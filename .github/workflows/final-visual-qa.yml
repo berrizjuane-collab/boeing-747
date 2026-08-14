@@ -18,9 +18,30 @@ jobs:
   static-checks:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    outputs:
+      run_visual: ${{ steps.qa-scope.outputs.run_visual }}
+      visual_matrix: ${{ steps.qa-scope.outputs.visual_matrix }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Resolve evidence scope
+        id: qa-scope
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$HEAD_SHA"
+          head_message="$(git show -s --format=%B "$HEAD_SHA")"
+          if [[ "$head_message" == *"[qa:static]"* ]]; then
+            echo 'run_visual=false' >> "$GITHUB_OUTPUT"
+            echo 'visual_matrix=["screenshots","video"]' >> "$GITHUB_OUTPUT"
+          elif [[ "$head_message" == *"[qa:probes]"* ]]; then
+            echo 'run_visual=true' >> "$GITHUB_OUTPUT"
+            echo 'visual_matrix=["probes"]' >> "$GITHUB_OUTPUT"
+          else
+            echo 'run_visual=true' >> "$GITHUB_OUTPUT"
+            echo 'visual_matrix=["screenshots","video"]' >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -41,6 +62,7 @@ jobs:
 
   visual-evidence:
     needs: static-checks
+    if: needs.static-checks.outputs.run_visual == 'true'
     runs-on: ubuntu-latest
     # Full-resolution High screenshots take ~47 minutes on GitHub's shared
     # SwiftShader runner. The recorded tour is independent evidence, so run
@@ -49,7 +71,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        mode: [screenshots, video]
+        mode: ${{ fromJSON(needs.static-checks.outputs.visual_matrix) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4

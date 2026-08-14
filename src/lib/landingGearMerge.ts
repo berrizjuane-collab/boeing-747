@@ -10,7 +10,7 @@ export interface LandingGearMergeResult {
 }
 
 export interface LandingGearMergeOptions {
-  /** Keep the source meshes hidden so visual QA can compare both render paths. */
+  /** Keep a draw-call-separated, baked copy so visual QA can compare both render paths. */
   preserveSourceMeshes?: boolean
 }
 
@@ -92,7 +92,6 @@ export function mergeLandingGearMeshes(gear: Object3D, options: LandingGearMerge
   })
 
   const mergedGeometry = mergeGeometries(transformed, false)
-  for (const geometry of transformed) geometry.dispose()
   if (!mergedGeometry) throw new Error('LandingGear geometries could not be merged')
   mergedGeometry.name = 'MERIDIAN_A380_landing_gear_merged'
   mergedGeometry.computeBoundingBox()
@@ -104,9 +103,26 @@ export function mergeLandingGearMeshes(gear: Object3D, options: LandingGearMerge
   mergedMesh.userData.sourceTriangleCount = sourceTriangleCount
 
   if (options.preserveSourceMeshes) {
-    preservedSourceMeshes.set(gear, sourceMeshes)
+    // The production merge bakes each child transform into Float32 vertex
+    // data before concatenation. Rendering the original hierarchy as the QA
+    // reference instead performs that multiply in the GPU model matrix;
+    // both are geometrically equivalent, but their different rounding order
+    // can move one antialiased edge channel by one LSB on some SwiftShader
+    // runners. Compare separated vs concatenated draws from the *same baked
+    // vertices* so the pixel oracle isolates batching, while the unit test
+    // above it continues to prove the authored hierarchy transforms.
+    const qaSources = transformed.map((geometry, index) => {
+      const source = new Mesh(geometry, material as Material)
+      source.name = `LandingGear_QA_Source_${String(index).padStart(3, '0')}`
+      source.visible = false
+      source.userData.qaLandingGearSource = true
+      return source
+    })
+    preservedSourceMeshes.set(gear, qaSources)
     for (const mesh of sourceMeshes) mesh.visible = false
+    gear.add(...qaSources)
   } else {
+    for (const geometry of transformed) geometry.dispose()
     for (const mesh of sourceMeshes) {
       mesh.removeFromParent()
       mesh.geometry.dispose()
