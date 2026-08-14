@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { after, test } from 'node:test'
+import { stat } from 'node:fs/promises'
 import { createServer } from 'vite'
 
 const server = await createServer({
@@ -16,6 +17,11 @@ const { sampleCamera } = await server.ssrLoadModule('/src/lib/cameraPath.ts')
 const { EXTERIOR_LIGHTS, SECTION_ENVIRONMENT } = await server.ssrLoadModule('/src/lib/environmentTheme.ts')
 const { EXIT_PORTAL, frameVisibility } = await server.ssrLoadModule('/src/lib/thresholdPortals.ts')
 const { createRunwayMarkingsGeometry, RUNWAY_SURFACE_Y } = await server.ssrLoadModule('/src/lib/runwayGeometry.ts')
+const { mergeLandingGearMeshes, MERGED_LANDING_GEAR_NAME } =
+  await server.ssrLoadModule('/src/lib/landingGearMerge.ts')
+const { BLOCKING_ASSET_WEIGHTS, BLOCKING_TOTAL_WEIGHT } =
+  await server.ssrLoadModule('/src/lib/loadingWeights.ts')
+const { BoxGeometry, Group, Mesh, MeshStandardMaterial } = await import('three')
 
 test('A2/A3: exterior rig and atmosphere have complete finite section anchors', () => {
   assert.deepEqual(Object.keys(EXTERIOR_LIGHTS).sort(), ['fill', 'key', 'rim'])
@@ -59,4 +65,54 @@ test('B4: every runway marking vertex and normal lies on the horizontal XZ plane
     assert.equal(normals.getZ(index), 0)
   }
   geometry.dispose()
+})
+
+test('F0-02: landing-gear merge preserves child transforms and one shared material', () => {
+  const gear = new Group()
+  gear.name = 'LandingGear'
+  gear.position.set(7, 2, -4)
+  const material = new MeshStandardMaterial()
+  const left = new Mesh(new BoxGeometry(1, 1, 1), material)
+  const rightCarrier = new Group()
+  const right = new Mesh(new BoxGeometry(1, 1, 1), material)
+  left.position.x = -2
+  rightCarrier.position.x = 3
+  right.position.y = 1
+  gear.add(left, rightCarrier)
+  rightCarrier.add(right)
+
+  const result = mergeLandingGearMeshes(gear)
+  assert.equal(result.sourceMeshCount, 2)
+  assert.equal(result.sourceTriangleCount, 24)
+  assert.equal(gear.getObjectByName(MERGED_LANDING_GEAR_NAME), result.mesh)
+  assert.equal(result.mesh.material, material)
+  let remainingMeshes = 0
+  gear.traverse((object) => {
+    if (object.isMesh) remainingMeshes += 1
+  })
+  assert.equal(remainingMeshes, 1)
+  result.mesh.geometry.computeBoundingBox()
+  assert.deepEqual(result.mesh.geometry.boundingBox.min.toArray(), [-2.5, -0.5, -0.5])
+  assert.deepEqual(result.mesh.geometry.boundingBox.max.toArray(), [3.5, 1.5, 0.5])
+
+  result.mesh.geometry.dispose()
+  material.dispose()
+})
+
+test('F0-04: blocking loading weights match bytes on disk exactly', async () => {
+  const expectedPaths = {
+    '/models/exterior.glb': 'public/models/exterior.glb',
+    '/hdri/golden-hour.hdr': 'public/hdri/golden-hour.hdr',
+    '/hdri/high-altitude.hdr': 'public/hdri/high-altitude.hdr',
+    '/hdri/sunset.hdr': 'public/hdri/sunset.hdr',
+  }
+  let measuredTotal = 0
+  for (const [key, file] of Object.entries(expectedPaths)) {
+    const bytes = (await stat(file)).size
+    assert.equal(BLOCKING_ASSET_WEIGHTS[key], bytes, `${key} byte weight`)
+    measuredTotal += bytes
+  }
+  assert.equal(BLOCKING_TOTAL_WEIGHT, measuredTotal)
+  assert.equal(measuredTotal, 5_197_982)
+  assert.ok(measuredTotal <= 15_000_000)
 })

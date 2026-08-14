@@ -201,6 +201,26 @@ async function screenshot(page, name, progress) {
   )
 }
 
+async function screenshotWithAlteredBackground(page, name, progress) {
+  const canvas = page.locator('canvas')
+  await canvas.evaluate((element) => {
+    element.dataset.qaOriginalFilter = element.style.filter
+    element.style.filter = 'brightness(3) saturate(0.15) contrast(0.35)'
+  })
+  try {
+    await screenshot(page, name, progress)
+    report.captures.at(-1).backgroundProbe = {
+      deliberatelyAltered: true,
+      canvasFilter: 'brightness(3) saturate(0.15) contrast(0.35)',
+    }
+  } finally {
+    await canvas.evaluate((element) => {
+      element.style.filter = element.dataset.qaOriginalFilter ?? ''
+      delete element.dataset.qaOriginalFilter
+    })
+  }
+}
+
 async function setQuality(page, target) {
   const control = page.locator('.site-nav__quality')
   if (!(await control.count())) return
@@ -243,6 +263,9 @@ if (runScreenshots) {
     ['07-footer.png', 0.97],
   ]) {
     await screenshot(desktopPage, name, progress)
+    if (name === '03-spec-sheet.png') {
+      await screenshotWithAlteredBackground(desktopPage, '03a-spec-sheet-background-probe.png', progress)
+    }
   }
   await desktop.close()
 
@@ -260,6 +283,9 @@ if (runScreenshots) {
   await mobilePage.waitForTimeout(scrollSettleMs)
   for (const [name, progress] of [
     ['08-mobile-hero.png', 0.01],
+    ['08a-mobile-taxi-13.png', 0.13],
+    ['08b-mobile-gear-24.png', 0.24],
+    ['08c-mobile-ground-30.png', 0.30],
     ['09-mobile-spec-sheet.png', 0.36],
     ['10-mobile-interior.png', 0.6],
     ['11-mobile-outro.png', 0.91],
@@ -349,6 +375,7 @@ const expectedPanelText = {
   '01-hero.png': 'MERIDIAN',
   '02-takeoff.png': 'S2 — Rodaje y despegue',
   '03-spec-sheet.png': 'Ficha técnica',
+  '03a-spec-sheet-background-probe.png': 'Ficha técnica',
   '04-threshold.png': 'Cruzando el umbral',
   '05a-interior-cockpit.png': 'S5 — Cabina de mando',
   '05b-interior-economy.png': 'S5 — Economy',
@@ -360,6 +387,9 @@ const expectedPanelText = {
   '06d-sunset-outro.png': 'Fin del recorrido',
   '07-footer.png': 'Créditos y licencias',
   '08-mobile-hero.png': 'MERIDIAN',
+  '08a-mobile-taxi-13.png': 'S2 — Rodaje y despegue',
+  '08b-mobile-gear-24.png': 'S2 — Rodaje y despegue',
+  '08c-mobile-ground-30.png': 'Ficha técnica',
   '09-mobile-spec-sheet.png': 'Ficha técnica',
   '10-mobile-interior.png': 'S5 — Economy',
   '11-mobile-outro.png': 'Fin del recorrido',
@@ -409,6 +439,14 @@ if (runScreenshots) {
   if (!specSheet || (specSheet.imageMetrics.panelContrastEstimate ?? 0) < 4.5) {
     report.assertionFailures.push(
       `03-spec-sheet.png: measured panel contrast must be at least 4.5:1 (measured ${specSheet?.imageMetrics.panelContrastEstimate ?? 'missing'})`,
+    )
+  }
+  const specSheetProbe = report.captures.find(({ name }) => name === '03a-spec-sheet-background-probe.png')
+  if (!specSheetProbe || !specSheetProbe.backgroundProbe?.deliberatelyAltered ||
+      (specSheetProbe.imageMetrics.panelContrastEstimate ?? 0) < 4.5) {
+    report.assertionFailures.push(
+      `03a-spec-sheet-background-probe.png: S3 contrast must remain at least 4.5:1 with a deliberately altered 3D background ` +
+        `(measured ${specSheetProbe?.imageMetrics.panelContrastEstimate ?? 'missing'})`,
     )
   }
 }

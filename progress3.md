@@ -10,7 +10,7 @@
 
 ## Estado global
 
-**Ronda 3 planificada, implementación no iniciada.** Auditoría completa ejecutada sobre `2ac3573` con el sitio corriendo en navegador real; 13 bugs reales encontrados y documentados; tres decisiones de alcance confirmadas por el usuario. Ningún ítem de las fases 0/A–F comenzado — por diseño, la sesión de planificación no escribe código de implementación.
+**Ronda 3 en ejecución sobre `main@1034fd1`.** La Fase 0 está en curso: instrumentación móvil, consolidación runtime del tren, blindaje de contraste de S3 y pesos de carga medidos. Los ítems permanecen condicionados hasta completar su evidencia visual y numérica; no se adelantan casillas por compilación.
 
 ---
 
@@ -72,10 +72,10 @@ Ninguno reportado por el usuario; todos salieron de leer el código y medir. Det
 
 | # | Ítem | Verificación requerida | Estado | Evidencia |
 |---|---|---|---|---|
-| 01 | Sondas móviles nuevas en `visual-qa.mjs` a **0,13 · 0,24 · 0,30** | El reporte incluye las tres capturas con su `performance`, y el pico real de draw calls de S1/S2 en Mobile Low queda medido | [ ] | |
-| 02 | **Fusión de las 115 mallas de `LandingGear` en runtime** | Mobile Low hero **99 → ≤10** y Desktop High hero **148 → ≤36**, medidos. Y `01-hero.png` / `08-mobile-hero.png` **idénticos píxel a píxel** a los artefactos de la ronda 2 — cualquier diferencia es un bug | [ ] | |
-| 03 | Tarjeta de fondo para el panel de S3 (bug #12) | `panelContrastEstimate` de `03-spec-sheet` medido **con el fondo 3D deliberadamente alterado**, probando que ya no depende de él | [ ] | |
-| 04 | Pesos de carga corregidos (bug #13) | Los cuatro pesos coinciden byte a byte con el disco; payload S0 declarado | [ ] | |
+| 01 | Sondas móviles nuevas en `visual-qa.mjs` a **0,13 · 0,24 · 0,30** | El reporte incluye las tres capturas con su `performance`, y el pico real de draw calls de S1/S2 en Mobile Low queda medido | [~] | Implementadas `08a/08b/08c`; pendiente ejecución visual para registrar el pico real. |
+| 02 | **Fusión de las 115 mallas de `LandingGear` en runtime** | Mobile Low hero **99 → ≤10** y Desktop High hero **148 → ≤36**, medidos. Y `01-hero.png` / `08-mobile-hero.png` **idénticos píxel a píxel** a los artefactos de la ronda 2 — cualquier diferencia es un bug | [~] | Merge world-transform-preserving implementado y cubierto con geometría sintética; pendiente medición/pixel diff en navegador. |
+| 03 | Tarjeta de fondo para el panel de S3 (bug #12) | `panelContrastEstimate` de `03-spec-sheet` medido **con el fondo 3D deliberadamente alterado**, probando que ya no depende de él | [~] | `.overlay__panel--climb` comparte la superficie óptica estructural; pendiente prueba visual con fondo alterado. |
+| 04 | Pesos de carga corregidos (bug #13) | Los cuatro pesos coinciden byte a byte con el disco; payload S0 declarado | [~] | Pesos reemplazados por bytes del árbol `1034fd1`; pendiente assert automatizado. |
 
 ---
 

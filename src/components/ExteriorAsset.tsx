@@ -5,6 +5,7 @@ import { Group, Mesh, Object3D } from 'three'
 import { KTX2Loader, type GLTFLoader } from 'three-stdlib'
 import { getAircraftPose } from '../lib/aircraftPose'
 import { createDissolveHullMaterial, type DissolveHullMaterial } from '../lib/dissolveHullMaterial'
+import { mergeLandingGearMeshes } from '../lib/landingGearMerge'
 import { EXTERIOR_LOCAL_OFFSET } from '../lib/sceneLayout'
 import { SECTIONS, localProgress } from '../lib/sections'
 import { EXIT_PORTAL, NOSE_PORTAL, portalRadius } from '../lib/thresholdPortals'
@@ -69,7 +70,6 @@ export function ExteriorAsset() {
   const gearRef = useRef<Object3D | null>(null)
 
   useEffect(() => {
-    let gear: Object3D | null = null
     scene.traverse((obj) => {
       if (obj.name === 'A380' && (obj as Mesh).isMesh) {
         const mesh = obj as Mesh
@@ -84,9 +84,17 @@ export function ExteriorAsset() {
         mesh.castShadow = true
         mesh.receiveShadow = true
       }
-      if (obj.name === 'LandingGear') gear = obj
     })
-    gearRef.current = gear
+    const gear = scene.getObjectByName('LandingGear')
+    if (gear) {
+      const merged = mergeLandingGearMeshes(gear)
+      gear.userData.runtimeMerge = {
+        strategy: 'world-transform-preserving BufferGeometry merge',
+        sourceMeshCount: merged.sourceMeshCount,
+        sourceTriangleCount: merged.sourceTriangleCount,
+      }
+    }
+    gearRef.current = gear ?? null
     return () => {
       const dissolveMaterial = dissolveMaterialRef.current
       dissolveMaterial?.userData.aircraftSurfaceMaps.normal.dispose()
