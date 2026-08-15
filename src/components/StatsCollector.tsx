@@ -1,6 +1,7 @@
 import { useFrame, useThree } from '@react-three/fiber'
 import { useRef } from 'react'
 import { Frustum, InstancedMesh, Matrix4, Mesh, type Camera, type Scene } from 'three'
+import { ACTIVE_TONE_MAPPING_LABEL } from '../lib/postFxConfig'
 import { perfStats } from '../state/perfStats'
 
 declare global {
@@ -12,6 +13,11 @@ declare global {
       triangles: number
       /** All submitted triangles across scene/shadow/post passes, retained as a diagnostic. */
       submittedTriangles: number
+      /** plan3.md A1: lets visual QA assert the applied curve matches PostFX.tsx's
+       * declared one instead of trusting the source comment. */
+      toneMappingMode: string
+      /** plan3.md A4: lets visual QA sweep scroll and assert this is never null. */
+      sceneEnvironmentIsNull: boolean
     }
   }
 }
@@ -86,6 +92,8 @@ export function StatsCollector() {
       drawCalls: perfStats.drawCalls,
       triangles: perfStats.triangles,
       submittedTriangles: gl.info.render.triangles,
+      toneMappingMode: ACTIVE_TONE_MAPPING_LABEL,
+      sceneEnvironmentIsNull: scene.environment === null,
     }
     gl.info.reset()
   }, 2)

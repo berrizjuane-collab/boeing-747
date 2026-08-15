@@ -1,6 +1,8 @@
-import { Bloom, DepthOfField, EffectComposer, GodRays, Noise, ToneMapping, Vignette } from '@react-three/postprocessing'
+import { Bloom, DepthOfField, EffectComposer, GodRays, Noise, SMAA, ToneMapping, Vignette } from '@react-three/postprocessing'
+import { SMAAPreset } from 'postprocessing'
 import type { JSX, RefObject } from 'react'
 import type { Mesh } from 'three'
+import { ACTIVE_TONE_MAPPING_MODE } from '../lib/postFxConfig'
 import { TIER_SETTINGS, useQualityStore } from '../state/qualityStore'
 import { useScrollStore } from '../state/scrollStore'
 import { ExposurePass } from './ExposurePass'
@@ -38,11 +40,21 @@ export function PostFX({ sunRef }: { sunRef: RefObject<Mesh | null> }) {
   const settings = TIER_SETTINGS[tier]
 
   if (settings.postProcessing === 'toneMappingOnly') {
+    // No <SMAA> here: SMAA is a real multi-pass technique (edge detection +
+    // blend weights + neighborhood blend), not something `postprocessing`
+    // can fold into the single blended pass the other effects below share —
+    // measured at +3 draw calls (Mobile Low hero 8->11), which pushed past
+    // Fase 0 item 02's own already-verified ≤10 target even though it's
+    // nowhere near the real <100 tier ceiling (plan3.md §6). This tier is
+    // deliberately "tone mapping and nothing else" (PLAN.md §7.1) for the
+    // weakest hardware the site targets; keeping that floor tier's Fase 0
+    // number intact won over paying for AA on exactly the devices this
+    // budget exists to protect.
     return (
       <EffectComposer multisampling={0}>
         <ExposurePass />
         <SectionGrade />
-        <ToneMapping />
+        <ToneMapping mode={ACTIVE_TONE_MAPPING_MODE} />
       </EffectComposer>
     )
   }
@@ -56,7 +68,8 @@ export function PostFX({ sunRef }: { sunRef: RefObject<Mesh | null> }) {
         <Bloom luminanceThreshold={0.8} luminanceSmoothing={0.25} mipmapBlur intensity={0.6} />
         <SectionGrade />
         <Vignette eskil={false} offset={0.15} darkness={0.6} />
-        <ToneMapping />
+        <ToneMapping mode={ACTIVE_TONE_MAPPING_MODE} />
+        <SMAA preset={SMAAPreset.MEDIUM} />
       </EffectComposer>
     )
   }
@@ -104,7 +117,16 @@ export function PostFX({ sunRef }: { sunRef: RefObject<Mesh | null> }) {
     <SectionGrade key="grade" />,
     <Vignette key="vignette" eskil={false} offset={0.15} darkness={0.6} />,
     <Noise key="noise" opacity={0.035} premultiply />,
-    <ToneMapping key="tonemap" />,
+    <ToneMapping key="tonemap" mode={ACTIVE_TONE_MAPPING_MODE} />,
+    // bug #6: multisampling={0} above + gl={{antialias:true}} on the canvas
+    // (SceneCanvas.tsx) is inert once EffectComposer takes over the render
+    // target — the site had no antialiasing of any kind. SMAA over MSAA:
+    // multisampling would need the composer's multisampling prop instead
+    // (a resolve cost on every intermediate pass, not just the last one),
+    // and this project's aliasing case is specifically a bright, moving
+    // silhouette against sky/fog — exactly SMAA's designed case. Preset
+    // scales with tier headroom, same reasoning as DoF/godrays above.
+    <SMAA key="smaa" preset={SMAAPreset.HIGH} />,
   )
 
   return <EffectComposer multisampling={0}>{effects}</EffectComposer>

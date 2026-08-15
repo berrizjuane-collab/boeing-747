@@ -202,7 +202,18 @@ export function InteriorLighting() {
     }
 
     return () => {
-      scene.environment = previousEnvironment
+      // plan3.md bug #2: this component stays mounted across S4-S6
+      // (INTERIOR_ACTIVE_INDICES in SceneCanvas.tsx), but
+      // EnvironmentPlaceholder's <Environment> mounts *inside* that same
+      // window — its reflectionMap is null through S4/S5, then becomes the
+      // sunset HDRI at the S5/S6 boundary (hdriTheme.ts) — and legitimately
+      // takes ownership of scene.environment back from this fill texture
+      // without either component knowing about the other. Restoring
+      // `previousEnvironment` unconditionally here (captured back at S4,
+      // when it really was null) would stomp that handoff and null out a
+      // live HDRI the instant S6 hands off to S7. Only restore it if nothing
+      // else has taken scene.environment over since we set it.
+      if (scene.environment === environmentTarget.texture) scene.environment = previousEnvironment
       environmentTarget.dispose()
       fillTexture.dispose()
       pmrem.dispose()

@@ -17,11 +17,17 @@ export interface TierSettings {
   postProcessing: 'full' | 'bloomVignette' | 'toneMappingOnly'
   particlesPct: number
   /** Real-time shadow casting for InteriorLighting.tsx's spots specifically
-   * (§7.1's "Sombras" row). The S1-S2 runway sun shadow is already scoped
-   * to a short window regardless of tier — see EnvironmentPlaceholder.tsx's
-   * SHADOW_SECTION_END — so it isn't gated here; the interior spots are the
+   * (§7.1's "Sombras" row). The S1-S2 aircraft contact shadow is a single
+   * analytical quad (RunwayEnvironment.tsx's AircraftGroundShadow, not a
+   * real shadow map) that fades itself out via `runwayPresence`, tied
+   * directly to `SECTIONS[1].end` — already scoped to a short window
+   * regardless of tier, and cheap enough (one draw call, no light or shadow
+   * camera) that it isn't gated here either; the interior spots are the
    * "Interior en tiempo real" vs "Sólo horneadas" difference the table
-   * actually names. */
+   * actually names. (plan3.md bug #10: this used to point at a
+   * SHADOW_SECTION_END constant in EnvironmentPlaceholder.tsx that no
+   * longer exists — the scoping moved inline into AircraftGroundShadow
+   * without the comment here following it.) */
   interiorRealtimeShadows: boolean
 }
 

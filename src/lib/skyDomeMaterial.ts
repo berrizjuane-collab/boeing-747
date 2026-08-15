@@ -53,6 +53,15 @@ export function createSkyDomeMaterial(goldenHourMap: Texture, highAltitudeMap: T
         vec3 golden = texture2D(goldenHourMap, vSkyUv).rgb;
         vec3 highAltitude = texture2D(highAltitudeMap, vSkyUv).rgb;
         gl_FragColor = vec4(mix(golden, highAltitude, mixFactor), opacity);
+        // plan3.md bug #9: the material already declares toneMapped: true
+        // above, but that flag only defines the TONE_MAPPING preprocessor
+        // symbol — three.js never auto-injects the chunk itself into a
+        // custom ShaderMaterial's source, so without these two includes
+        // (present in this repo's other two custom shaders,
+        // RunwayEnvironment.tsx's aircraft-shadow and soft-cloud materials)
+        // toneMapped was a declared no-op, same shape as bug #8.
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
       }
     `,
   })

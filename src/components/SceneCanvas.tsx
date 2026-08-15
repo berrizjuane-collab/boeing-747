@@ -1,6 +1,6 @@
 import { Canvas } from '@react-three/fiber'
 import { Suspense, useRef } from 'react'
-import { ACESFilmicToneMapping, SRGBColorSpace, type Mesh } from 'three'
+import { SRGBColorSpace, type Mesh } from 'three'
 import { CameraRig } from './CameraRig'
 import { EnvironmentPlaceholder } from './EnvironmentPlaceholder'
 import { ExteriorAsset } from './ExteriorAsset'
@@ -66,8 +66,14 @@ export function SceneCanvas({ debugMode }: { debugMode: boolean }) {
         // out everything but the last pass's counts before anything reads
         // them. Reset manually, once per frame, from StatsCollector instead.
         gl.info.autoReset = false
-        gl.toneMapping = ACESFilmicToneMapping
-        gl.toneMappingExposure = 1
+        // plan3.md bug #8: gl.toneMapping/gl.toneMappingExposure used to be
+        // set here, but mounting <EffectComposer> (PostFX.tsx) forces the
+        // renderer to NoToneMapping internally so the composer's own
+        // <ToneMapping> pass is the only curve applied — these two were
+        // silent no-ops, and worse, they're *why* the codebase believed it
+        // had ACES applied via the renderer while PostFX.tsx's actual
+        // <ToneMapping> ran with AgX underneath (bug #1). The real,
+        // effective mode now lives in one place: postFxConfig.ts.
         gl.outputColorSpace = SRGBColorSpace
       }}
     >

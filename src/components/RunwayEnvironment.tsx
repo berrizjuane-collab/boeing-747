@@ -136,7 +136,11 @@ function AircraftGroundShadow() {
 }
 
 const VEGETATION_MAX = 720
-const VEGETATION_COUNT: Record<QualityTier, number> = { high: 720, mid: 360, low: 144 }
+// plan3.md bug #11: `low` used to carry a nonzero count (144) that never
+// mattered — the whole mesh is hidden in that tier (`visible={tier !==
+// 'low'}` below), so whatever `count` it was passed drew nothing. 0 is the
+// number that actually describes what low renders.
+const VEGETATION_COUNT: Record<QualityTier, number> = { high: 720, mid: 360, low: 0 }
 
 function createGrassClumpGeometry() {
   const positions: number[] = []

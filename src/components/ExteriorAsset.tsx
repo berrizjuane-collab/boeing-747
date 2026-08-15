@@ -80,6 +80,13 @@ export function ExteriorAsset() {
   const gearRef = useRef<Object3D | null>(null)
 
   useEffect(() => {
+    // plan3.md bug #7: castShadow/receiveShadow used to be forced true on
+    // every exterior mesh here, but none of the three exterior lights ever
+    // casts a shadow (environmentTheme.ts's EXTERIOR_LIGHTS are all
+    // castsShadow: false — the A380 is 100+ meshes and a real shadow pass
+    // broke the draw-call budget, replaced by RunwayEnvironment.tsx's
+    // one-draw analytical contact shadow). Removed rather than left set:
+    // with no caster, neither flag ever does anything on these meshes.
     let gear: Object3D | null = null
     scene.traverse((obj) => {
       if (obj.name === 'A380' && (obj as Mesh).isMesh) {
@@ -88,12 +95,6 @@ export function ExteriorAsset() {
         const dissolveMaterial = createDissolveHullMaterial(sourceMaterial)
         mesh.material = dissolveMaterial
         dissolveMaterialRef.current = dissolveMaterial
-        mesh.castShadow = true
-        mesh.receiveShadow = true
-      } else if ((obj as Mesh).isMesh) {
-        const mesh = obj as Mesh
-        mesh.castShadow = true
-        mesh.receiveShadow = true
       }
       if (obj.name === 'LandingGear') gear = obj
     })
@@ -124,8 +125,6 @@ export function ExteriorAsset() {
         const gearMaterial = Array.isArray(gearMeshes[0].material) ? gearMeshes[0].material[0] : gearMeshes[0].material
         const mergedMesh = new Mesh(merged, gearMaterial)
         mergedMesh.name = 'LandingGear_Merged'
-        mergedMesh.castShadow = true
-        mergedMesh.receiveShadow = true
         gearMeshes.forEach((mesh) => mesh.geometry.dispose())
         for (const child of [...gearGroup.children]) gearGroup.remove(child)
         gearGroup.add(mergedMesh)
