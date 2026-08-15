@@ -260,6 +260,17 @@ if (runScreenshots) {
   await mobilePage.waitForTimeout(scrollSettleMs)
   for (const [name, progress] of [
     ['08-mobile-hero.png', 0.01],
+    // Fase 0 item 01 (plan3.md §4): the pre-existing mobile probes
+    // (0.01/0.36/0.6/0.91) never sampled the S1/S2 window where the gear is
+    // down and the draw-call count is actually highest — 0.13 sits mid-taxi
+    // with the full undercarriage visible, 0.24 sits just before
+    // GEAR_RETRACT_END (global ~0.245, ExteriorAsset.tsx), and 0.30 is the
+    // first frame past S2 with terrain in view. Inserted right after the
+    // hero probe so the scroll sequence stays monotonic; 09/10/11 keep their
+    // existing names so nothing that references them by filename breaks.
+    ['08b-mobile-taxi-13.png', 0.13],
+    ['08c-mobile-gear-retract-24.png', 0.24],
+    ['08d-mobile-terrain-30.png', 0.3],
     ['09-mobile-spec-sheet.png', 0.36],
     ['10-mobile-interior.png', 0.6],
     ['11-mobile-outro.png', 0.91],

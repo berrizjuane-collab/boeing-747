@@ -193,8 +193,15 @@ body {
 /* Narrative copy that sits over the aircraft/sky gets a restrained optical
    surface. It remains wholly inside the outer-third grid and keeps the model
    unobstructed, while making contrast independent of a moving white fuselage
-   or bright horizon. Data-heavy S2/S3 already use their own darker cards. */
+   or bright horizon. Data-heavy S2/S3 use the same card (plan3.md bug #12:
+   this comment used to claim they already had their own without a matching
+   rule — `.overlay__panel--takeoff` / `--climb` didn't exist, so
+   `panelContrastEstimate` on 03-spec-sheet depended entirely on whatever 3D
+   content happened to sit behind it, which was about to become terrain
+   instead of sky in a later phase of plan3.md). */
 .overlay__panel--hero,
+.overlay__panel--takeoff,
+.overlay__panel--climb,
 .overlay__panel--exit,
 .overlay__panel--interior-zone {
   padding: 1rem 1.1rem;

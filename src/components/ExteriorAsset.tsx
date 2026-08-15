@@ -1,7 +1,18 @@
 import { useGLTF } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useCallback, useEffect, useRef } from 'react'
-import { Group, Mesh, Object3D } from 'three'
+import { Group, Matrix4, Mesh, Object3D } from 'three'
+// three-stdlib's mergeBufferGeometries is broken: its per-geometry
+// consistency checks live inside a `geometries.forEach` callback, so their
+// `return null` on mismatch only skips that forEach iteration — it can't
+// abort the outer function, which keeps going and hands back a
+// silently-corrupted geometry instead of failing loud (hit this directly
+// merging the 115 LandingGear parts below: a position array whose length
+// wasn't a multiple of 3, NaN'ing the mesh with no error until
+// computeBoundingSphere read past the buffer end). three/examples/jsm's
+// mergeGeometries is the current, actively-maintained implementation
+// shipped with this exact three.js version — used here instead.
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { KTX2Loader, type GLTFLoader } from 'three-stdlib'
 import { getAircraftPose } from '../lib/aircraftPose'
 import { createDissolveHullMaterial, type DissolveHullMaterial } from '../lib/dissolveHullMaterial'
@@ -86,6 +97,41 @@ export function ExteriorAsset() {
       }
       if (obj.name === 'LandingGear') gear = obj
     })
+
+    // Fase 0 item 02 (plan3.md §3.1/§4): the 115 LandingGear_Part_* siblings
+    // share one material and identical attributes (verified in the plan3
+    // audit) and are 92 of the Mobile Low hero's 99 draw calls. Merged here
+    // at runtime rather than via process-glb.mjs's --join-draw-calls, which
+    // would fuse the gear into the shared-material hull mesh too and break
+    // both the dissolve swap above and gear retraction (§3.2). Each part's
+    // transform is baked relative to `gear` via the full matrixWorld chain
+    // (not just its immediate parent), so the merged mesh renders at exactly
+    // the same world-space vertices — a pure draw-call optimization.
+    scene.updateMatrixWorld(true)
+    if (gear) {
+      const gearGroup: Object3D = gear
+      const gearInverse = new Matrix4().copy(gearGroup.matrixWorld).invert()
+      const gearMeshes: Mesh[] = []
+      gearGroup.traverse((child) => {
+        if ((child as Mesh).isMesh) gearMeshes.push(child as Mesh)
+      })
+      if (gearMeshes.length > 1) {
+        const relativeGeometries = gearMeshes.map((mesh) =>
+          mesh.geometry.clone().applyMatrix4(new Matrix4().multiplyMatrices(gearInverse, mesh.matrixWorld)),
+        )
+        const merged = mergeGeometries(relativeGeometries, false)
+        relativeGeometries.forEach((geometry) => geometry.dispose())
+        const gearMaterial = Array.isArray(gearMeshes[0].material) ? gearMeshes[0].material[0] : gearMeshes[0].material
+        const mergedMesh = new Mesh(merged, gearMaterial)
+        mergedMesh.name = 'LandingGear_Merged'
+        mergedMesh.castShadow = true
+        mergedMesh.receiveShadow = true
+        gearMeshes.forEach((mesh) => mesh.geometry.dispose())
+        for (const child of [...gearGroup.children]) gearGroup.remove(child)
+        gearGroup.add(mergedMesh)
+      }
+    }
+
     gearRef.current = gear
     return () => {
       const dissolveMaterial = dissolveMaterialRef.current
