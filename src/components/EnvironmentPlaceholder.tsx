@@ -16,7 +16,7 @@ import {
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
 import { EXTERIOR_LIGHTS, sampleEnvironmentTheme } from '../lib/environmentTheme'
 import { activeHdriSectionSlot, goldenHourWeight, highAltitudeWeight, sunsetWeight } from '../lib/hdriTheme'
-import { SECTIONS } from '../lib/sections'
+import { createTerrainSurfaceMaps } from '../lib/terrainSurfaceMaps'
 import { duskColorMix, exposureMultiplier } from '../lib/thresholdLighting'
 import { createSkyDomeMaterial } from '../lib/skyDomeMaterial'
 import { exposureState } from '../state/exposureState'
@@ -30,8 +30,18 @@ import { useScrollStore } from '../state/scrollStore'
 // without this they could visibly pop in at different moments).
 const LOAD_REVEAL_DURATION = 1.2
 const clamp01Reveal = (x: number) => Math.min(1, Math.max(0, x))
-const GROUND_FADE_START = SECTIONS[1].end
-const GROUND_FADE_END = SECTIONS[2].start + 0.025
+
+// plan3.md E1 (piece 1)/C3: replaces the old planeGeometry(4000,4000) that
+// faded to invisible past S2 (GROUND_FADE_START/END, now gone) — the ground
+// disc persists at every scroll position instead, re-centered on the camera
+// every frame. 950 half-size keeps the true geometric edge safely past
+// GROUND_FOG_BLEND_END: a fragment's albedo has already been lerped 100% to
+// fog color well before it reaches the edge, so the edge is never a visible
+// line, at any camera height or fog density.
+const GROUND_DISC_SIZE = 1900
+const GROUND_FOG_BLEND_START = 560
+const GROUND_FOG_BLEND_END = 900
+const GROUND_TEXTURE_TILE_SIZE = 46
 
 // Comfortably inside the camera's far=3000 (SceneCanvas.tsx) and comfortably
 // outside every keyframe/anchor in the scene (aircraft span ~80m, camera
@@ -84,6 +94,8 @@ export function EnvironmentPlaceholder() {
   const hemisphereRef = useRef<HemisphereLight>(null)
   const groundRef = useRef<Mesh>(null)
   const groundMaterialRef = useRef<MeshStandardMaterial>(null)
+  const groundFogUniformRef = useRef<{ value: Color } | null>(null)
+  const terrainMaps = useMemo(createTerrainSurfaceMaps, [])
   const skyDomeRef = useRef<Mesh>(null)
   const sunsetDomeRef = useRef<Mesh>(null)
 
@@ -138,7 +150,7 @@ export function EnvironmentPlaceholder() {
     scene.fog = new FogExp2(colorRef.current.getHex(), 0.0015)
   }, [scene])
 
-  useFrame(() => {
+  useFrame(({ camera }) => {
     const { progress } = useScrollStore.getState()
     const theme = sampleEnvironmentTheme(progress)
     colorRef.current.copy(theme.background)
@@ -149,12 +161,11 @@ export function EnvironmentPlaceholder() {
     }
     scene.environmentIntensity = theme.environmentIntensity
     if (groundMaterialRef.current) groundMaterialRef.current.color.copy(theme.ground)
-    const groundFade = clamp01Reveal((GROUND_FADE_END - progress) / (GROUND_FADE_END - GROUND_FADE_START))
-    if (groundRef.current) groundRef.current.visible = groundFade > 0.01
-    if (groundMaterialRef.current) {
-      groundMaterialRef.current.opacity = groundFade
-      groundMaterialRef.current.depthWrite = groundFade > 0.98
-    }
+    // plan3.md E1 (piece 1): the disc re-centers on the camera's XZ every
+    // frame instead of fading out — see GROUND_DISC_SIZE above for how the
+    // fog-color blend at its rim keeps that recentring invisible.
+    if (groundRef.current) groundRef.current.position.set(camera.position.x, 0, camera.position.z)
+    if (groundFogUniformRef.current) groundFogUniformRef.current.value.copy(fogColorRef.current)
 
     const revealStart = loadingState.revealStartSeconds
     const loadReveal = revealStart === null ? 0 : clamp01Reveal((performance.now() / 1000 - revealStart) / LOAD_REVEAL_DURATION)
@@ -265,15 +276,62 @@ export function EnvironmentPlaceholder() {
         castShadow={EXTERIOR_LIGHTS.rim.castsShadow}
       />
       <hemisphereLight ref={hemisphereRef} name="Exterior · Hemisphere · Sky/ground fill" intensity={0.4} />
-      <mesh
-        ref={groundRef}
-        name="Environment · Ground"
-        rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, 0, 0]}
-        receiveShadow
-      >
-        <planeGeometry args={[4000, 4000]} />
-        <meshStandardMaterial ref={groundMaterialRef} color="#59664d" roughness={1} transparent />
+      {/* plan3.md E1 (piece 1)/C3: 1 draw call, 2 triangles (default 1x1
+          plane segments). No `position` prop — the useFrame above owns XZ,
+          re-centering this on the camera every frame. World-space UV (in
+          onBeforeCompile below) keeps the procedural terrain texture from
+          sliding as the disc moves; the radial fog-color lerp at its rim
+          dissolves the true geometric edge into fog instead of a hard line,
+          so `far` never needs to move and the runway's polygonOffset
+          markings are untouched (PLAN.md §7.2). Opaque — no `transparent`,
+          so it never needs draw-order sorting against the runway. */}
+      <mesh ref={groundRef} name="Environment · Ground" rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[GROUND_DISC_SIZE, GROUND_DISC_SIZE]} />
+        <meshStandardMaterial
+          ref={groundMaterialRef}
+          color="#59664d"
+          roughness={1}
+          onBeforeCompile={(shader) => {
+            shader.uniforms.terrainColorMap = { value: terrainMaps.color }
+            shader.uniforms.terrainRoughnessMap = { value: terrainMaps.roughness }
+            shader.uniforms.groundFogColor = { value: new Color() }
+            groundFogUniformRef.current = shader.uniforms.groundFogColor as { value: Color }
+
+            shader.vertexShader = shader.vertexShader
+              .replace(
+                '#include <common>',
+                '#include <common>\nvarying vec2 vGroundLocalXZ;\nvarying vec2 vGroundWorldUv;',
+              )
+              .replace(
+                '#include <begin_vertex>',
+                `#include <begin_vertex>
+                vGroundLocalXZ = position.xy;
+                vGroundWorldUv = ( modelMatrix * vec4( position, 1.0 ) ).xz / ${GROUND_TEXTURE_TILE_SIZE.toFixed(1)};`,
+              )
+
+            shader.fragmentShader = shader.fragmentShader
+              .replace(
+                '#include <common>',
+                `#include <common>
+                varying vec2 vGroundLocalXZ;
+                varying vec2 vGroundWorldUv;
+                uniform sampler2D terrainColorMap;
+                uniform sampler2D terrainRoughnessMap;
+                uniform vec3 groundFogColor;`,
+              )
+              .replace(
+                '#include <roughnessmap_fragment>',
+                `#include <roughnessmap_fragment>
+                vec3 groundSample = texture2D( terrainColorMap, vGroundWorldUv ).rgb;
+                float groundRoughnessSample = texture2D( terrainRoughnessMap, vGroundWorldUv ).g;
+                diffuseColor.rgb *= groundSample;
+                roughnessFactor = clamp( roughnessFactor * ( 0.55 + groundRoughnessSample * 0.9 ), 0.0, 1.0 );
+                float groundRadius = length( vGroundLocalXZ );
+                float groundFogBlend = smoothstep( ${GROUND_FOG_BLEND_START.toFixed(1)}, ${GROUND_FOG_BLEND_END.toFixed(1)}, groundRadius );
+                diffuseColor.rgb = mix( diffuseColor.rgb, groundFogColor, groundFogBlend );`,
+              )
+          }}
+        />
       </mesh>
       {/* B5: 32x32 facets a 2048x1024-texel equirect UV over huge triangles,
           visible as gradient banding and a faceted sun disc; >=96x48 is the

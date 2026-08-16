@@ -1,6 +1,24 @@
 import { BufferGeometry, Float32BufferAttribute } from 'three'
 
 export const RUNWAY_SURFACE_Y = 0.025
+export const RUNWAY_WIDTH = 32
+export const RUNWAY_LENGTH = 520
+/** Distance of each threshold marking from the runway's z=0 center. */
+export const RUNWAY_THRESHOLD_Z = 226
+
+/**
+ * plan3.md E4: single source of truth for the airport's static layout, so
+ * `airportGroundPlan.ts` can connect taxiways to the same coordinates
+ * `RunwayEnvironment.tsx` draws hangars and the apron at, instead of a second
+ * hand-copied set of numbers that could silently drift out of sync.
+ */
+export const APRON = { centerX: -58, centerZ: -45, width: 162, depth: 112 } as const
+
+export const HANGARS = [
+  { position: [-105, 6, -35] as const, size: [38, 12, 30] as const, color: '#596168' },
+  { position: [-101, 5, 4] as const, size: [30, 10, 24] as const, color: '#697078' },
+  { position: [-24, 7, -102] as const, size: [44, 14, 34] as const, color: '#515a62' },
+] as const
 
 interface QuadBuffers {
   positions: number[]
@@ -32,7 +50,7 @@ export function createRunwayMarkingsGeometry() {
   addHorizontalQuad(buffers, -15.35, -14.95, -255, 255)
   addHorizontalQuad(buffers, 14.95, 15.35, -255, 255)
 
-  for (const thresholdZ of [-226, 226]) {
+  for (const thresholdZ of [-RUNWAY_THRESHOLD_Z, RUNWAY_THRESHOLD_Z]) {
     for (let lane = -5; lane <= 5; lane += 1) {
       const x = lane * 2.35
       addHorizontalQuad(buffers, x - 0.72, x + 0.72, thresholdZ - 4, thresholdZ + 4)

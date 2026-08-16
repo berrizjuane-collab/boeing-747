@@ -15,9 +15,20 @@ import {
   UniformsLib,
   UniformsUtils,
 } from 'three'
+import { createAirportGroundPlanGeometry } from '../lib/airportGroundPlan'
 import { getAircraftPose } from '../lib/aircraftPose'
-import { createRunwayMarkingsGeometry, RUNWAY_SURFACE_Y } from '../lib/runwayGeometry'
+import { generateGrassField, seededRandom } from '../lib/grassField'
+import {
+  APRON,
+  createRunwayMarkingsGeometry,
+  HANGARS,
+  RUNWAY_LENGTH,
+  RUNWAY_SURFACE_Y,
+  RUNWAY_WIDTH,
+} from '../lib/runwayGeometry'
 import { SECTIONS } from '../lib/sections'
+import { createTreeClumpGeometry } from '../lib/treeGeometry'
+import { generateTreeField } from '../lib/treeField'
 import { TIER_SETTINGS, type QualityTier, useQualityStore } from '../state/qualityStore'
 import { reducedMotionState } from '../state/reducedMotion'
 import { useScrollStore } from '../state/scrollStore'
@@ -29,21 +40,6 @@ function smoothstep(edge0: number, edge1: number, value: number) {
   const t = clamp01((value - edge0) / (edge1 - edge0))
   return t * t * (3 - 2 * t)
 }
-
-/** Deterministic PRNG: visual QA receives the same vegetation and dust every run. */
-function seededRandom(seed: number) {
-  let state = seed >>> 0
-  return () => {
-    state += 0x6d2b79f5
-    let value = state
-    value = Math.imul(value ^ (value >>> 15), value | 1)
-    value ^= value + Math.imul(value ^ (value >>> 7), value | 61)
-    return ((value ^ (value >>> 14)) >>> 0) / 4_294_967_296
-  }
-}
-
-const RUNWAY_WIDTH = 32
-const RUNWAY_LENGTH = 520
 
 function Runway() {
   const markingsGeometry = useMemo(createRunwayMarkingsGeometry, [])
@@ -64,6 +60,28 @@ function Runway() {
         />
       </mesh>
     </group>
+  )
+}
+
+/**
+ * plan3.md E4: 1 draw call, ~200 triangles. Taxiways, apron border, holding
+ * point and parcel boundaries, all one merged geometry sharing
+ * RUNWAY_SURFACE_Y and the runway's own coordinates (runwayGeometry.ts) —
+ * see the mirror test of B4 in tests/environment.test.mjs.
+ */
+function AirportGroundPlan() {
+  const geometry = useMemo(createAirportGroundPlanGeometry, [])
+
+  return (
+    <mesh name="Airport · Taxiways and ground markings" geometry={geometry} receiveShadow>
+      <meshStandardMaterial
+        roughness={0.9}
+        polygonOffset
+        polygonOffsetFactor={-1}
+        polygonOffsetUnits={-1}
+        vertexColors
+      />
+    </mesh>
   )
 }
 
@@ -144,56 +162,85 @@ const VEGETATION_COUNT: Record<QualityTier, number> = { high: 720, mid: 360, low
 
 function createGrassClumpGeometry() {
   const positions: number[] = []
+  const normals: number[] = []
   const indices: number[] = []
   for (let blade = 0; blade < 3; blade += 1) {
     const angle = (blade / 3) * Math.PI
     const cos = Math.cos(angle)
     const sin = Math.sin(angle)
     const first = positions.length / 3
+    // plan3.md C2/§1.1: a vertical blade's true face normal is horizontal
+    // (perpendicular to its own plane, N.y=0) — it can never catch a key
+    // light that's 74% overhead, which is the direct cause of grass
+    // reading as near-black. Foliage shading fakes the normal instead of
+    // using computeVertexNormals()'s geometrically-correct one: mostly up,
+    // blended with a little of the blade's own outward lean so the three
+    // crossed blades in one clump still shade slightly differently.
+    const outward = [sin, 0, cos]
+    const fakeNormal = [outward[0] * 0.25, 0.75, outward[2] * 0.25]
+    const length = Math.hypot(fakeNormal[0], fakeNormal[1], fakeNormal[2])
+    const nx = fakeNormal[0] / length
+    const ny = fakeNormal[1] / length
+    const nz = fakeNormal[2] / length
     for (const [x, y] of [[-0.24, 0], [0.24, 0], [0, 1]] as const) {
       positions.push(x * cos, y, -x * sin)
+      normals.push(nx, ny, nz)
     }
     indices.push(first, first + 1, first + 2)
   }
   const geometry = new BufferGeometry()
   geometry.setAttribute('position', new Float32BufferAttribute(positions, 3))
+  geometry.setAttribute('normal', new Float32BufferAttribute(normals, 3))
   geometry.setIndex(indices)
-  geometry.computeVertexNormals()
   geometry.computeBoundingSphere()
   return geometry
 }
+
+// plan3.md E1/E3: grass is the one subsystem inside the old hero-airport
+// group that's genuinely sub-pixel past S1/S2 (blades ~1.6u tall at 200+u
+// out) — everything else in that group (runway, hangars, tower) now stays
+// visible past the old 30.5% group cutoff, but grass keeps a fade roughly
+// where that cutoff used to sit, as its own concern rather than a group-wide
+// gate.
+const GRASS_FADE_END = 0.305
 
 /** One low-poly instanced grass field; tier changes alter instance count, never draw calls. */
 function VegetationBands() {
   const meshRef = useRef<InstancedMeshImpl>(null)
   const tier = useQualityStore((state) => state.tier)
   const grassGeometry = useMemo(createGrassClumpGeometry, [])
+  const windUniform = useMemo(() => ({ value: 0 }), [])
 
   useLayoutEffect(() => {
     const mesh = meshRef.current
     if (!mesh) return
-    const random = seededRandom(0xa38026)
     const dummy = new Object3D()
     const coolGreen = new Color('#52664c')
     const sunlitGreen = new Color('#96a269')
     const instanceColor = new Color()
 
+    const placements = generateGrassField(VEGETATION_MAX, 0xa38026)
     mesh.instanceMatrix.setUsage(StaticDrawUsage)
-    for (let index = 0; index < VEGETATION_MAX; index += 1) {
-      const side = index % 2 === 0 ? -1 : 1
-      const lateral = 18 + random() * 72
-      const height = 0.55 + random() * 1.05
-      dummy.position.set(side * lateral, RUNWAY_SURFACE_Y, -255 + random() * 510)
-      dummy.rotation.set(0, random() * Math.PI * 2, 0)
-      dummy.scale.set(0.65 + random() * 1.1, height, 0.65 + random() * 1.1)
+    placements.forEach((placement, index) => {
+      dummy.position.set(placement.side * placement.lateral, RUNWAY_SURFACE_Y, placement.z)
+      dummy.rotation.set(0, placement.rotationY, 0)
+      dummy.scale.set(placement.scaleXZ, placement.height, placement.scaleXZ)
       dummy.updateMatrix()
       mesh.setMatrixAt(index, dummy.matrix)
-      mesh.setColorAt(index, instanceColor.copy(coolGreen).lerp(sunlitGreen, random()))
-    }
+      mesh.setColorAt(index, instanceColor.copy(coolGreen).lerp(sunlitGreen, placement.colorMix))
+    })
     mesh.instanceMatrix.needsUpdate = true
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
     mesh.computeBoundingSphere()
   }, [])
+
+  useFrame(() => {
+    const mesh = meshRef.current
+    if (mesh) mesh.visible = tier !== 'low' && useScrollStore.getState().progress < GRASS_FADE_END
+    // Same "stop advancing, don't reset" reduced-motion convention as
+    // DustParticles below — a frozen phase, not a forced-upright pose.
+    if (!reducedMotionState.active) windUniform.value = performance.now() / 1000
+  })
 
   return (
     <instancedMesh
@@ -201,7 +248,6 @@ function VegetationBands() {
       name="Airport · Instanced grass bands"
       args={[grassGeometry, undefined, VEGETATION_MAX]}
       count={VEGETATION_COUNT[tier]}
-      visible={tier !== 'low'}
       receiveShadow
     >
       <meshStandardMaterial
@@ -211,16 +257,106 @@ function VegetationBands() {
         roughness={1}
         side={DoubleSide}
         vertexColors
+        onBeforeCompile={(shader) => {
+          // plan3.md C2: wind sway. `windUniform` is the same object mutated
+          // every frame in the useFrame above, so later frames update this
+          // shader's uniform without a recompile. Phase is derived from each
+          // instance's own world offset so clumps don't sway in lockstep;
+          // displacement is scaled by local `position.y` (0 at the blade
+          // base, 1 at the tip) so blades stay planted and lean at the top.
+          shader.uniforms.windTime = windUniform
+          shader.vertexShader = shader.vertexShader
+            .replace('#include <common>', '#include <common>\nuniform float windTime;')
+            .replace(
+              '#include <begin_vertex>',
+              `#include <begin_vertex>
+              #ifdef USE_INSTANCING
+                float windPhase = windTime * 2.2 + (instanceMatrix[3].x + instanceMatrix[3].z) * 0.35;
+                float bladeLean = position.y;
+                transformed.x += sin(windPhase) * 0.06 * bladeLean;
+                transformed.z += cos(windPhase * 0.8) * 0.05 * bladeLean;
+              #endif`,
+            )
+        }}
       />
     </instancedMesh>
   )
 }
 
-const HANGARS = [
-  { position: [-105, 6, -35] as const, size: [38, 12, 30] as const, color: '#596168' },
-  { position: [-101, 5, 4] as const, size: [30, 10, 24] as const, color: '#697078' },
-  { position: [-24, 7, -102] as const, size: [44, 14, 34] as const, color: '#515a62' },
-] as const
+const TREE_NEAR_MAX = 42
+const TREE_FAR_MAX = 96
+const TREE_COUNT: Record<QualityTier, { near: number; far: number }> = {
+  high: { near: TREE_NEAR_MAX, far: TREE_FAR_MAX },
+  mid: { near: 26, far: 56 },
+  low: { near: 14, far: 28 },
+}
+const TREE_FIELD = generateTreeField(TREE_NEAR_MAX, TREE_FAR_MAX, 0x7ee5a1)
+const TREE_NEAR_PLACEMENTS = TREE_FIELD.filter((tree) => tree.band === 'near')
+const TREE_FAR_PLACEMENTS = TREE_FIELD.filter((tree) => tree.band === 'far')
+
+interface TreeBandProps {
+  placements: readonly ReturnType<typeof generateTreeField>[number][]
+  max: number
+  count: number
+  geometry: BufferGeometry
+  name: string
+}
+
+/** One instanced draw per band (near/far) — see generateTreeField for why
+ * the two bands aren't merged into a single draw. */
+function TreeBand({ placements, max, count, geometry, name }: TreeBandProps) {
+  const meshRef = useRef<InstancedMeshImpl>(null)
+
+  useLayoutEffect(() => {
+    const mesh = meshRef.current
+    if (!mesh) return
+    const random = seededRandom(0x1eaf00 ^ max)
+    const dummy = new Object3D()
+    const deepGreen = new Color('#25311f')
+    const sunlitGreen = new Color('#5c6e3f')
+    const instanceColor = new Color()
+
+    mesh.instanceMatrix.setUsage(StaticDrawUsage)
+    placements.forEach((tree, index) => {
+      dummy.position.set(tree.x, RUNWAY_SURFACE_Y, tree.z)
+      dummy.rotation.set(0, tree.rotationY, 0)
+      const treeHeight = 4.2 * tree.scale
+      dummy.scale.set(treeHeight, treeHeight, treeHeight)
+      dummy.updateMatrix()
+      mesh.setMatrixAt(index, dummy.matrix)
+      mesh.setColorAt(index, instanceColor.copy(deepGreen).lerp(sunlitGreen, random()))
+    })
+    mesh.instanceMatrix.needsUpdate = true
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
+    mesh.computeBoundingSphere()
+  }, [placements, max, geometry])
+
+  return (
+    <instancedMesh ref={meshRef} name={name} args={[geometry, undefined, max]} count={count} receiveShadow>
+      <meshStandardMaterial color="#ffffff" roughness={1} side={DoubleSide} vertexColors />
+    </instancedMesh>
+  )
+}
+
+/**
+ * plan3.md C1 (near, identifiable trees east of the runway) + C4 (far
+ * treeline ringing both sides, breaking the horizon that the ground disc's
+ * fog dissolve — EnvironmentPlaceholder.tsx — otherwise leaves empty).
+ * Always visible: at tree scale (~4u), nothing in this scene is far enough
+ * for them to go sub-pixel the way grass blades do (see GRASS_FADE_END).
+ */
+function TreeField() {
+  const tier = useQualityStore((state) => state.tier)
+  const geometry = useMemo(createTreeClumpGeometry, [])
+  const counts = TREE_COUNT[tier]
+
+  return (
+    <group name="Environment · Trees">
+      <TreeBand placements={TREE_NEAR_PLACEMENTS} max={TREE_NEAR_MAX} count={counts.near} geometry={geometry} name="Environment · Near treeline" />
+      <TreeBand placements={TREE_FAR_PLACEMENTS} max={TREE_FAR_MAX} count={counts.far} geometry={geometry} name="Environment · Far treeline" />
+    </group>
+  )
+}
 
 function createGableRoofGeometry() {
   const geometry = new BufferGeometry()
@@ -285,8 +421,13 @@ function DistantAirport() {
   return (
     <group name="Airport · Terminal silhouettes" visible={tier !== 'low'}>
       {showLowPriorityDetails && (
-        <mesh name="Airport · Apron" rotation={[-Math.PI / 2, 0, 0]} position={[-58, 0.012, -45]} receiveShadow>
-          <planeGeometry args={[162, 112]} />
+        <mesh
+          name="Airport · Apron"
+          rotation={[-Math.PI / 2, 0, 0]}
+          position={[APRON.centerX, 0.012, APRON.centerZ]}
+          receiveShadow
+        >
+          <planeGeometry args={[APRON.width, APRON.depth]} />
           <meshStandardMaterial color="#454b4c" roughness={0.98} />
         </mesh>
       )}
@@ -517,18 +658,21 @@ const highAltitudeCloudVisibility = (progress: number) =>
 const sunsetCloudVisibility = (progress: number) =>
   Math.min(smoothstep(0.805, 0.85, progress), 1 - smoothstep(0.95, 1, progress))
 
+// plan3.md E1/E3: this used to be a single group-level `visible = progress <
+// 0.305` gate. The runway, hangars and tower are resolved enough to read at
+// any scroll position past S2 (§1.8) — they stay mounted unconditionally now.
+// Only the subsystems that are genuinely sub-pixel at distance fade
+// themselves: VegetationBands owns its own GRASS_FADE_END, DustParticles
+// already fades independently at DUST_SECTION_END, and AircraftGroundShadow's
+// runwayPresence fade never re-triggers past S2 by construction.
 function HeroAirportEnvironment() {
-  const groupRef = useRef<import('three').Group>(null)
-
-  useFrame(() => {
-    if (groupRef.current) groupRef.current.visible = useScrollStore.getState().progress < 0.305
-  })
-
   return (
-    <group ref={groupRef} name="Environment · Hero airport">
+    <group name="Environment · Hero airport">
       <Runway />
+      <AirportGroundPlan />
       <AircraftGroundShadow />
       <VegetationBands />
+      <TreeField />
       <DistantAirport />
       <DustParticles />
     </group>
