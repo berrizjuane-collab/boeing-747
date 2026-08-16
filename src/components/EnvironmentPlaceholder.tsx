@@ -7,6 +7,8 @@ import {
   DirectionalLight,
   EquirectangularReflectionMapping,
   FogExp2,
+  HemisphereLight,
+  LinearMipmapLinearFilter,
   Mesh,
   MeshBasicMaterial,
   MeshStandardMaterial,
@@ -15,7 +17,7 @@ import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
 import { EXTERIOR_LIGHTS, sampleEnvironmentTheme } from '../lib/environmentTheme'
 import { activeHdriSectionSlot, goldenHourWeight, highAltitudeWeight, sunsetWeight } from '../lib/hdriTheme'
 import { SECTIONS } from '../lib/sections'
-import { exposureMultiplier } from '../lib/thresholdLighting'
+import { duskColorMix, exposureMultiplier } from '../lib/thresholdLighting'
 import { createSkyDomeMaterial } from '../lib/skyDomeMaterial'
 import { exposureState } from '../state/exposureState'
 import { loadingState } from '../state/loadingState'
@@ -61,12 +63,25 @@ const SKY_RADIUS = 1200
  * two domes at runtime — just one fading out long before the other fades in.
  * A single-texture MeshBasicMaterial is the simplest thing that's correct.
  */
+// plan3.md B6/§1.5 (cause 3): fog used to lerp straight from S6's own cool
+// background (`#27344e`) toward S7's near-black (`#080a0e`) — distant
+// geometry went dark, not warm, in the one section PLAN.md §10.1 stages as
+// a sunset. `#E89B6C` is that section's own declared grading accent, not an
+// invented color (sectionGrading.ts's SECTION_GRADES[5].key). Mixed in by
+// duskColorMix — the same "ramps across S6, holds through S7" curve
+// EnvironmentPlaceholder already uses to fade the key light's color toward
+// this identical accent as it brightens back up, so fog and key warm on the
+// same schedule instead of two independent, potentially-mismatched ramps.
+const WARM_FOG_COLOR = new Color('#E89B6C')
+
 export function EnvironmentPlaceholder() {
   const { scene } = useThree()
   const colorRef = useRef(new Color('#9f6246'))
+  const fogColorRef = useRef(new Color('#9f6246'))
   const keyRef = useRef<DirectionalLight>(null)
   const fillRef = useRef<DirectionalLight>(null)
   const rimRef = useRef<DirectionalLight>(null)
+  const hemisphereRef = useRef<HemisphereLight>(null)
   const groundRef = useRef<Mesh>(null)
   const groundMaterialRef = useRef<MeshStandardMaterial>(null)
   const skyDomeRef = useRef<Mesh>(null)
@@ -103,9 +118,19 @@ export function EnvironmentPlaceholder() {
   )
 
   useEffect(() => {
-    goldenHourMap.mapping = EquirectangularReflectionMapping
-    highAltitudeMap.mapping = EquirectangularReflectionMapping
-    sunsetMap.mapping = EquirectangularReflectionMapping
+    // plan3.md B5/§1.5: RGBELoader's default minFilter (LinearFilter, no
+    // mipmaps) shimmers on the sky dome as the camera moves — each frame
+    // samples the full-resolution texture with no pre-filtering for how
+    // much screen area a texel actually covers. Mipmaps fix that the same
+    // way they do for any minified texture; generateMipmaps needs a p-o-t
+    // size, which both HDRI resolutions in this project (2048x1024,
+    // 4096x2048 after B4) already are.
+    for (const map of [goldenHourMap, highAltitudeMap, sunsetMap]) {
+      map.mapping = EquirectangularReflectionMapping
+      map.generateMipmaps = true
+      map.minFilter = LinearMipmapLinearFilter
+      map.needsUpdate = true
+    }
   }, [goldenHourMap, highAltitudeMap, sunsetMap])
 
   useEffect(() => {
@@ -118,7 +143,8 @@ export function EnvironmentPlaceholder() {
     const theme = sampleEnvironmentTheme(progress)
     colorRef.current.copy(theme.background)
     if (scene.fog instanceof FogExp2) {
-      scene.fog.color.copy(colorRef.current)
+      fogColorRef.current.copy(colorRef.current).lerp(WARM_FOG_COLOR, duskColorMix(progress))
+      scene.fog.color.copy(fogColorRef.current)
       scene.fog.density = theme.fogDensity
     }
     scene.environmentIntensity = theme.environmentIntensity
@@ -149,10 +175,25 @@ export function EnvironmentPlaceholder() {
       light.color.copy(sample.color)
       light.intensity = sample.intensity
       light.visible = sample.intensity > 0.01
+      // B2: position, not just color/intensity, now tracks this section's
+      // real HDRI sun (environmentTheme.ts's computeLightPositions) instead
+      // of sitting at one fixed spot for the whole page.
+      light.position.fromArray(theme.lightPositions[role])
       // Runtime metadata mirrors the declared inventory and makes the light
       // rig inspectable in Three devtools / QA without parsing source text.
       light.userData.temperatureKelvin = sample.temperatureKelvin
       light.userData.intensity = sample.intensity
+    }
+
+    // B1 (plan3.md §1.1/§1.4): every exterior surface facing away from the
+    // key used to read as pure black — three directional lights and nothing
+    // else. A hemisphere light gives every surface a non-zero floor without
+    // casting its own shadow; sky/ground reuse this section's own
+    // background/ground tint rather than a separate invented palette.
+    if (hemisphereRef.current) {
+      hemisphereRef.current.color.copy(theme.hemisphere.skyColor)
+      hemisphereRef.current.groundColor.copy(theme.hemisphere.groundColor)
+      hemisphereRef.current.intensity = theme.hemisphere.intensity
     }
 
     const golden = goldenHourWeight(progress)
@@ -223,6 +264,7 @@ export function EnvironmentPlaceholder() {
         }}
         castShadow={EXTERIOR_LIGHTS.rim.castsShadow}
       />
+      <hemisphereLight ref={hemisphereRef} name="Exterior · Hemisphere · Sky/ground fill" intensity={0.4} />
       <mesh
         ref={groundRef}
         name="Environment · Ground"
@@ -233,11 +275,18 @@ export function EnvironmentPlaceholder() {
         <planeGeometry args={[4000, 4000]} />
         <meshStandardMaterial ref={groundMaterialRef} color="#59664d" roughness={1} transparent />
       </mesh>
+      {/* B5: 32x32 facets a 2048x1024-texel equirect UV over huge triangles,
+          visible as gradient banding and a faceted sun disc; >=96x48 is the
+          plan's own floor. 128x64 costs 16,384 triangles per dome (2 domes,
+          neither ever both visible at once per hdriTheme.ts's crossfade
+          weights) against a triangle budget with headroom in the hundreds
+          of thousands (PLAN.md §7.1) — reads as smooth without spending
+          more than that gets back in banding removed. */}
       <mesh ref={skyDomeRef} renderOrder={-10} material={skyMaterial}>
-        <sphereGeometry args={[SKY_RADIUS, 32, 32]} />
+        <sphereGeometry args={[SKY_RADIUS, 128, 64]} />
       </mesh>
       <mesh ref={sunsetDomeRef} renderOrder={-10} material={sunsetMaterial}>
-        <sphereGeometry args={[SKY_RADIUS, 32, 32]} />
+        <sphereGeometry args={[SKY_RADIUS, 128, 64]} />
       </mesh>
       {/* Reflection-only: background stays the sky dome above, this just feeds
           scene.environment for PBR IBL on standard materials (the ground/runway). */}

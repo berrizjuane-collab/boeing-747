@@ -12,15 +12,17 @@
 // the loading screen wait on an asset the app was never actually gating on.
 //
 // Sizes are measured (`ls -la public/models public/hdri`), not estimated.
-// Re-measured 2026-08-15 (plan3.md bug #13): the three HDRIs were
-// renormalized after this table was first written and it was never updated
-// against the new files on disk — golden-hour was stale +9.2%,
-// high-altitude +43.0%, sunset +3.2%. exterior.glb was already correct.
+// Re-measured 2026-08-16 (plan3.md B4): the three HDRIs were regenerated at
+// 4096x2048 (up from 2048x1024) with the B3 sky-body-mean recalibration, so
+// their byte weights moved again — golden-hour.hdr 1,392,889 -> 3,734,433,
+// high-altitude.hdr 400,475 -> 1,441,268, sunset.hdr 1,191,614 -> 2,877,263.
+// exterior.glb is untouched by this round. New S0 total: 10,265,968 B
+// (~9.79 MB) of the 15 MB ceiling (PLAN.md §6.4).
 export const BLOCKING_ASSET_WEIGHTS: Record<string, number> = {
   '/models/exterior.glb': 2_213_004,
-  '/hdri/golden-hour.hdr': 1_392_889,
-  '/hdri/high-altitude.hdr': 400_475,
-  '/hdri/sunset.hdr': 1_191_614,
+  '/hdri/golden-hour.hdr': 3_734_433,
+  '/hdri/high-altitude.hdr': 1_441_268,
+  '/hdri/sunset.hdr': 2_877_263,
 }
 
 export const BLOCKING_TOTAL_WEIGHT = Object.values(BLOCKING_ASSET_WEIGHTS).reduce((sum, w) => sum + w, 0)

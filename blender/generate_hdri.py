@@ -19,7 +19,7 @@ picked from a catalog of whatever happens to exist.
 Usage:
     blender --background --factory-startup --python blender/generate_hdri.py -- \
         --preset golden-hour --output public/hdri/golden-hour.hdr \
-        [--preview /tmp/golden-hour-preview.png] [--width 2048] [--height 1024] [--samples 32]
+        [--preview /tmp/golden-hour-preview.png] [--width 4096] [--height 2048] [--samples 32]
 
     blender --background --factory-startup --python blender/generate_hdri.py -- \
         --preset high-altitude --output public/hdri/high-altitude.hdr \
@@ -64,7 +64,7 @@ PRESETS = {
         "sun_intensity": 0.9,
         "sun_size": math.radians(0.545),
         "background_strength": 1.0,
-        "target_mean_luminance": 1.0,
+        "target_sky_body_mean_luminance": 1.0,
     },
     "high-altitude": {
         "sun_elevation": math.radians(68.0),
@@ -76,7 +76,7 @@ PRESETS = {
         "sun_intensity": 1.3,
         "sun_size": math.radians(0.545),
         "background_strength": 1.35,
-        "target_mean_luminance": 1.25,
+        "target_sky_body_mean_luminance": 1.25,
     },
     # sunset (S6 salida): PLAN.md §10.1 is explicit that this must *not* read
     # as S1/S3 repeated — "Frío al atardecer", base `#2B3A55` (cool blue-gray)
@@ -96,7 +96,7 @@ PRESETS = {
         "sun_intensity": 1.0,
         "sun_size": math.radians(0.545),
         "background_strength": 0.55,
-        "target_mean_luminance": 0.65,
+        "target_sky_body_mean_luminance": 0.65,
     },
 }
 
@@ -150,14 +150,36 @@ def _build_sky_world(preset):
     return world
 
 
-def _mean_luminance(image_path):
-    """Read a rendered HDR as linear RGB and return Rec.709 mean luminance."""
+def _sky_body_mean_luminance(image_path):
+    """Read a rendered HDR as linear RGB and return the Rec.709 mean
+    luminance of everything *except* the sun disc.
+
+    plan3.md bug #3: a plain mean is dominated by Nishita's sun disc (five to
+    six orders of magnitude brighter than the sky body around it, a few
+    hundred pixels out of ~8M at 4096x2048) almost regardless of how bright
+    the sky itself reads — calibrating three presets to comparable means left
+    their *actual sky brightness* off by 3.3x (high-altitude's sky body came
+    out the *darkest* of the three despite the preset targeting the
+    *brightest*, PLAN.md's "máxima luminancia del sitio"). Median alone
+    fixes the calibration but throws away the sun's real contribution to
+    diffuse/rough-surface IBL reflections entirely, which turned the *mean*
+    ratio between presets into 17.8x — a real problem for anything rougher
+    than a mirror, since that's roughly what such a surface integrates over.
+    Excluding only the sun disc itself (>50x this image's own median — every
+    measured preset's p99 sits within ~19x, so that threshold clears actual
+    sky glow by a wide margin and only cuts the disc and its immediate
+    corona) keeps the mean meaningful for IBL while no longer letting a few
+    hundred texels decide the whole image's calibrated brightness.
+    """
     image = bpy.data.images.load(image_path, check_existing=False)
     try:
         pixels = np.empty(len(image.pixels), dtype=np.float32)
         image.pixels.foreach_get(pixels)
         rgba = pixels.reshape((-1, 4))
-        return float(np.mean(rgba[:, 0] * 0.2126 + rgba[:, 1] * 0.7152 + rgba[:, 2] * 0.0722))
+        luminance = rgba[:, 0] * 0.2126 + rgba[:, 1] * 0.7152 + rgba[:, 2] * 0.0722
+        median = float(np.median(luminance))
+        sky_body = luminance[luminance <= median * 50.0]
+        return float(np.mean(sky_body)), median, float(sky_body.size) / float(luminance.size)
     finally:
         bpy.data.images.remove(image)
 
@@ -166,30 +188,39 @@ def _normalize_world_energy(world, output_path, width, height, samples, target):
     """Calibrate each procedural sky to a declared, reproducible energy target.
 
     Nishita's sun disc can change mean radiance by orders of magnitude between
-    elevations. A fixed Background strength therefore cannot keep several
-    presets exposure-compatible. Rendering and measuring a calibration pass,
-    then scaling that same linear world, makes the contract explicit and
-    avoids hand-tuned values that drift when a preset changes.
+    elevations, which is exactly why this targets the sky body's *own* mean
+    luminance (bug #3, excluding the sun disc — see
+    _sky_body_mean_luminance) rather than the whole image's mean. Rendering
+    and measuring a calibration pass, then scaling that same linear world,
+    makes the contract explicit and avoids hand-tuned values that drift when
+    a preset changes. Target numbers are unchanged from the original
+    whole-image-mean calibration (golden=1.0, high-altitude=1.25, sunset=
+    0.65) — same declared relative brightness (high-altitude brightest),
+    now actually delivered because the metric they're matched against isn't
+    dominated by the sun disc anymore.
     """
     background = next(node for node in world.node_tree.nodes if node.type == "BACKGROUND")
     history = []
+    last_diagnostics = None
 
     for _ in range(3):
         _render(output_path, width, height, samples, "HDR", "Raw")
-        observed = _mean_luminance(output_path)
+        observed, median, sky_body_fraction = _sky_body_mean_luminance(output_path)
+        last_diagnostics = {"median_luminance": median, "sky_body_pixel_fraction": sky_body_fraction}
         history.append(observed)
         if observed <= 0:
-            raise RuntimeError(f"Rendered HDRI has invalid mean luminance {observed}")
+            raise RuntimeError(f"Rendered HDRI has invalid sky-body mean luminance {observed}")
         if abs(observed - target) / target <= 0.01:
             break
         background.inputs["Strength"].default_value *= target / observed
 
     return {
-        "target_mean_luminance": target,
-        "measured_mean_luminance": history[-1],
+        "target_sky_body_mean_luminance": target,
+        "measured_sky_body_mean_luminance": history[-1],
         "calibration_passes": len(history),
         "calibration_history": history,
         "final_background_strength": background.inputs["Strength"].default_value,
+        **(last_diagnostics or {}),
     }
 
 
@@ -243,8 +274,11 @@ def main():
         raise RuntimeError(f"--preset must be one of {list(PRESETS)}, got {preset!r}")
     output_path = os.path.abspath(_arg_value("--output", f"/tmp/{preset}.hdr"))
     preview_path = _arg_value("--preview", "")
-    width = int(_arg_value("--width", "2048"))
-    height = int(_arg_value("--height", "1024"))
+    # plan3.md B4: 4096x2048 is the canonical resolution as of this round —
+    # 2048x1024 is still available via an explicit flag for a quick/cheap
+    # regenerate, but it's no longer what a bare invocation produces.
+    width = int(_arg_value("--width", "4096"))
+    height = int(_arg_value("--height", "2048"))
     samples = int(_arg_value("--samples", "32"))
 
     bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -267,7 +301,7 @@ def main():
         width,
         height,
         samples,
-        PRESETS[preset]["target_mean_luminance"],
+        PRESETS[preset]["target_sky_body_mean_luminance"],
     )
     result = {
         "preset": preset,

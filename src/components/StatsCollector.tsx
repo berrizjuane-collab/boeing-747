@@ -3,6 +3,7 @@ import { useRef } from 'react'
 import { Frustum, InstancedMesh, Matrix4, Mesh, type Camera, type Scene } from 'three'
 import { ACTIVE_TONE_MAPPING_LABEL } from '../lib/postFxConfig'
 import { perfStats } from '../state/perfStats'
+import { exposureState } from '../state/exposureState'
 
 declare global {
   interface Window {
@@ -18,6 +19,11 @@ declare global {
       toneMappingMode: string
       /** plan3.md A4: lets visual QA sweep scroll and assert this is never null. */
       sceneEnvironmentIsNull: boolean
+      /** plan3.md B7: the actual multiplier ExposurePass applies this frame
+       * (exposureMultiplier(progress) * theme.exposureCompensation *
+       * loadReveal — see EnvironmentPlaceholder.tsx), so visual QA can assert
+       * S6 actually reaches neutral instead of trusting the formula alone. */
+      effectiveExposure: number
     }
   }
 }
@@ -94,6 +100,7 @@ export function StatsCollector() {
       submittedTriangles: gl.info.render.triangles,
       toneMappingMode: ACTIVE_TONE_MAPPING_LABEL,
       sceneEnvironmentIsNull: scene.environment === null,
+      effectiveExposure: exposureState.value,
     }
     gl.info.reset()
   }, 2)

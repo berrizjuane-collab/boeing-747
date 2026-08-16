@@ -125,8 +125,11 @@ ejecución está self-hosted en `public/basis/`, igual que el decoder Draco en
 ### HDRI
 
 `blender/generate_hdri.py` genera las HDRI de S1 (golden hour), S3 (gran
-altitud) y S6 (atardecer) con el modelo físico Nishita, y las calibra a
-luminancias medias comparables en vez de depender de una descarga externa:
+altitud) y S6 (atardecer) con el modelo físico Nishita, a 4096×2048, y las
+calibra por luminancia media del cuerpo de cielo —excluyendo el disco solar,
+que de otro modo domina cualquier media aritmética sin relación con qué tan
+brillante se ve el cielo realmente (plan3.md bug #3)— en vez de depender de
+una descarga externa:
 
 ```
 blender --background --factory-startup --python blender/generate_hdri.py -- --preset golden-hour --output public/hdri/golden-hour.hdr
