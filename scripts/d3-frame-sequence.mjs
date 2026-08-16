@@ -1,6 +1,13 @@
+import { existsSync } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { chromium } from 'playwright'
+
+// See scripts/visual-qa.mjs's identical constant for why: some sandboxes
+// pre-install Chromium outside Playwright's pinned-revision cache, under
+// this fixed path. Falls back to normal resolution everywhere it doesn't exist.
+const SANDBOX_CHROMIUM_PATH = '/opt/pw-browsers/chromium'
+const executablePath = existsSync(SANDBOX_CHROMIUM_PATH) ? SANDBOX_CHROMIUM_PATH : undefined
 
 const baseURL = process.env.VISUAL_QA_URL ?? 'http://127.0.0.1:4173/boeing-747/'
 const outputDir = path.resolve(process.env.D3_QA_DIR ?? 'artifacts/d3-frame-sequence')
@@ -28,6 +35,7 @@ await mkdir(outputDir, { recursive: true })
 
 const browser = await chromium.launch({
   headless: true,
+  executablePath,
   args: [
     '--enable-webgl',
     '--ignore-gpu-blocklist',

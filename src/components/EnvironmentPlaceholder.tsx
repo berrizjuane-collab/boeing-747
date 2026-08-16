@@ -16,7 +16,7 @@ import {
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
 import { EXTERIOR_LIGHTS, sampleEnvironmentTheme } from '../lib/environmentTheme'
 import { activeHdriSectionSlot, goldenHourWeight, highAltitudeWeight, sunsetWeight } from '../lib/hdriTheme'
-import { SECTIONS } from '../lib/sections'
+import { createTerrainSurfaceMaps } from '../lib/terrainSurfaceMaps'
 import { duskColorMix, exposureMultiplier } from '../lib/thresholdLighting'
 import { createSkyDomeMaterial } from '../lib/skyDomeMaterial'
 import { exposureState } from '../state/exposureState'
@@ -30,8 +30,21 @@ import { useScrollStore } from '../state/scrollStore'
 // without this they could visibly pop in at different moments).
 const LOAD_REVEAL_DURATION = 1.2
 const clamp01Reveal = (x: number) => Math.min(1, Math.max(0, x))
-const GROUND_FADE_START = SECTIONS[1].end
-const GROUND_FADE_END = SECTIONS[2].start + 0.025
+
+// Fase E piece 1 (plan3.md §4): half-extent of the camera-following terrain
+// disc, generous enough that its true geometric edge sits well past
+// TERRAIN_FADE_END below at every fog density in SECTION_ENVIRONMENT
+// (lowest is S5's 0.00015, irrelevant here since S5 never shows exterior
+// ground — the binding case is S3's 0.00055, still >90% transmittance-faded
+// by TERRAIN_FADE_END). Cost is one plane at 1 segment either way (2
+// triangles), so generous has no budget cost.
+const TERRAIN_DISC_SIZE = 8000
+const TERRAIN_FADE_START = 1400
+const TERRAIN_FADE_END = 3200
+// World units per repeat of the 256px procedural tile (terrainSurfaceMaps.ts)
+// — big enough to read as ground-scale patches next to the 32-unit runway
+// and 73-unit aircraft, not a visibly repeating grid.
+const TERRAIN_TILE_SIZE = 130
 
 // Comfortably inside the camera's far=3000 (SceneCanvas.tsx) and comfortably
 // outside every keyframe/anchor in the scene (aircraft span ~80m, camera
@@ -83,9 +96,76 @@ export function EnvironmentPlaceholder() {
   const rimRef = useRef<DirectionalLight>(null)
   const hemisphereRef = useRef<HemisphereLight>(null)
   const groundRef = useRef<Mesh>(null)
-  const groundMaterialRef = useRef<MeshStandardMaterial>(null)
   const skyDomeRef = useRef<Mesh>(null)
   const sunsetDomeRef = useRef<Mesh>(null)
+
+  // Fase E piece 1 / C3: procedural color+roughness detail for the terrain
+  // disc below, and the ShaderMaterial that samples it in world-space UV
+  // (so the texture doesn't slide as the disc re-centers on the camera —
+  // see the disc's own comment) while dissolving to fog color by radius (so
+  // its true geometric edge, however large, is never the thing that's
+  // actually visible). Built once via useMemo, same pattern as
+  // skyMaterial/sunsetMaterial just above.
+  const terrainMaps = useMemo(() => createTerrainSurfaceMaps(), [])
+  const groundMaterial = useMemo(() => {
+    const material = new MeshStandardMaterial({ color: '#59664d', roughness: 0.92, fog: true })
+    material.onBeforeCompile = (shader) => {
+      shader.uniforms.terrainAlbedoMap = { value: terrainMaps.albedo }
+      shader.uniforms.terrainRoughnessMap = { value: terrainMaps.roughness }
+      shader.uniforms.terrainTileSize = { value: TERRAIN_TILE_SIZE }
+      shader.uniforms.terrainFadeStart = { value: TERRAIN_FADE_START }
+      shader.uniforms.terrainFadeEnd = { value: TERRAIN_FADE_END }
+
+      shader.vertexShader = shader.vertexShader
+        .replace(
+          '#include <common>',
+          '#include <common>\nvarying vec2 vTerrainWorldXZ;\nvarying float vTerrainRadius;',
+        )
+        .replace(
+          '#include <begin_vertex>',
+          // Local-space position IS the offset from the camera in world XZ,
+          // because the disc's own position is re-set to the camera's XZ
+          // every frame (see the useFrame below) — so a plain local radius
+          // is a free, always-correct distance-from-camera, no extra
+          // uniform needed. World-space UV instead needs the actual
+          // modelMatrix transform, since it has to stay fixed on the
+          // ground while the mesh itself keeps re-centering under it.
+          '#include <begin_vertex>\n{\n  vec4 terrainWorldPos = modelMatrix * vec4(position, 1.0);\n  vTerrainWorldXZ = terrainWorldPos.xz;\n  vTerrainRadius = length(position.xy);\n}',
+        )
+
+      shader.fragmentShader = shader.fragmentShader
+        .replace(
+          '#include <common>',
+          '#include <common>\nvarying vec2 vTerrainWorldXZ;\nvarying float vTerrainRadius;\nuniform sampler2D terrainAlbedoMap;\nuniform sampler2D terrainRoughnessMap;\nuniform float terrainTileSize;\nuniform float terrainFadeStart;\nuniform float terrainFadeEnd;',
+        )
+        .replace(
+          '#include <map_fragment>',
+          '#include <map_fragment>\n  diffuseColor.rgb *= texture2D(terrainAlbedoMap, vTerrainWorldXZ / terrainTileSize).rgb;',
+        )
+        .replace(
+          '#include <roughnessmap_fragment>',
+          '#include <roughnessmap_fragment>\n  roughnessFactor *= texture2D(terrainRoughnessMap, vTerrainWorldXZ / terrainTileSize).r;',
+        )
+        .replace(
+          '#include <fog_fragment>',
+          // Fase E §1.8/piece 1: the disc's own edge dissolves into
+          // scene.fog's color by radius, same uniform the stock fog chunk
+          // right below already uses — both fades push toward the same
+          // target color, so they reinforce instead of fighting each other
+          // even in the low-fog-density sections (S3/S4) where distance fog
+          // alone left a visible straight edge (§1.8's measured 37%
+          // transmittance at the old plane's boundary).
+          '#ifdef USE_FOG\n  float terrainEdgeFactor = smoothstep(terrainFadeStart, terrainFadeEnd, vTerrainRadius);\n  gl_FragColor.rgb = mix(gl_FragColor.rgb, fogColor, terrainEdgeFactor);\n#endif\n#include <fog_fragment>',
+        )
+    }
+    return material
+  }, [terrainMaps])
+
+  useEffect(() => () => {
+    terrainMaps.albedo.dispose()
+    terrainMaps.roughness.dispose()
+    groundMaterial.dispose()
+  }, [terrainMaps, groundMaterial])
 
   // §6.4: the golden-hour HDRI is a *blocking* S0 asset, same tier as
   // exterior.glb — loading it through useLoader (Suspense) registers it with
@@ -138,7 +218,7 @@ export function EnvironmentPlaceholder() {
     scene.fog = new FogExp2(colorRef.current.getHex(), 0.0015)
   }, [scene])
 
-  useFrame(() => {
+  useFrame(({ camera }) => {
     const { progress } = useScrollStore.getState()
     const theme = sampleEnvironmentTheme(progress)
     colorRef.current.copy(theme.background)
@@ -148,12 +228,19 @@ export function EnvironmentPlaceholder() {
       scene.fog.density = theme.fogDensity
     }
     scene.environmentIntensity = theme.environmentIntensity
-    if (groundMaterialRef.current) groundMaterialRef.current.color.copy(theme.ground)
-    const groundFade = clamp01Reveal((GROUND_FADE_END - progress) / (GROUND_FADE_END - GROUND_FADE_START))
-    if (groundRef.current) groundRef.current.visible = groundFade > 0.01
-    if (groundMaterialRef.current) {
-      groundMaterialRef.current.opacity = groundFade
-      groundMaterialRef.current.depthWrite = groundFade > 0.98
+    // E1/E6: the section ground tint still drives the base color the
+    // procedural detail multiplies against, so S5/S7's near-black `ground`
+    // still reads as near-black (E6) even once the disc below has visible
+    // patch variation. No more fade/hide here — E1 removed the 30.5% cutoff
+    // this used to implement; the disc instead dissolves into fog by its
+    // own radius (see groundMaterial's onBeforeCompile above).
+    groundMaterial.color.copy(theme.ground)
+    if (groundRef.current) {
+      // Fase E piece 1: re-centers on the camera every frame so a disc of
+      // fixed, generous size never needs to be as large as the world the
+      // camera can reach — see TERRAIN_DISC_SIZE's comment.
+      groundRef.current.position.x = camera.position.x
+      groundRef.current.position.z = camera.position.z
     }
 
     const revealStart = loadingState.revealStartSeconds
@@ -265,15 +352,21 @@ export function EnvironmentPlaceholder() {
         castShadow={EXTERIOR_LIGHTS.rim.castsShadow}
       />
       <hemisphereLight ref={hemisphereRef} name="Exterior · Hemisphere · Sky/ground fill" intensity={0.4} />
+      {/* Fase E piece 1 (plan3.md §4/§1.8): camera-following terrain disc,
+          replacing the world-fixed 4000x4000 plane whose straight edge used
+          to be exposed by S3's own thin fog (§1.8's 37%-transmittance
+          measurement). One draw call, 2 triangles either way — re-centering
+          on the camera every frame (see the useFrame above) means a modest
+          fixed size can stand in for an arbitrarily large world instead of
+          needing to actually be one. */}
       <mesh
         ref={groundRef}
-        name="Environment · Ground"
+        name="Environment · Terrain disc"
         rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, 0, 0]}
+        material={groundMaterial}
         receiveShadow
       >
-        <planeGeometry args={[4000, 4000]} />
-        <meshStandardMaterial ref={groundMaterialRef} color="#59664d" roughness={1} transparent />
+        <planeGeometry args={[TERRAIN_DISC_SIZE, TERRAIN_DISC_SIZE]} />
       </mesh>
       {/* B5: 32x32 facets a 2048x1024-texel equirect UV over huge triangles,
           visible as gradient banding and a faceted sun disc; >=96x48 is the

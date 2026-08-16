@@ -10,6 +10,7 @@ import { SectionGrade } from './SectionGrade'
 
 const THRESHOLD_SECTION_INDEX = 3 // S4
 const INTERIOR_SECTION_INDEX = 4 // S5
+const EXIT_SECTION_INDEX = 5 // S6
 
 /**
  * `postprocessing` (pmndrs), not three.js's own bundled `EffectComposer` —
@@ -75,7 +76,11 @@ export function PostFX({ sunRef }: { sunRef: RefObject<Mesh | null> }) {
   }
 
   const showDoF = activeIndex === INTERIOR_SECTION_INDEX
-  const showGodRays = activeIndex === THRESHOLD_SECTION_INDEX && sunRef.current !== null
+  // F3 (plan3.md): the sun disc/glare used to exist only at the threshold
+  // (S4) — SunMesh.tsx now also places it in frame for S6's dusk, so the
+  // same GodRays pass that already exists for S4 applies there too instead
+  // of a second, duplicate effect.
+  const showGodRays = (activeIndex === THRESHOLD_SECTION_INDEX || activeIndex === EXIT_SECTION_INDEX) && sunRef.current !== null
 
   // EffectComposerProps.children is typed JSX.Element | JSX.Element[] — no
   // booleans/null, and no mixing bare elements with a nested array either

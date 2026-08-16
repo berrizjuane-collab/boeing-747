@@ -1,7 +1,20 @@
+import { existsSync } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { chromium } from 'playwright'
 import sharp from 'sharp'
+
+// Some sandboxes pre-install a Chromium build outside Playwright's own
+// pinned-revision cache, under a fixed path documented by that environment
+// (not something this repo controls or should assume). When the revision
+// this package.json's Playwright expects isn't present — a fresh container
+// whose browser cache doesn't match what got pinned — launching would fail
+// asking to `npx playwright install`, which these sandboxes intentionally
+// block. Falling back to that known path only when it actually exists on
+// disk keeps every other environment (CI included) on Playwright's normal
+// resolution, unchanged.
+const SANDBOX_CHROMIUM_PATH = '/opt/pw-browsers/chromium'
+const executablePath = existsSync(SANDBOX_CHROMIUM_PATH) ? SANDBOX_CHROMIUM_PATH : undefined
 
 const baseURL = process.env.VISUAL_QA_URL ?? 'http://127.0.0.1:4173/boeing-747/'
 const outputDir = path.resolve(process.env.VISUAL_QA_DIR ?? 'artifacts/final-visuals')
@@ -28,6 +41,7 @@ await mkdir(outputDir, { recursive: true })
 
 const browser = await chromium.launch({
   headless: true,
+  executablePath,
   args: [
     '--enable-webgl',
     '--ignore-gpu-blocklist',
