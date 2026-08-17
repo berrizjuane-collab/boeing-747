@@ -8,9 +8,13 @@ se denominan **MERIDIAN — Airbus A380-800**.
 **Documentación completa y estado real:** [`PLAN.md`](./PLAN.md) y
 [`PROGRESS.md`](./PROGRESS.md) conservan la primera entrega; la ronda de
 corrección visual quedó registrada en [`plan2.md`](./plan2.md) y
-[`progress2.md`](./progress2.md). Los **documentos activos** son
-[`plan3.md`](./plan3.md) —ronda de fidelidad de entorno y dirección de
-arte— y su checklist de evidencia [`progress3.md`](./progress3.md).
+[`progress2.md`](./progress2.md). La ronda de fidelidad de entorno y
+dirección de arte vive en [`plan3.md`](./plan3.md) y
+[`progress3.md`](./progress3.md), con sus Fases 0/A/B implementadas y
+verificadas y sus Fases C–F sin comenzar. Los **documentos activos** son
+[`plan4.md`](./plan4.md) —ronda de ambientación natural del hero: bosque,
+terreno, tierra expuesta y profundidad atmosférica— y su checklist de
+evidencia [`progress4.md`](./progress4.md).
 
 ## Estado actual
 

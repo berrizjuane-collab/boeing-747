@@ -1,5 +1,7 @@
 # PLAN 3 — Fidelidad de Entorno y Dirección de Arte
 
+> ⚠️ **Este documento está parcialmente cerrado — ver [`plan4.md`](./plan4.md).** Sus Fases 0, A y B están implementadas y verificadas con evidencia en `progress3.md`. Sus Fases **C, D, E y F nunca se comenzaron**. `plan4.md` decide explícitamente qué hace con cada una (`plan4.md §3.4`): **C queda reemplazada** por sus Fases G y H; **la pieza 1 de E** (el disco de terreno que sigue a la cámara) y **E6** quedan **absorbidas**; **D, F y las piezas 2 y 3 de E quedan diferidas y siguen vivas acá**, sin duplicarse — se remiten desde `plan4.md §4 · Fase K` y se siguen marcando en `progress3.md`. Los documentos activos son `plan4.md` y `progress4.md`.
+>
 > **Estado de los documentos previos.** `PLAN.md` / `PROGRESS.md` (ronda 1) y `plan2.md` / `progress2.md` (ronda 2) quedan **cerrados**: sus ítems fueron completados y así están marcados. Este documento, `plan3.md`, es el **documento activo** de aquí en adelante, junto con su checklist espejo `progress3.md`. No se vuelve a marcar nada en `PROGRESS.md` ni en `progress2.md`.
 >
 > **Sesión de planificación.** Ni una línea de este documento es código de implementación. Los únicos entregables de la sesión que lo produjo son `plan3.md` y `progress3.md` (más el movimiento de punteros en `README.md` y `plan2.md`).

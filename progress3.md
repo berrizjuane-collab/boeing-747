@@ -1,6 +1,8 @@
 # PROGRESS 3 — Fidelidad de Entorno y Dirección de Arte
 
-> Checklist espejo de [`plan3.md`](./plan3.md). **Documento activo de tracking.** `PROGRESS.md` (ronda 1) y `progress2.md` (ronda 2) quedan cerrados y no se vuelven a marcar.
+> ⚠️ **Parcialmente cerrado — el documento activo de tracking es [`progress4.md`](./progress4.md).** Las Fases 0, A y B de abajo están completas con evidencia y no se vuelven a marcar. Las Fases **C, D, E y F siguen sin comenzar**: lo que `plan4.md §3.4` difiere (D, F, y las piezas 2 y 3 de E) **se sigue marcando acá**; lo que absorbe (C, la pieza 1 de E, y E6) se marca en `progress4.md`.
+>
+> Checklist espejo de [`plan3.md`](./plan3.md). `PROGRESS.md` (ronda 1) y `progress2.md` (ronda 2) quedan cerrados y no se vuelven a marcar.
 >
 > **Convención de estados:** `[ ]` pendiente · `[~]` en curso / condicionado · `[x]` completo · `[!]` bloqueado
 >
