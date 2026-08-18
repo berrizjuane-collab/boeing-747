@@ -11,12 +11,11 @@ import {
   LinearMipmapLinearFilter,
   Mesh,
   MeshBasicMaterial,
-  MeshStandardMaterial,
 } from 'three'
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
+import { TerrainGround } from './TerrainGround'
 import { EXTERIOR_LIGHTS, sampleEnvironmentTheme } from '../lib/environmentTheme'
 import { activeHdriSectionSlot, goldenHourWeight, highAltitudeWeight, sunsetWeight } from '../lib/hdriTheme'
-import { SECTIONS } from '../lib/sections'
 import { duskColorMix, exposureMultiplier } from '../lib/thresholdLighting'
 import { createSkyDomeMaterial } from '../lib/skyDomeMaterial'
 import { exposureState } from '../state/exposureState'
@@ -30,8 +29,6 @@ import { useScrollStore } from '../state/scrollStore'
 // without this they could visibly pop in at different moments).
 const LOAD_REVEAL_DURATION = 1.2
 const clamp01Reveal = (x: number) => Math.min(1, Math.max(0, x))
-const GROUND_FADE_START = SECTIONS[1].end
-const GROUND_FADE_END = SECTIONS[2].start + 0.025
 
 // Comfortably inside the camera's far=3000 (SceneCanvas.tsx) and comfortably
 // outside every keyframe/anchor in the scene (aircraft span ~80m, camera
@@ -82,8 +79,6 @@ export function EnvironmentPlaceholder() {
   const fillRef = useRef<DirectionalLight>(null)
   const rimRef = useRef<DirectionalLight>(null)
   const hemisphereRef = useRef<HemisphereLight>(null)
-  const groundRef = useRef<Mesh>(null)
-  const groundMaterialRef = useRef<MeshStandardMaterial>(null)
   const skyDomeRef = useRef<Mesh>(null)
   const sunsetDomeRef = useRef<Mesh>(null)
 
@@ -148,13 +143,6 @@ export function EnvironmentPlaceholder() {
       scene.fog.density = theme.fogDensity
     }
     scene.environmentIntensity = theme.environmentIntensity
-    if (groundMaterialRef.current) groundMaterialRef.current.color.copy(theme.ground)
-    const groundFade = clamp01Reveal((GROUND_FADE_END - progress) / (GROUND_FADE_END - GROUND_FADE_START))
-    if (groundRef.current) groundRef.current.visible = groundFade > 0.01
-    if (groundMaterialRef.current) {
-      groundMaterialRef.current.opacity = groundFade
-      groundMaterialRef.current.depthWrite = groundFade > 0.98
-    }
 
     const revealStart = loadingState.revealStartSeconds
     const loadReveal = revealStart === null ? 0 : clamp01Reveal((performance.now() / 1000 - revealStart) / LOAD_REVEAL_DURATION)
@@ -265,16 +253,12 @@ export function EnvironmentPlaceholder() {
         castShadow={EXTERIOR_LIGHTS.rim.castsShadow}
       />
       <hemisphereLight ref={hemisphereRef} name="Exterior · Hemisphere · Sky/ground fill" intensity={0.4} />
-      <mesh
-        ref={groundRef}
-        name="Environment · Ground"
-        rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, 0, 0]}
-        receiveShadow
-      >
-        <planeGeometry args={[4000, 4000]} />
-        <meshStandardMaterial ref={groundMaterialRef} color="#59664d" roughness={1} transparent />
-      </mesh>
+      {/* plan4.md Fase G: replaces the old planeGeometry(4000,4000) fixed
+          at the world origin (bug #15) — TerrainGround follows the camera's
+          XZ, carries low-amplitude relief and a procedural terrain texture
+          (G1/G2), the section ground tint (G3) and the canopy-mist fog
+          blend (G4). See TerrainGround.tsx. */}
+      <TerrainGround />
       {/* B5: 32x32 facets a 2048x1024-texel equirect UV over huge triangles,
           visible as gradient banding and a faceted sun disc; >=96x48 is the
           plan's own floor. 128x64 costs 16,384 triangles per dome (2 domes,

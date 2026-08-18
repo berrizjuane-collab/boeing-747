@@ -4,6 +4,7 @@ import { Frustum, InstancedMesh, Matrix4, Mesh, type Camera, type Scene } from '
 import { ACTIVE_TONE_MAPPING_LABEL } from '../lib/postFxConfig'
 import { perfStats } from '../state/perfStats'
 import { exposureState } from '../state/exposureState'
+import { terrainGenerationStats } from '../state/terrainGenerationStats'
 
 declare global {
   interface Window {
@@ -24,6 +25,11 @@ declare global {
        * loadReveal — see EnvironmentPlaceholder.tsx), so visual QA can assert
        * S6 actually reaches neutral instead of trusting the formula alone. */
       effectiveExposure: number
+      /** plan4.md 04-04/G2: real generation hitch of the last
+       * createTerrainSurfaceMaps() call (TerrainGround.tsx), measured
+       * against the plan3.md §3.2 80-200ms estimate instead of trusting it
+       * unverified. Null until the terrain texture has generated once. */
+      terrainGenerationMs: number | null
     }
   }
 }
@@ -101,6 +107,7 @@ export function StatsCollector() {
       toneMappingMode: ACTIVE_TONE_MAPPING_LABEL,
       sceneEnvironmentIsNull: scene.environment === null,
       effectiveExposure: exposureState.value,
+      terrainGenerationMs: terrainGenerationStats.lastGenerationMs,
     }
     gl.info.reset()
   }, 2)
