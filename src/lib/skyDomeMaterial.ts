@@ -1,4 +1,16 @@
-import { ShaderMaterial, Texture, BackSide } from 'three'
+import { Color, ShaderMaterial, Texture, BackSide } from 'three'
+import {
+  horizonBandFragmentParsChunk,
+  horizonBandVertexMainChunk,
+  horizonBandVertexParsChunk,
+  HORIZON_BAND_HALF_SIN,
+} from './skyHorizonBand'
+
+export interface SkyDomeMaterialHandles {
+  material: ShaderMaterial
+  /** Mutated per frame from outside — same external-uniform-ref pattern terrainGroundMaterial.ts (G4) already uses. */
+  horizonHazeColor: { value: Color }
+}
 
 /**
  * Single sky dome, single transparent surface, blending two equirectangular
@@ -16,9 +28,15 @@ import { ShaderMaterial, Texture, BackSide } from 'three'
  * before S4 so scene.background's flat fog-matched color shows through
  * unchanged for S4-S7 — see hdriTheme.ts). Rendered BackSide because the
  * camera is always inside this sphere.
+ *
+ * plan4.md Fase I1/bug #14: also blends toward `horizonHazeColor` in a band
+ * around the true horizon (skyHorizonBand.ts) — see that module for why
+ * elevation is measured from the real camera position, not dome-local
+ * direction, and why the blend runs before tonemapping.
  */
-export function createSkyDomeMaterial(goldenHourMap: Texture, highAltitudeMap: Texture) {
-  return new ShaderMaterial({
+export function createSkyDomeMaterial(goldenHourMap: Texture, highAltitudeMap: Texture): SkyDomeMaterialHandles {
+  const horizonHazeColor = { value: new Color('#e9a66c') }
+  const material = new ShaderMaterial({
     side: BackSide,
     transparent: true,
     depthWrite: false,
@@ -34,11 +52,15 @@ export function createSkyDomeMaterial(goldenHourMap: Texture, highAltitudeMap: T
       highAltitudeMap: { value: highAltitudeMap },
       mixFactor: { value: 0 },
       opacity: { value: 1 },
+      horizonHazeColor,
+      horizonBandHalfSin: { value: HORIZON_BAND_HALF_SIN },
     },
     vertexShader: /* glsl */ `
       varying vec2 vSkyUv;
+      ${horizonBandVertexParsChunk}
       void main() {
         vSkyUv = uv;
+        ${horizonBandVertexMainChunk}
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
       }
     `,
@@ -48,11 +70,14 @@ export function createSkyDomeMaterial(goldenHourMap: Texture, highAltitudeMap: T
       uniform float mixFactor;
       uniform float opacity;
       varying vec2 vSkyUv;
+      ${horizonBandFragmentParsChunk}
 
       void main() {
         vec3 golden = texture2D(goldenHourMap, vSkyUv).rgb;
         vec3 highAltitude = texture2D(highAltitudeMap, vSkyUv).rgb;
-        gl_FragColor = vec4(mix(golden, highAltitude, mixFactor), opacity);
+        vec3 skyColor = mix(golden, highAltitude, mixFactor);
+        skyColor = applyHorizonHazeBand(skyColor);
+        gl_FragColor = vec4(skyColor, opacity);
         // plan3.md bug #9: the material already declares toneMapped: true
         // above, but that flag only defines the TONE_MAPPING preprocessor
         // symbol — three.js never auto-injects the chunk itself into a
@@ -65,4 +90,5 @@ export function createSkyDomeMaterial(goldenHourMap: Texture, highAltitudeMap: T
       }
     `,
   })
+  return { material, horizonHazeColor }
 }

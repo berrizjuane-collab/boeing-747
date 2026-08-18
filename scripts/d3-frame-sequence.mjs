@@ -28,6 +28,11 @@ await mkdir(outputDir, { recursive: true })
 
 const browser = await chromium.launch({
   headless: true,
+  // Same override as visual-qa.mjs, same reason: some sandboxes pre-install
+  // a Chromium build under a different Playwright revision number than
+  // this project's Playwright version expects — unset in CI, where
+  // `npx playwright install` fetches the pinned revision itself.
+  executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined,
   args: [
     '--enable-webgl',
     '--ignore-gpu-blocklist',

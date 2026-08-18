@@ -2,7 +2,6 @@ import { Environment } from '@react-three/drei'
 import { useFrame, useLoader, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
 import {
-  BackSide,
   Color,
   DirectionalLight,
   EquirectangularReflectionMapping,
@@ -10,14 +9,15 @@ import {
   HemisphereLight,
   LinearMipmapLinearFilter,
   Mesh,
-  MeshBasicMaterial,
 } from 'three'
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
 import { TerrainGround } from './TerrainGround'
+import { computeCanopyMistColor } from '../lib/canopyMist'
 import { EXTERIOR_LIGHTS, sampleEnvironmentTheme } from '../lib/environmentTheme'
 import { activeHdriSectionSlot, goldenHourWeight, highAltitudeWeight, sunsetWeight } from '../lib/hdriTheme'
 import { duskColorMix, exposureMultiplier } from '../lib/thresholdLighting'
 import { createSkyDomeMaterial } from '../lib/skyDomeMaterial'
+import { createSunsetDomeMaterial } from '../lib/sunsetDomeMaterial'
 import { exposureState } from '../state/exposureState'
 import { loadingState } from '../state/loadingState'
 import { useScrollStore } from '../state/scrollStore'
@@ -97,20 +97,15 @@ export function EnvironmentPlaceholder() {
     `${import.meta.env.BASE_URL}hdri/high-altitude.hdr`,
     `${import.meta.env.BASE_URL}hdri/sunset.hdr`,
   ])
-  const skyMaterial = useMemo(() => createSkyDomeMaterial(goldenHourMap, highAltitudeMap), [goldenHourMap, highAltitudeMap])
-  const sunsetMaterial = useMemo(
-    () =>
-      new MeshBasicMaterial({
-        map: sunsetMap,
-        side: BackSide,
-        transparent: true,
-        opacity: 0,
-        depthWrite: false,
-        fog: false,
-        toneMapped: true,
-      }),
-    [sunsetMap],
+  const { material: skyMaterial, horizonHazeColor: skyHorizonHazeColor } = useMemo(
+    () => createSkyDomeMaterial(goldenHourMap, highAltitudeMap),
+    [goldenHourMap, highAltitudeMap],
   )
+  const {
+    material: sunsetMaterial,
+    horizonHazeColor: sunsetHorizonHazeColor,
+    opacity: sunsetOpacityUniform,
+  } = useMemo(() => createSunsetDomeMaterial(sunsetMap), [sunsetMap])
 
   useEffect(() => {
     // plan3.md B5/§1.5: RGBELoader's default minFilter (LinearFilter, no
@@ -137,6 +132,11 @@ export function EnvironmentPlaceholder() {
     const { progress } = useScrollStore.getState()
     const theme = sampleEnvironmentTheme(progress)
     colorRef.current.copy(theme.background)
+    // Fase I1/I2: same canopy-mist colour Fase H's forest/grass/terrain
+    // converge toward (canopyMist.ts) — the sky's horizon band and the
+    // ground's own fog dissolve meet at the identical value.
+    computeCanopyMistColor(theme.background, skyHorizonHazeColor.value)
+    sunsetHorizonHazeColor.value.copy(skyHorizonHazeColor.value)
     if (scene.fog instanceof FogExp2) {
       fogColorRef.current.copy(colorRef.current).lerp(WARM_FOG_COLOR, duskColorMix(progress))
       scene.fog.color.copy(fogColorRef.current)
@@ -192,7 +192,7 @@ export function EnvironmentPlaceholder() {
     if (skyDomeRef.current) skyDomeRef.current.visible = skyOpacity > 1e-4
 
     const sunsetOpacity = sunsetWeight(progress)
-    sunsetMaterial.opacity = sunsetOpacity
+    sunsetOpacityUniform.value = sunsetOpacity
     if (sunsetDomeRef.current) sunsetDomeRef.current.visible = sunsetOpacity > 1e-4
   })
 
