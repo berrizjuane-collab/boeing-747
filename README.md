@@ -14,7 +14,10 @@ dirección de arte vive en [`plan3.md`](./plan3.md) y
 verificadas y sus Fases C–F sin comenzar. Los **documentos activos** son
 [`plan4.md`](./plan4.md) —ronda de ambientación natural del hero: bosque,
 terreno, tierra expuesta y profundidad atmosférica— y su checklist de
-evidencia [`progress4.md`](./progress4.md).
+evidencia [`progress4.md`](./progress4.md), con sus Fases 0₄/G/H completas y
+verificadas, Fase I implementada con un punto numérico abierto y
+documentado (bug #14, ver `progress4.md` I4), y Fase J (presupuesto y
+regresión) cerrada.
 
 ## Estado actual
 
