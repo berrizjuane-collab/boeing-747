@@ -2,6 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { chromium } from 'playwright'
 import sharp from 'sharp'
+import { groundDetailEnergy, horizonMetrics } from './imageMetrics.mjs'
 
 const baseURL = process.env.VISUAL_QA_URL ?? 'http://127.0.0.1:4173/boeing-747/'
 const outputDir = path.resolve(process.env.VISUAL_QA_DIR ?? 'artifacts/final-visuals')
@@ -28,6 +29,15 @@ await mkdir(outputDir, { recursive: true })
 
 const browser = await chromium.launch({
   headless: true,
+  // Unset in CI (npx playwright install fetches its own pinned revision
+  // there). Some sandboxes pre-install a browser under a different
+  // revision number than this project's Playwright version expects, with
+  // no matching on-disk layout for a version-number symlink to paper over
+  // (Chrome-for-Testing builds renamed chrome-linux/ to chrome-linux64/
+  // partway through Chromium's revision history) — this override lets a
+  // local run point straight at that pre-installed binary without editing
+  // committed launch args for every environment.
+  executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined,
   args: [
     '--enable-webgl',
     '--ignore-gpu-blocklist',
@@ -90,6 +100,13 @@ async function measureScreenshot(file, panelBounds) {
     clippedWhitePct: (clippedWhite / pixels) * 100,
     panelContrastEstimate: null,
   }
+
+  const horizon = horizonMetrics(data, info)
+  result.horizonRow = horizon.horizonRow
+  result.horizonStepEstimate = horizon.horizonStepEstimate
+  result.horizonStepMedian = horizon.horizonStepMedian
+  result.horizonStepRatio = horizon.horizonStepRatio
+  result.groundDetailEnergy = groundDetailEnergy(data, info, horizon.horizonRow)
 
   if (panelBounds) {
     const left = Math.max(0, Math.floor(panelBounds.x + 4))

@@ -2,6 +2,16 @@ import { BufferGeometry, Float32BufferAttribute } from 'three'
 
 export const RUNWAY_SURFACE_Y = 0.025
 
+// plan4.md bug #16: the physical runway box (RunwayEnvironment.tsx's
+// asphalt boxGeometry) used to declare these as private local constants
+// duplicating what this module's marking geometry already assumes about
+// the runway's footprint. Exported here so anything that needs the
+// aerodrome's real extents (the terrain keep-out in aerodromeKeepOut.ts,
+// the airport ground plan of a later round) imports the same two numbers
+// instead of re-typing them.
+export const RUNWAY_WIDTH = 32
+export const RUNWAY_LENGTH = 520
+
 interface QuadBuffers {
   positions: number[]
   normals: number[]

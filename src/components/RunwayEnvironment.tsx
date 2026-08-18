@@ -16,7 +16,8 @@ import {
   UniformsUtils,
 } from 'three'
 import { getAircraftPose } from '../lib/aircraftPose'
-import { createRunwayMarkingsGeometry, RUNWAY_SURFACE_Y } from '../lib/runwayGeometry'
+import { createRunwayMarkingsGeometry, RUNWAY_LENGTH, RUNWAY_SURFACE_Y, RUNWAY_WIDTH } from '../lib/runwayGeometry'
+import { seededRandom } from '../lib/seededRandom'
 import { SECTIONS } from '../lib/sections'
 import { TIER_SETTINGS, type QualityTier, useQualityStore } from '../state/qualityStore'
 import { reducedMotionState } from '../state/reducedMotion'
@@ -29,21 +30,6 @@ function smoothstep(edge0: number, edge1: number, value: number) {
   const t = clamp01((value - edge0) / (edge1 - edge0))
   return t * t * (3 - 2 * t)
 }
-
-/** Deterministic PRNG: visual QA receives the same vegetation and dust every run. */
-function seededRandom(seed: number) {
-  let state = seed >>> 0
-  return () => {
-    state += 0x6d2b79f5
-    let value = state
-    value = Math.imul(value ^ (value >>> 15), value | 1)
-    value ^= value + Math.imul(value ^ (value >>> 7), value | 61)
-    return ((value ^ (value >>> 14)) >>> 0) / 4_294_967_296
-  }
-}
-
-const RUNWAY_WIDTH = 32
-const RUNWAY_LENGTH = 520
 
 function Runway() {
   const markingsGeometry = useMemo(createRunwayMarkingsGeometry, [])
@@ -216,11 +202,23 @@ function VegetationBands() {
   )
 }
 
-const HANGARS = [
+// plan4.md bug #16/§04-03: exported so the aerodrome keep-out
+// (src/lib/aerodromeKeepOut.ts) imports the exact same footprint the
+// hangars actually render at, instead of a re-typed approximation that
+// could silently drift from this table.
+export const HANGARS = [
   { position: [-105, 6, -35] as const, size: [38, 12, 30] as const, color: '#596168' },
   { position: [-101, 5, 4] as const, size: [30, 10, 24] as const, color: '#697078' },
   { position: [-24, 7, -102] as const, size: [44, 14, 34] as const, color: '#515a62' },
 ] as const
+
+export const APRON = { position: [-58, 0.012, -45] as const, size: [162, 112] as const }
+
+export const CONTROL_TOWER_POSITION = [-82, 0, -18] as const
+// Widest radial extent among the tower's stacked cylinders (the roof disc,
+// cylinderGeometry radii [6.6, 5.5, ...] below) — the footprint the keep-out
+// needs, not the shaft's narrower radius.
+export const CONTROL_TOWER_ROOF_RADIUS = 6.6
 
 function createGableRoofGeometry() {
   const geometry = new BufferGeometry()
@@ -285,8 +283,8 @@ function DistantAirport() {
   return (
     <group name="Airport · Terminal silhouettes" visible={tier !== 'low'}>
       {showLowPriorityDetails && (
-        <mesh name="Airport · Apron" rotation={[-Math.PI / 2, 0, 0]} position={[-58, 0.012, -45]} receiveShadow>
-          <planeGeometry args={[162, 112]} />
+        <mesh name="Airport · Apron" rotation={[-Math.PI / 2, 0, 0]} position={APRON.position} receiveShadow>
+          <planeGeometry args={APRON.size} />
           <meshStandardMaterial color="#454b4c" roughness={0.98} />
         </mesh>
       )}
@@ -304,7 +302,7 @@ function DistantAirport() {
         <meshStandardMaterial color="#7b858a" roughness={0.76} metalness={0.08} />
       </instancedMesh>
 
-      <group name="Airport · Control tower" position={[-82, 0, -18]}>
+      <group name="Airport · Control tower" position={CONTROL_TOWER_POSITION}>
         <mesh name="Control tower · Shaft" position={[0, 13, 0]} castShadow receiveShadow>
           <cylinderGeometry args={[2.2, 3.3, 26, 10]} />
           <meshStandardMaterial color="#727b7f" roughness={0.8} />
@@ -320,7 +318,7 @@ function DistantAirport() {
               <meshStandardMaterial color="#20343f" emissive="#172a34" emissiveIntensity={0.18} roughness={0.24} />
             </mesh>
             <mesh name="Control tower · Roof" position={[0, 30.7, 0]}>
-              <cylinderGeometry args={[6.6, 5.5, 0.55, 10]} />
+              <cylinderGeometry args={[CONTROL_TOWER_ROOF_RADIUS, 5.5, 0.55, 10]} />
               <meshStandardMaterial color="#4d5559" roughness={0.7} />
             </mesh>
             <mesh name="Control tower · Beacon" position={[0, 31.45, 0]}>
