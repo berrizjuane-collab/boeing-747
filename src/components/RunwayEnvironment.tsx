@@ -4,7 +4,6 @@ import {
   AdditiveBlending,
   BufferGeometry,
   Color,
-  DoubleSide,
   DynamicDrawUsage,
   Float32BufferAttribute,
   InstancedMesh as InstancedMeshImpl,
@@ -19,9 +18,11 @@ import { getAircraftPose } from '../lib/aircraftPose'
 import { createRunwayMarkingsGeometry, RUNWAY_LENGTH, RUNWAY_SURFACE_Y, RUNWAY_WIDTH } from '../lib/runwayGeometry'
 import { seededRandom } from '../lib/seededRandom'
 import { SECTIONS } from '../lib/sections'
-import { TIER_SETTINGS, type QualityTier, useQualityStore } from '../state/qualityStore'
+import { TIER_SETTINGS, useQualityStore } from '../state/qualityStore'
 import { reducedMotionState } from '../state/reducedMotion'
 import { useScrollStore } from '../state/scrollStore'
+import { Forest } from './Forest'
+import { Grass } from './Grass'
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value))
 
@@ -118,87 +119,6 @@ function AircraftGroundShadow() {
     >
       <planeGeometry args={[1, 1]} />
     </mesh>
-  )
-}
-
-const VEGETATION_MAX = 720
-// plan3.md bug #11: `low` used to carry a nonzero count (144) that never
-// mattered — the whole mesh is hidden in that tier (`visible={tier !==
-// 'low'}` below), so whatever `count` it was passed drew nothing. 0 is the
-// number that actually describes what low renders.
-const VEGETATION_COUNT: Record<QualityTier, number> = { high: 720, mid: 360, low: 0 }
-
-function createGrassClumpGeometry() {
-  const positions: number[] = []
-  const indices: number[] = []
-  for (let blade = 0; blade < 3; blade += 1) {
-    const angle = (blade / 3) * Math.PI
-    const cos = Math.cos(angle)
-    const sin = Math.sin(angle)
-    const first = positions.length / 3
-    for (const [x, y] of [[-0.24, 0], [0.24, 0], [0, 1]] as const) {
-      positions.push(x * cos, y, -x * sin)
-    }
-    indices.push(first, first + 1, first + 2)
-  }
-  const geometry = new BufferGeometry()
-  geometry.setAttribute('position', new Float32BufferAttribute(positions, 3))
-  geometry.setIndex(indices)
-  geometry.computeVertexNormals()
-  geometry.computeBoundingSphere()
-  return geometry
-}
-
-/** One low-poly instanced grass field; tier changes alter instance count, never draw calls. */
-function VegetationBands() {
-  const meshRef = useRef<InstancedMeshImpl>(null)
-  const tier = useQualityStore((state) => state.tier)
-  const grassGeometry = useMemo(createGrassClumpGeometry, [])
-
-  useLayoutEffect(() => {
-    const mesh = meshRef.current
-    if (!mesh) return
-    const random = seededRandom(0xa38026)
-    const dummy = new Object3D()
-    const coolGreen = new Color('#52664c')
-    const sunlitGreen = new Color('#96a269')
-    const instanceColor = new Color()
-
-    mesh.instanceMatrix.setUsage(StaticDrawUsage)
-    for (let index = 0; index < VEGETATION_MAX; index += 1) {
-      const side = index % 2 === 0 ? -1 : 1
-      const lateral = 18 + random() * 72
-      const height = 0.55 + random() * 1.05
-      dummy.position.set(side * lateral, RUNWAY_SURFACE_Y, -255 + random() * 510)
-      dummy.rotation.set(0, random() * Math.PI * 2, 0)
-      dummy.scale.set(0.65 + random() * 1.1, height, 0.65 + random() * 1.1)
-      dummy.updateMatrix()
-      mesh.setMatrixAt(index, dummy.matrix)
-      mesh.setColorAt(index, instanceColor.copy(coolGreen).lerp(sunlitGreen, random()))
-    }
-    mesh.instanceMatrix.needsUpdate = true
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
-    mesh.computeBoundingSphere()
-  }, [])
-
-  return (
-    <instancedMesh
-      ref={meshRef}
-      name="Airport · Instanced grass bands"
-      args={[grassGeometry, undefined, VEGETATION_MAX]}
-      count={VEGETATION_COUNT[tier]}
-      visible={tier !== 'low'}
-      receiveShadow
-    >
-      <meshStandardMaterial
-        color="#ffffff"
-        emissive="#314431"
-        emissiveIntensity={0.42}
-        roughness={1}
-        side={DoubleSide}
-        vertexColors
-      />
-    </instancedMesh>
   )
 }
 
@@ -526,7 +446,8 @@ function HeroAirportEnvironment() {
     <group ref={groupRef} name="Environment · Hero airport">
       <Runway />
       <AircraftGroundShadow />
-      <VegetationBands />
+      <Forest />
+      <Grass />
       <DistantAirport />
       <DustParticles />
     </group>

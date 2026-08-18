@@ -1,6 +1,7 @@
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
 import { Vector2, type Mesh } from 'three'
+import { computeCanopyMistColor } from '../lib/canopyMist'
 import { sampleEnvironmentTheme } from '../lib/environmentTheme'
 import { createTerrainDiscGeometry, updateTerrainDiscForCenter } from '../lib/terrainGeometry'
 import { applyGroundTint, groundFade } from '../lib/terrainGroundCurves'
@@ -37,7 +38,6 @@ export function TerrainGround() {
   const geometry = useMemo(createTerrainDiscGeometry, [])
   const { material, canopyMistColor } = useMemo(createTerrainGroundMaterial, [])
   const lastCenter = useRef({ x: Number.NaN, z: Number.NaN })
-  const hsl = useRef({ h: 0, s: 0, l: 0 })
   const tier = useQualityStore((state) => state.tier)
 
   // plan4.md G2/04-04: regenerated only when the tier actually changes
@@ -87,13 +87,9 @@ export function TerrainGround() {
 
     // G4: canopy mist — warmer and measurably brighter than theme.background
     // itself, not a copy of scene.fog.color (see terrainGroundMaterial.ts).
-    canopyMistColor.value.copy(theme.background)
-    canopyMistColor.value.getHSL(hsl.current)
-    canopyMistColor.value.setHSL(
-      (hsl.current.h + 0.02) % 1,
-      Math.max(hsl.current.s, 0.4),
-      Math.min(1, hsl.current.l + 0.22),
-    )
+    // Shared formula (canopyMist.ts) so Fase H's forest/grass and Fase I's
+    // sky-dome horizon band converge on the identical colour.
+    computeCanopyMistColor(theme.background, canopyMistColor.value)
 
     // Pre-existing S2/S3 crossfade, unchanged mechanism.
     const fade = groundFade(progress)

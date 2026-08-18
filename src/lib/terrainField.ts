@@ -118,7 +118,11 @@ export function terrainHeightAt(x: number, z: number): number {
 export const TREE_BAND_RADII = { near: 400, mid: 900, far: 1500 } as const
 export type TreeBand = 'near' | 'mid' | 'far'
 
-const FOREST_DENSITY_CELL_SIZE = 130
+// Exported for Fase H2's own clustering test (tests/plan4-fase-h.test.mjs):
+// the quadrat size that test bins forest instances into to measure
+// variance-to-mean ratio needs to match this field's own correlation
+// length to actually detect patch-scale clustering, not a re-typed guess.
+export const FOREST_DENSITY_CELL_SIZE = 130
 const FOREST_DENSITY_WARP = 22
 // §3.1 property 1: manchones, not a uniform carpet — density has to have
 // real gaps (bare ground between clusters), so the coverage target is
