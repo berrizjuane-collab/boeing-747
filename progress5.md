@@ -69,7 +69,7 @@ Ronda cerrada: exterior e interior implementados y verificados. 41/41 tests (`np
 
 | # | Ítem | Estado | Evidencia |
 |---|---|---|---|
-| J1 | Presupuesto sostenido en High | [x] | **[medido]** ver tabla de abajo |
+| J1 | Presupuesto sostenido en High | [x] | **[medido]** ver tabla de abajo. Hero: 37 → 73 draw calls (+36: bosque 6, pasto 1, aeródromo ~28, luces del avión 1) y 104.734 → 755.481 triángulos (+650 k: pasto 8.000×44 = 352 k, bosque ≈ 265 k, colinas 9 k, aeródromo ≈ 25 k). Dentro de 250 / 1,5 M con margen de 177 draw calls y 745 k triángulos. Interior S5: 141 → 143 draw calls (+2 netos: atmósfera de cabina 4, gateo de detalles) |
 | J2 | Mobile Low con vegetación y margen | [x] | **[medido]** ver tabla de abajo |
 | J2-nota | `plan4.md` aspiraba a ≤ 20 draw calls en Mobile Low con vegetación | [!] | **No se alcanza: 49 de 100.** El bosque cuesta 6 draw calls fijos y el aeródromo ~30 incluso con los detalles gateados en Low (mástiles y granja ocultos). El techo duro de `PLAN.md §7.1` (100) se sostiene con 51 de margen; bajar de 20 exigiría fusionar la torre y la terminal en un solo mesh por material, que queda como trabajo futuro declarado, no como techo subido |
 | I4-nota | Métrica `horizonStepRatio` de `scripts/imageMetrics.mjs` | [!] | **Hallazgo honesto sobre la métrica de la ronda 4**: escanea la luminancia media de filas completas, y el salto más grande del hero (fila 365, en la línea base y ahora) es el borde superior del panel de overlay del DOM, no el horizonte; el "134×" de `progress4.md` 04-01 medía ese panel. Medido en una banda de columnas sin panel ni avión (x 1330–1430, filas 200–480, `artifacts/horizon.mjs`): **29,9× antes → 4,0× después** [medido]. `groundDetailEnergy` de 02-takeoff: **2,84 → 6,02** [medido] (criterio H2 de `plan4.md`: ≥ 4× la base → no alcanzado como múltiplo, 2,1×, pero la banda medida ya no es suelo plano sino bosque brumoso, que por diseño tiene menos energía de borde que árboles nítidos) |
@@ -80,15 +80,15 @@ Ronda cerrada: exterior e interior implementados y verificados. 41/41 tests (`np
 | Captura | Tier | Draw calls (techo) | Triángulos en pantalla (techo) |
 |---|---|---|---|
 | 01-hero (0,01) antes | High | 37 (250) | 104.734 (1,5 M) |
-| 01-hero (0,01) después | High | MEASURED_HERO_HIGH_DC (250) | MEASURED_HERO_HIGH_TRIS (1,5 M) |
-| 02-takeoff (0,19) después | High | MEASURED_TAKEOFF_DC | MEASURED_TAKEOFF_TRIS |
+| 01-hero (0,01) después | High | **73** (250) | **755.481** (1,5 M) |
+| 02-takeoff (0,19) después | High | **74** (250) | **755.493** (1,5 M) |
 | 05b-economy (0,60) antes | High | 141 | 321.730 |
-| 05b-economy (0,60) después | High | MEASURED_ECONOMY_DC | MEASURED_ECONOMY_TRIS |
-| 06c-sunset (0,88) después | High | MEASURED_SUNSET_DC | MEASURED_SUNSET_TRIS |
+| 05b-economy (0,60) después | High | **143** (250) | **321.814** (1,5 M) |
+| 06c-sunset (0,88) después | High | **28** (250) | **57.852** (1,5 M) |
 | mobile hero (0,01) antes | Low | 8 (100) | — (500 k) |
 | mobile hero (0,01) después | Low | **49** (100) | **284.270** (500 k) |
 | mobile interior (0,60) después | Low | **86** (100) | **321.814** (500 k) |
 
 ## Registro de sesiones
 
-- **Sesión única (2026-09-02).** Línea base capturada antes de tocar código; cuatro iteraciones con captura intermedia (`artifacts/iter1..4`, no versionadas) para corregir paleta del bosque (lima → oliva oscuro), suelo (rojo vino → terracota con parches oliva; requirió subir la luz hemisférica de S1/S2), pasto (mechones → matas de 11 hojas), asfalto (moteado → grano fino), borde recto del bosque (→ deshilachado + claros), nubes del hero (grises → cálidas y más bajas), degradado de atardecer bajo el horizonte (haze 0,9 → 0,3), mapeo del PFD (faltaba la traslación del nodo de la consola), motas de la alfombra (grava → fibra) y DoF de S5. Evidencia final en `docs/evidence/round5/`.
+- **Sesión única (2026-09-02).** Línea base capturada antes de tocar código; cuatro iteraciones con captura intermedia (`artifacts/iter1..4`, no versionadas) para corregir paleta del bosque (lima → oliva oscuro), suelo (rojo vino → terracota con parches oliva; requirió subir la luz hemisférica de S1/S2), pasto (mechones → matas de 11 hojas), asfalto (moteado → grano fino), borde recto del bosque (→ deshilachado + claros), nubes del hero (grises → cálidas y más bajas), degradado de atardecer bajo el horizonte (haze 0,9 → 0,3), mapeo del PFD (faltaba la traslación del nodo de la consola), motas de la alfombra (grava → fibra) y DoF de S5. Dos defectos vistos sólo en las capturas finales de S2 y corregidos antes de cerrar: hangares, puertas y luces de pista negros (`vertexColors: true` sobre `InstancedMesh` sin atributo `color` — el atributo ausente se lee como (0,0,0) y anula el `instanceColor`; basta `instanceColor` solo) y un borde dentado entre el asfalto (y = 0,02) y el disco de terreno (y = 0) por z-fighting en la cámara alta de S2, invisible en la ronda 4 porque el viejo apron cubría esa franja — resuelto con `polygonOffset` escalonado (asfalto/apron/calle −1, marcas −2). Evidencia final en `docs/evidence/round5/`.

@@ -73,7 +73,7 @@ function ApronAndTaxiways() {
   const concrete = useMemo(() => createConcreteSurfaceMaps(256, 4), [])
   const markings = useMemo(createAirportMarkingsGeometry, [])
   const apronMaterial = useMemo(() => {
-    const material = new MeshStandardMaterial({ color: '#c9c7c0', roughness: 1, metalness: 0 })
+    const material = new MeshStandardMaterial({ color: '#c9c7c0', roughness: 1, metalness: 0, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 })
     material.map = concrete.albedo
     material.normalMap = concrete.normal
     material.normalScale = new Vector2(0.5, 0.5)
@@ -85,7 +85,10 @@ function ApronAndTaxiways() {
     }
     return material
   }, [concrete])
-  const taxiMaterial = useMemo(() => new MeshStandardMaterial({ color: '#4b5054', roughness: 0.96, metalness: 0.02 }), [])
+  const taxiMaterial = useMemo(
+    () => new MeshStandardMaterial({ color: '#4b5054', roughness: 0.96, metalness: 0.02, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }),
+    [],
+  )
   useEffect(
     () => () => {
       concrete.albedo.dispose()
@@ -124,7 +127,7 @@ function ApronAndTaxiways() {
         <boxGeometry args={[1, 0.1, 1]} />
       </instancedMesh>
       <mesh name="Airport · Taxiway and apron markings" geometry={markings} receiveShadow>
-        <meshStandardMaterial color="#e2c23a" roughness={0.8} polygonOffset polygonOffsetFactor={-1} polygonOffsetUnits={-1} />
+        <meshStandardMaterial color="#e2c23a" roughness={0.8} polygonOffset polygonOffsetFactor={-2} polygonOffsetUnits={-2} />
       </mesh>
     </group>
   )
@@ -290,7 +293,7 @@ function Hangars() {
   const roofGeometry = useMemo(createBarrelRoofGeometry, [])
   const ribbed = useMemo(() => createRibbedPanelMaps(128, 10), [])
   const doorMaterial = useMemo(() => {
-    const material = new MeshStandardMaterial({ color: '#ffffff', roughness: 0.55, metalness: 0.35, vertexColors: true })
+    const material = new MeshStandardMaterial({ color: '#ffffff', roughness: 0.55, metalness: 0.35 })
     material.map = ribbed.albedo
     material.normalMap = ribbed.normal
     material.normalScale = new Vector2(0.8, 0.8)
@@ -372,7 +375,7 @@ function Hangars() {
     <group name="Airport · Hangars">
       <instancedMesh ref={wallsRef} name="Hangar · Walls" args={[undefined, undefined, HANGARS.length]} castShadow receiveShadow>
         <boxGeometry args={[1, 1, 1]} />
-        <meshStandardMaterial color="#ffffff" roughness={0.78} metalness={0.08} vertexColors />
+        <meshStandardMaterial color="#ffffff" roughness={0.78} metalness={0.08} />
       </instancedMesh>
       <instancedMesh ref={roofsRef} name="Hangar · Barrel roofs" args={[roofGeometry, undefined, HANGARS.length]} castShadow>
         <meshStandardMaterial color="#6e767c" roughness={0.5} metalness={0.35} side={2} />

@@ -44,7 +44,12 @@ function Runway() {
   // texture's own measured budget in progress4.md 04-04).
   const surface = useMemo(() => createRunwaySurfaceMaps(256, 1024), [])
   const asphaltMaterial = useMemo(() => {
-    const material = new MeshStandardMaterial({ color: '#ffffff', roughness: 1, metalness: 0.02 })
+    // polygonOffset: the asphalt top sits 2 cm over the flattened terrain
+    // disc; at S2's high, oblique camera the two z-fight along a sawtooth
+    // line (seen in the round-5 captures once the old apron slab no longer
+    // covered the strip beside the runway). Asphalt pulls -1, markings -2,
+    // so the stack resolves by offset instead of by depth precision.
+    const material = new MeshStandardMaterial({ color: '#ffffff', roughness: 1, metalness: 0.02, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 })
     material.map = surface.albedo
     material.normalMap = surface.normal
     material.normalScale = new Vector2(0.45, 0.45)
@@ -71,8 +76,8 @@ function Runway() {
           color="#e9e5d8"
           roughness={0.86}
           polygonOffset
-          polygonOffsetFactor={-1}
-          polygonOffsetUnits={-1}
+          polygonOffsetFactor={-2}
+          polygonOffsetUnits={-2}
         />
       </mesh>
     </group>
