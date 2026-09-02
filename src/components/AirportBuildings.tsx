@@ -492,7 +492,7 @@ function AirfieldLights() {
   return (
     <instancedMesh ref={ref} name="Airport · Airfield lights" args={[undefined, undefined, lights.length]}>
       <boxGeometry args={[0.55, 0.4, 0.55]} />
-      <meshBasicMaterial color="#ffffff" vertexColors toneMapped={false} />
+      <meshBasicMaterial color="#ffffff" toneMapped={false} />
     </instancedMesh>
   )
 }
