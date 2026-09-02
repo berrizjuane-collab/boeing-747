@@ -1,27 +1,32 @@
 import { useFrame } from '@react-three/fiber'
-import { useLayoutEffect, useMemo, useRef } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import {
   AdditiveBlending,
   BufferGeometry,
   Color,
-  DoubleSide,
   DynamicDrawUsage,
   Float32BufferAttribute,
   InstancedMesh as InstancedMeshImpl,
+  MeshStandardMaterial,
   Object3D,
   Points as PointsImpl,
   ShaderMaterial,
-  StaticDrawUsage,
   UniformsLib,
   UniformsUtils,
+  Vector2,
 } from 'three'
 import { getAircraftPose } from '../lib/aircraftPose'
+import { createRunwaySurfaceMaps } from '../lib/airportSurfaceMaps'
+import { canopyMistColor } from '../lib/canopyMist'
 import { createRunwayMarkingsGeometry, RUNWAY_LENGTH, RUNWAY_SURFACE_Y, RUNWAY_WIDTH } from '../lib/runwayGeometry'
 import { seededRandom } from '../lib/seededRandom'
 import { SECTIONS } from '../lib/sections'
-import { TIER_SETTINGS, type QualityTier, useQualityStore } from '../state/qualityStore'
+import { TIER_SETTINGS, useQualityStore } from '../state/qualityStore'
 import { reducedMotionState } from '../state/reducedMotion'
 import { useScrollStore } from '../state/scrollStore'
+import { AirportBuildings } from './AirportBuildings'
+import { Forest } from './Forest'
+import { GrassField } from './GrassField'
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value))
 
@@ -33,12 +38,33 @@ function smoothstep(edge0: number, edge1: number, value: number) {
 
 function Runway() {
   const markingsGeometry = useMemo(createRunwayMarkingsGeometry, [])
+  // Round 5 (plan3.md D3): real asphalt — grain, seams, streaking and the
+  // rubber deposits of both touchdown zones — instead of one flat colour.
+  // Generated once (256×1024, ~0.26 M texels, well under the terrain
+  // texture's own measured budget in progress4.md 04-04).
+  const surface = useMemo(() => createRunwaySurfaceMaps(256, 1024), [])
+  const asphaltMaterial = useMemo(() => {
+    const material = new MeshStandardMaterial({ color: '#ffffff', roughness: 1, metalness: 0.02 })
+    material.map = surface.albedo
+    material.normalMap = surface.normal
+    material.normalScale = new Vector2(0.45, 0.45)
+    material.roughnessMap = surface.roughness
+    return material
+  }, [surface])
+  useEffect(
+    () => () => {
+      surface.albedo.dispose()
+      surface.normal.dispose()
+      surface.roughness.dispose()
+      asphaltMaterial.dispose()
+    },
+    [surface, asphaltMaterial],
+  )
 
   return (
     <group name="Airport · Runway">
-      <mesh name="Runway · Asphalt" position={[0, -0.045, 0]} receiveShadow>
+      <mesh name="Runway · Asphalt" position={[0, -0.045, 0]} material={asphaltMaterial} receiveShadow>
         <boxGeometry args={[RUNWAY_WIDTH, 0.13, RUNWAY_LENGTH]} />
-        <meshStandardMaterial color="#394043" roughness={0.94} metalness={0.02} />
       </mesh>
       <mesh name="Runway · Horizontal markings" geometry={markingsGeometry} receiveShadow>
         <meshStandardMaterial
@@ -101,7 +127,13 @@ function AircraftGroundShadow() {
     const runwayPresence = 1 - smoothstep(SECTIONS[1].end - 0.025, SECTIONS[1].end + 0.025, progress)
     const altitudeFade = 1 - smoothstep(8, 48, altitude)
 
-    mesh.position.set(pose.position.x - altitude * 0.8, RUNWAY_SURFACE_Y + 0.003, pose.position.z - altitude * 0.4)
+    // Round 5: +0.06, not +0.003 — the shadow quad now drifts over the
+    // parallel taxiway and its links (AirportBuildings.tsx, top surface at
+    // y ≈ 0.064) as the aircraft climbs, and a plane below those surfaces
+    // was clipped by them along a jagged intersection line. Every flat
+    // aerodrome surface (runway 0.02, markings 0.029, apron 0.012, taxiway
+    // 0.064) now sits under it.
+    mesh.position.set(pose.position.x - altitude * 0.8, RUNWAY_SURFACE_Y + 0.06, pose.position.z - altitude * 0.4)
     mesh.rotation.z = -pose.pitchRad
     mesh.scale.set(80 + altitude * 0.24, 74 + altitude * 0.2, 1)
     mesh.visible = runwayPresence > 0.01
@@ -121,216 +153,11 @@ function AircraftGroundShadow() {
   )
 }
 
-const VEGETATION_MAX = 720
-// plan3.md bug #11: `low` used to carry a nonzero count (144) that never
-// mattered — the whole mesh is hidden in that tier (`visible={tier !==
-// 'low'}` below), so whatever `count` it was passed drew nothing. 0 is the
-// number that actually describes what low renders.
-const VEGETATION_COUNT: Record<QualityTier, number> = { high: 720, mid: 360, low: 0 }
-
-function createGrassClumpGeometry() {
-  const positions: number[] = []
-  const indices: number[] = []
-  for (let blade = 0; blade < 3; blade += 1) {
-    const angle = (blade / 3) * Math.PI
-    const cos = Math.cos(angle)
-    const sin = Math.sin(angle)
-    const first = positions.length / 3
-    for (const [x, y] of [[-0.24, 0], [0.24, 0], [0, 1]] as const) {
-      positions.push(x * cos, y, -x * sin)
-    }
-    indices.push(first, first + 1, first + 2)
-  }
-  const geometry = new BufferGeometry()
-  geometry.setAttribute('position', new Float32BufferAttribute(positions, 3))
-  geometry.setIndex(indices)
-  geometry.computeVertexNormals()
-  geometry.computeBoundingSphere()
-  return geometry
-}
-
-/** One low-poly instanced grass field; tier changes alter instance count, never draw calls. */
-function VegetationBands() {
-  const meshRef = useRef<InstancedMeshImpl>(null)
-  const tier = useQualityStore((state) => state.tier)
-  const grassGeometry = useMemo(createGrassClumpGeometry, [])
-
-  useLayoutEffect(() => {
-    const mesh = meshRef.current
-    if (!mesh) return
-    const random = seededRandom(0xa38026)
-    const dummy = new Object3D()
-    const coolGreen = new Color('#52664c')
-    const sunlitGreen = new Color('#96a269')
-    const instanceColor = new Color()
-
-    mesh.instanceMatrix.setUsage(StaticDrawUsage)
-    for (let index = 0; index < VEGETATION_MAX; index += 1) {
-      const side = index % 2 === 0 ? -1 : 1
-      const lateral = 18 + random() * 72
-      const height = 0.55 + random() * 1.05
-      dummy.position.set(side * lateral, RUNWAY_SURFACE_Y, -255 + random() * 510)
-      dummy.rotation.set(0, random() * Math.PI * 2, 0)
-      dummy.scale.set(0.65 + random() * 1.1, height, 0.65 + random() * 1.1)
-      dummy.updateMatrix()
-      mesh.setMatrixAt(index, dummy.matrix)
-      mesh.setColorAt(index, instanceColor.copy(coolGreen).lerp(sunlitGreen, random()))
-    }
-    mesh.instanceMatrix.needsUpdate = true
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
-    mesh.computeBoundingSphere()
-  }, [])
-
-  return (
-    <instancedMesh
-      ref={meshRef}
-      name="Airport · Instanced grass bands"
-      args={[grassGeometry, undefined, VEGETATION_MAX]}
-      count={VEGETATION_COUNT[tier]}
-      visible={tier !== 'low'}
-      receiveShadow
-    >
-      <meshStandardMaterial
-        color="#ffffff"
-        emissive="#314431"
-        emissiveIntensity={0.42}
-        roughness={1}
-        side={DoubleSide}
-        vertexColors
-      />
-    </instancedMesh>
-  )
-}
-
-// plan4.md bug #16/§04-03: exported so the aerodrome keep-out
-// (src/lib/aerodromeKeepOut.ts) imports the exact same footprint the
-// hangars actually render at, instead of a re-typed approximation that
-// could silently drift from this table.
-export const HANGARS = [
-  { position: [-105, 6, -35] as const, size: [38, 12, 30] as const, color: '#596168' },
-  { position: [-101, 5, 4] as const, size: [30, 10, 24] as const, color: '#697078' },
-  { position: [-24, 7, -102] as const, size: [44, 14, 34] as const, color: '#515a62' },
-] as const
-
-export const APRON = { position: [-58, 0.012, -45] as const, size: [162, 112] as const }
-
-export const CONTROL_TOWER_POSITION = [-82, 0, -18] as const
-// Widest radial extent among the tower's stacked cylinders (the roof disc,
-// cylinderGeometry radii [6.6, 5.5, ...] below) — the footprint the keep-out
-// needs, not the shaft's narrower radius.
-export const CONTROL_TOWER_ROOF_RADIUS = 6.6
-
-function createGableRoofGeometry() {
-  const geometry = new BufferGeometry()
-  geometry.setAttribute(
-    'position',
-    new Float32BufferAttribute(
-      [
-        -0.5, 0, 0.5, 0.5, 0, 0.5, 0, 0.5, 0.5,
-        -0.5, 0, -0.5, 0.5, 0, -0.5, 0, 0.5, -0.5,
-      ],
-      3,
-    ),
-  )
-  geometry.setIndex([
-    0, 1, 2,
-    5, 4, 3,
-    0, 2, 5, 0, 5, 3,
-    2, 1, 4, 2, 4, 5,
-    1, 0, 3, 1, 3, 4,
-  ])
-  geometry.computeVertexNormals()
-  return geometry
-}
-
-/** Recognisable hangars and control tower, repositioned into the S1 hero frustum. */
-function DistantAirport() {
-  const wallsRef = useRef<InstancedMeshImpl>(null)
-  const roofsRef = useRef<InstancedMeshImpl>(null)
-  const roofGeometry = useMemo(createGableRoofGeometry, [])
-  const tier = useQualityStore((state) => state.tier)
-  const showLowPriorityDetails = tier !== 'low'
-
-  useLayoutEffect(() => {
-    const walls = wallsRef.current
-    const roofs = roofsRef.current
-    if (!walls || !roofs) return
-    const dummy = new Object3D()
-    const instanceColor = new Color()
-
-    HANGARS.forEach((hangar, index) => {
-      const [width, height, depth] = hangar.size
-      dummy.position.set(hangar.position[0], hangar.position[1], hangar.position[2])
-      dummy.scale.set(width, height, depth)
-      dummy.updateMatrix()
-      walls.setMatrixAt(index, dummy.matrix)
-      walls.setColorAt(index, instanceColor.set(hangar.color))
-
-      dummy.position.set(hangar.position[0], hangar.position[1] + height / 2, hangar.position[2])
-      dummy.scale.set(width * 1.06, 5, depth * 1.08)
-      dummy.updateMatrix()
-      roofs.setMatrixAt(index, dummy.matrix)
-    })
-    walls.instanceMatrix.setUsage(StaticDrawUsage)
-    roofs.instanceMatrix.setUsage(StaticDrawUsage)
-    walls.instanceMatrix.needsUpdate = true
-    roofs.instanceMatrix.needsUpdate = true
-    if (walls.instanceColor) walls.instanceColor.needsUpdate = true
-    walls.computeBoundingSphere()
-    roofs.computeBoundingSphere()
-  }, [])
-
-  return (
-    <group name="Airport · Terminal silhouettes" visible={tier !== 'low'}>
-      {showLowPriorityDetails && (
-        <mesh name="Airport · Apron" rotation={[-Math.PI / 2, 0, 0]} position={APRON.position} receiveShadow>
-          <planeGeometry args={APRON.size} />
-          <meshStandardMaterial color="#454b4c" roughness={0.98} />
-        </mesh>
-      )}
-      <instancedMesh ref={wallsRef} name="Airport · Hangar walls" args={[undefined, undefined, HANGARS.length]} receiveShadow>
-        <boxGeometry args={[1, 1, 1]} />
-        <meshStandardMaterial color="#606970" roughness={0.82} vertexColors />
-      </instancedMesh>
-      <instancedMesh
-        ref={roofsRef}
-        name="Airport · Hangar roofs"
-        args={[roofGeometry, undefined, HANGARS.length]}
-        receiveShadow
-        visible={showLowPriorityDetails}
-      >
-        <meshStandardMaterial color="#7b858a" roughness={0.76} metalness={0.08} />
-      </instancedMesh>
-
-      <group name="Airport · Control tower" position={CONTROL_TOWER_POSITION}>
-        <mesh name="Control tower · Shaft" position={[0, 13, 0]} castShadow receiveShadow>
-          <cylinderGeometry args={[2.2, 3.3, 26, 10]} />
-          <meshStandardMaterial color="#727b7f" roughness={0.8} />
-        </mesh>
-        <mesh name="Control tower · Cab" position={[0, 28, 0]} castShadow>
-          <cylinderGeometry args={[5.8, 4.8, 4.2, 10]} />
-          <meshStandardMaterial color="#7893a1" roughness={0.38} metalness={0.16} />
-        </mesh>
-        {showLowPriorityDetails && (
-          <>
-            <mesh name="Control tower · Window band" position={[0, 28.6, 0]}>
-              <cylinderGeometry args={[5.88, 5.88, 1.25, 10]} />
-              <meshStandardMaterial color="#20343f" emissive="#172a34" emissiveIntensity={0.18} roughness={0.24} />
-            </mesh>
-            <mesh name="Control tower · Roof" position={[0, 30.7, 0]}>
-              <cylinderGeometry args={[CONTROL_TOWER_ROOF_RADIUS, 5.5, 0.55, 10]} />
-              <meshStandardMaterial color="#4d5559" roughness={0.7} />
-            </mesh>
-            <mesh name="Control tower · Beacon" position={[0, 31.45, 0]}>
-              <sphereGeometry args={[0.32, 8, 6]} />
-              <meshBasicMaterial color="#d77b62" toneMapped={false} />
-            </mesh>
-          </>
-        )}
-      </group>
-    </group>
-  )
-}
+// plan4.md bug #16/§04-03: the aerodrome keep-out (aerodromeKeepOut.ts)
+// and the round-4 tests import these four names from this module; they now
+// live in airportLayout.ts with the rest of the ground plan and are
+// re-exported here unchanged in meaning.
+export { APRON, CONTROL_TOWER_POSITION, CONTROL_TOWER_ROOF_RADIUS, HANGARS } from '../lib/airportLayout'
 
 const DUST_COUNT = 400
 const DUST_SECTION_END = SECTIONS[1].end
@@ -384,7 +211,7 @@ interface CloudSpec {
   rotation: number
 }
 
-function createSoftCloudMaterial(color: string) {
+function createSoftCloudMaterial(color: string, mist?: { value: Color }) {
   return new ShaderMaterial({
     name: 'Environment · Soft cloud material',
     transparent: true,
@@ -398,8 +225,13 @@ function createSoftCloudMaterial(color: string) {
       {
         opacity: { value: 0 },
         cloudColor: { value: new Color(color) },
+        mistColor: mist ?? { value: new Color(color) },
       },
     ]),
+    // Round 5: hero clouds (S1/S2) dissolve toward the shared canopy mist
+    // (canopyMist.ts) like the terrain and forest under them, not toward
+    // the darker scene fog colour — otherwise a distant cloud went brown.
+    defines: mist ? { USE_MIST_COLOR: '' } : {},
     vertexShader: /* glsl */ `
       varying vec2 vUv;
       #include <fog_pars_vertex>
@@ -417,6 +249,7 @@ function createSoftCloudMaterial(color: string) {
     fragmentShader: /* glsl */ `
       uniform float opacity;
       uniform vec3 cloudColor;
+      uniform vec3 mistColor;
       varying vec2 vUv;
       #include <fog_pars_fragment>
       float ellipseDistance(vec2 point, vec2 center, vec2 radius) {
@@ -432,10 +265,18 @@ function createSoftCloudMaterial(color: string) {
         float detail = 0.92 + 0.08 * sin(vUv.x * 19.0) * sin(vUv.y * 13.0);
         float alpha = body * detail * opacity;
         if (alpha < 0.002) discard;
-        gl_FragColor = vec4(cloudColor, alpha);
+        vec3 shaded = cloudColor * (0.86 + 0.14 * smoothstep(-0.3, 0.35, p.y));
+        gl_FragColor = vec4(shaded, alpha);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
-        #include <fog_fragment>
+        #ifdef USE_MIST_COLOR
+          #ifdef USE_FOG
+            float mistFactor = 1.0 - exp( - fogDensity * fogDensity * vFogDepth * vFogDepth );
+            gl_FragColor.rgb = mix( gl_FragColor.rgb, mistColor, mistFactor );
+          #endif
+        #else
+          #include <fog_fragment>
+        #endif
       }
     `,
   })
@@ -447,12 +288,13 @@ interface CloudLayerProps {
   clouds: readonly CloudSpec[]
   opacity: number
   visibility: (progress: number) => number
+  mist?: { value: Color }
 }
 
 /** Camera-facing cloud instances: one draw call per narrative cloud layer. */
-function CloudLayer({ name, color, clouds, opacity, visibility }: CloudLayerProps) {
+function CloudLayer({ name, color, clouds, opacity, visibility, mist }: CloudLayerProps) {
   const meshRef = useRef<InstancedMeshImpl>(null)
-  const material = useMemo(() => createSoftCloudMaterial(color), [color])
+  const material = useMemo(() => createSoftCloudMaterial(color, mist), [color, mist])
   const dummy = useMemo(() => new Object3D(), [])
 
   useLayoutEffect(() => {
@@ -509,6 +351,42 @@ const SUNSET_CLOUDS: readonly CloudSpec[] = [
   { position: [154, 118, -224], scale: [126, 48], rotation: -0.2 },
 ]
 
+// Round 5 (plan3.md F2, brought forward now that the horizon band of
+// plan4.md I1 exists to author against): S1/S2 used to have an empty sky.
+// Specs are derived from the S1 camera (cameraPath.ts KEYFRAMES[0], at
+// [60, 8, 55] looking toward [0, 6, 0] — view azimuth ≈ −137.5°) so every
+// cloud lands in the upper third of the hero frame and holds through S2's
+// rising tracking shot. With `fog: true` and the canopy mist target, the
+// farther ones dissolve into the horizon haze instead of popping.
+function heroCloudSpecs(): CloudSpec[] {
+  const cameraX = 60
+  const cameraZ = 55
+  const specs: CloudSpec[] = []
+  const layout: Array<[azimuthDeg: number, distance: number, altitude: number, width: number, height: number, roll: number]> = [
+    [-182, 700, 185, 300, 96, 0.08],
+    [-166, 560, 142, 240, 78, -0.1],
+    [-152, 780, 214, 330, 104, 0.05],
+    [-140, 620, 165, 260, 84, 0.14],
+    [-128, 520, 124, 210, 70, -0.06],
+    [-114, 690, 190, 290, 92, 0.1],
+    [-98, 560, 138, 230, 74, -0.12],
+    [-84, 760, 205, 320, 100, 0.04],
+  ]
+  for (const [azimuthDeg, distance, altitude, width, height, roll] of layout) {
+    const azimuth = (azimuthDeg * Math.PI) / 180
+    specs.push({
+      position: [cameraX + Math.cos(azimuth) * distance, altitude, cameraZ + Math.sin(azimuth) * distance],
+      scale: [width, height],
+      rotation: roll,
+    })
+  }
+  return specs
+}
+
+const HERO_CLOUDS: readonly CloudSpec[] = heroCloudSpecs()
+
+const heroCloudVisibility = (progress: number) => 1 - smoothstep(0.255, 0.305, progress)
+
 const highAltitudeCloudVisibility = (progress: number) =>
   Math.min(smoothstep(0.24, 0.31, progress), 1 - smoothstep(0.39, 0.49, progress))
 
@@ -526,8 +404,9 @@ function HeroAirportEnvironment() {
     <group ref={groupRef} name="Environment · Hero airport">
       <Runway />
       <AircraftGroundShadow />
-      <VegetationBands />
-      <DistantAirport />
+      <GrassField />
+      <Forest />
+      <AirportBuildings />
       <DustParticles />
     </group>
   )
@@ -537,6 +416,14 @@ export function RunwayEnvironment() {
   return (
     <group name="Environment · Airport and clouds">
       <HeroAirportEnvironment />
+      <CloudLayer
+        name="Environment · S1/S2 hero clouds"
+        color="#fff3e4"
+        clouds={HERO_CLOUDS}
+        opacity={0.58}
+        visibility={heroCloudVisibility}
+        mist={canopyMistColor}
+      />
       <CloudLayer
         name="Environment · S3 high-altitude clouds"
         color="#eef5fb"

@@ -1,8 +1,9 @@
 import { Color, MeshStandardMaterial } from 'three'
+import { canopyMistColor } from './canopyMist'
 
 export interface TerrainGroundMaterialHandles {
   material: MeshStandardMaterial
-  /** Mutated per frame from outside — same external-uniform-ref pattern already used by RunwayEnvironment.tsx's custom shaders and skyDomeMaterial.ts. */
+  /** The shared canopyMist.ts uniform (round 5): mutated once per frame by TerrainGround, read by terrain, forest, grass, hills and both sky domes. */
   canopyMistColor: { value: Color }
 }
 
@@ -40,8 +41,6 @@ export function createTerrainGroundMaterial(): TerrainGroundMaterialHandles {
     // gate isn't touched).
     transparent: true,
   })
-
-  const canopyMistColor = { value: new Color('#e9a66c') }
 
   material.onBeforeCompile = (shader) => {
     shader.uniforms.canopyMistColor = canopyMistColor

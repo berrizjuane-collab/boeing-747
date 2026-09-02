@@ -11,10 +11,13 @@ corrección visual quedó registrada en [`plan2.md`](./plan2.md) y
 [`progress2.md`](./progress2.md). La ronda de fidelidad de entorno y
 dirección de arte vive en [`plan3.md`](./plan3.md) y
 [`progress3.md`](./progress3.md), con sus Fases 0/A/B implementadas y
-verificadas y sus Fases C–F sin comenzar. Los **documentos activos** son
-[`plan4.md`](./plan4.md) —ronda de ambientación natural del hero: bosque,
-terreno, tierra expuesta y profundidad atmosférica— y su checklist de
-evidencia [`progress4.md`](./progress4.md).
+verificadas. [`plan4.md`](./plan4.md) / [`progress4.md`](./progress4.md)
+cubren la ronda de ambientación natural del hero (Fases 0₄ y G cerradas
+allí; sus Fases H e I se cierran en la ronda 5). Los **documentos activos**
+son [`plan5.md`](./plan5.md) —realismo del mundo: bosque, colinas, cielo,
+aeródromo completo y cabina con materiales PBR procedurales— y su registro
+de evidencia [`progress5.md`](./progress5.md), con capturas antes/después
+en [`docs/evidence/round5/`](./docs/evidence/round5/).
 
 ## Estado actual
 
@@ -29,6 +32,17 @@ reconstruyó cockpit/economy/escalera/piso superior, normalizó iluminación y
 atmósfera, rehízo pista/vegetación/torre/nubes y convirtió los criterios
 visuales en pruebas y capturas reproducibles sobre el build de producción.
 
+La quinta ronda (`plan5.md`) puebla el mundo: bosque instanciado en tres
+bandas con claros y colinas, pasto que crece exactamente donde la textura
+del terreno lo pinta, banda de horizonte en ambos domos de cielo, nubes en
+el hero, un aeródromo completo (terminal acristalada con mangas, torre de
+control detallada, hangares abovedados, calle de rodaje, apron con marcas,
+luces de pista, granja de combustible), asfalto con depósitos de goma,
+luces de navegación en el A380 y, en la cabina, materiales PBR
+procedurales con UVs generadas en shader (el GLB no trae UVs), pantallas
+con contenido (PFD, IFE), ventanillas con vista exterior, haces de luz,
+polvo en suspensión y luces de lectura.
+
 **Límite de verificación:** Safari/iOS y Android físicos requieren hardware
 real; Chromium móvil emulado no sustituye esa prueba. El resto de la matriz
 automatizada y la evidencia exacta están registradas en `progress2.md`.
@@ -40,7 +54,7 @@ npm install
 npm run dev       # servidor de desarrollo — abre en /boeing-747/, no en la raíz (ver "Deploy" más abajo)
 npm run build     # build de producción (tsc + vite build)
 npm run preview   # sirve dist/ localmente, mismo base path que producción
-npm test          # estado/zonas, cámara, entorno, portal, pista y PBR
+npm test          # estado/zonas, cámara, entorno, portal, pista, PBR, bosque/pasto/aeródromo (plan5)
 npm run qa:hdri   # mide luminancia real y exige ratio máximo < 4x
 npm run qa:interior # estructura/PBR/instancing/presupuesto del GLB publicado
 npm run qa:d3     # serie cuadro a cuadro 70–85% contra un preview local

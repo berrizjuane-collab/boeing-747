@@ -1,7 +1,7 @@
 import { useGLTF } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
-import { useCallback, useEffect, useRef } from 'react'
-import { Group, Matrix4, Mesh, Object3D } from 'three'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Group, Matrix4, Mesh, Object3D, Vector3 } from 'three'
 // three-stdlib's mergeBufferGeometries is broken: its per-geometry
 // consistency checks live inside a `geometries.forEach` callback, so their
 // `return null` on mismatch only skips that forEach iteration — it can't
@@ -15,6 +15,7 @@ import { Group, Matrix4, Mesh, Object3D } from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { KTX2Loader, type GLTFLoader } from 'three-stdlib'
 import { getAircraftPose } from '../lib/aircraftPose'
+import { AircraftNavLights, type AircraftExtremes } from './AircraftNavLights'
 import { createDissolveHullMaterial, type DissolveHullMaterial } from '../lib/dissolveHullMaterial'
 import { EXTERIOR_LOCAL_OFFSET } from '../lib/sceneLayout'
 import { SECTIONS, localProgress } from '../lib/sections'
@@ -76,8 +77,10 @@ export function ExteriorAsset() {
   )
   const { scene } = useGLTF(`${import.meta.env.BASE_URL}models/exterior.glb`, true, true, extendLoader)
   const groupRef = useRef<Group>(null)
+  const poseGroupRef = useRef<Group>(null)
   const dissolveMaterialRef = useRef<DissolveHullMaterial | null>(null)
   const gearRef = useRef<Object3D | null>(null)
+  const [extremes, setExtremes] = useState<AircraftExtremes | null>(null)
 
   useEffect(() => {
     // plan3.md bug #7: castShadow/receiveShadow used to be forced true on
@@ -132,6 +135,49 @@ export function ExteriorAsset() {
     }
 
     gearRef.current = gear
+
+    // Round 5: measure the hull's real extremes in the pose group's local
+    // space (i.e. after the +90°X / EXTERIOR_LOCAL_OFFSET registration) so
+    // AircraftNavLights sits on the actual wingtips, fin tip, crown and
+    // belly instead of guessed offsets. One pass over ~70k vertices, once.
+    const poseGroup = poseGroupRef.current
+    let hull: Mesh | null = null
+    scene.traverse((obj) => {
+      if (obj.name === 'A380' && (obj as Mesh).isMesh) hull = obj as Mesh
+    })
+    if (poseGroup && hull) {
+      const hullMesh: Mesh = hull
+      poseGroup.updateWorldMatrix(true, true)
+      const toPose = new Matrix4().copy(poseGroup.matrixWorld).invert().multiply(hullMesh.matrixWorld)
+      const position = hullMesh.geometry.getAttribute('position')
+      const v = new Vector3()
+      const port = new Vector3(Number.POSITIVE_INFINITY, 0, 0)
+      const starboard = new Vector3(Number.NEGATIVE_INFINITY, 0, 0)
+      const fin = new Vector3(0, Number.NEGATIVE_INFINITY, 0)
+      const tail = new Vector3(0, 0, Number.NEGATIVE_INFINITY)
+      let crownY = Number.NEGATIVE_INFINITY
+      let bellyY = Number.POSITIVE_INFINITY
+      for (let index = 0; index < position.count; index += 1) {
+        v.fromBufferAttribute(position, index).applyMatrix4(toPose)
+        if (v.x < port.x) port.copy(v)
+        if (v.x > starboard.x) starboard.copy(v)
+        if (v.y > fin.y) fin.copy(v)
+        if (v.z > tail.z) tail.copy(v)
+        // Fuselage crown/belly: sampled on the centreline near the wing root.
+        if (Math.abs(v.x) < 0.6 && v.z > -12 && v.z < -4) {
+          crownY = Math.max(crownY, v.y)
+          bellyY = Math.min(bellyY, v.y)
+        }
+      }
+      setExtremes({
+        portWingtip: [port.x, port.y, port.z],
+        starboardWingtip: [starboard.x, starboard.y, starboard.z],
+        finTip: [fin.x, fin.y, fin.z],
+        tailCone: [tail.x, tail.y, tail.z],
+        crown: [0, crownY + 0.25, -8],
+        belly: [0, bellyY - 0.25, -8],
+      })
+    }
     return () => {
       const dissolveMaterial = dissolveMaterialRef.current
       dissolveMaterial?.userData.aircraftSurfaceMaps.normal.dispose()
@@ -180,9 +226,10 @@ export function ExteriorAsset() {
 
   return (
     <group ref={groupRef}>
-      <group rotation={[Math.PI / 2, 0, 0]} position={EXTERIOR_LOCAL_OFFSET}>
+      <group ref={poseGroupRef} rotation={[Math.PI / 2, 0, 0]} position={EXTERIOR_LOCAL_OFFSET}>
         <primitive object={scene} />
       </group>
+      {extremes && <AircraftNavLights extremes={extremes} />}
     </group>
   )
 }

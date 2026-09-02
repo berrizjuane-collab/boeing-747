@@ -96,7 +96,14 @@ export function PostFX({ sunRef }: { sunRef: RefObject<Mesh | null> }) {
     // subject rather than derived from a real focal plane — same "loose,
     // tune after screenshots" status as this project's other hand-placed 3D
     // estimates (cameraPath.ts, Hotspots.tsx).
-    effects.push(<DepthOfField key="dof" focusDistance={0.015} focalLength={0.03} bokehScale={3} />)
+    // Round 5: focus expressed in world units (postprocessing's
+    // worldFocusDistance/worldFocusRange) instead of the normalised
+    // 0.015/0.03 pair — which, against this camera's near 0.1 / far 3000,
+    // put the focal plane ~45 u down a 30 u cabin and blurred every seat,
+    // panel and screen the camera actually dwells on. 6 u focus with a
+    // 9 u range keeps the row the camera stands in and the next few crisp
+    // and lets the far end of the aisle fall off softly.
+    effects.push(<DepthOfField key="dof" worldFocusDistance={6} worldFocusRange={9} bokehScale={1.8} />)
   }
   if (showGodRays && sunRef.current) {
     // §3 S4 / §7.4: "en el umbral", desktop-high enhancement only.

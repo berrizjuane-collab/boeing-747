@@ -2,7 +2,6 @@ import { Environment } from '@react-three/drei'
 import { useFrame, useLoader, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
 import {
-  BackSide,
   Color,
   DirectionalLight,
   EquirectangularReflectionMapping,
@@ -10,7 +9,6 @@ import {
   HemisphereLight,
   LinearMipmapLinearFilter,
   Mesh,
-  MeshBasicMaterial,
 } from 'three'
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
 import { TerrainGround } from './TerrainGround'
@@ -98,18 +96,17 @@ export function EnvironmentPlaceholder() {
     `${import.meta.env.BASE_URL}hdri/sunset.hdr`,
   ])
   const skyMaterial = useMemo(() => createSkyDomeMaterial(goldenHourMap, highAltitudeMap), [goldenHourMap, highAltitudeMap])
+  // plan4.md I2 (round 5): the sunset dome is the same horizon-haze shader
+  // as the S1-S3 dome (skyDomeMaterial.ts), fed the single sunset HDRI on
+  // both slots and its *own* mist uniform — the warm S6/S7 fog colour this
+  // component already derives per frame (fogColorRef, WARM_FOG_COLOR via
+  // duskColorMix) — rather than the terrain's canopy mist, which is hidden
+  // by then anyway (groundFade). Replaces the old MeshBasicMaterial that
+  // had no haze band at all.
+  const sunsetMist = useMemo(() => ({ value: new Color('#e89b6c') }), [])
   const sunsetMaterial = useMemo(
-    () =>
-      new MeshBasicMaterial({
-        map: sunsetMap,
-        side: BackSide,
-        transparent: true,
-        opacity: 0,
-        depthWrite: false,
-        fog: false,
-        toneMapped: true,
-      }),
-    [sunsetMap],
+    () => createSkyDomeMaterial(sunsetMap, sunsetMap, { mistColor: sunsetMist, hazeFalloff: 18, hazeStrength: 0.62, belowHorizonHaze: 0.3 }),
+    [sunsetMap, sunsetMist],
   )
 
   useEffect(() => {
@@ -192,7 +189,8 @@ export function EnvironmentPlaceholder() {
     if (skyDomeRef.current) skyDomeRef.current.visible = skyOpacity > 1e-4
 
     const sunsetOpacity = sunsetWeight(progress)
-    sunsetMaterial.opacity = sunsetOpacity
+    sunsetMaterial.uniforms.opacity.value = sunsetOpacity
+    sunsetMist.value.copy(fogColorRef.current)
     if (sunsetDomeRef.current) sunsetDomeRef.current.visible = sunsetOpacity > 1e-4
   })
 

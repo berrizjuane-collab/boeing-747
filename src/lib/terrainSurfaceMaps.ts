@@ -120,7 +120,7 @@ const WARP_OCTAVES = 1
 const MICRO_DETAIL_TEXELS = 3 // per-texel grain wavelength, in texels
 
 /** 0 = bare dirt, 1 = grass — periodic counterpart of terrainField.ts's groundMaskAt, same coverage/edge constants. */
-function tileGroundMask(u: number, v: number): number {
+export function tileGroundMask(u: number, v: number): number {
   const warpU = (periodicFbm(u + 0.37, v - 0.21, MASK_CELLS_PER_TILE, 900, WARP_OCTAVES) - 0.5) * 0.35
   const warpV = (periodicFbm(u - 0.21, v + 0.37, MASK_CELLS_PER_TILE, 901, WARP_OCTAVES) - 0.5) * 0.35
   const base = periodicFbm(u + warpU, v + warpV, MASK_CELLS_PER_TILE, 0, MASK_OCTAVES)
@@ -133,10 +133,10 @@ function tileGroundMask(u: number, v: number): number {
 // a flat fill. Kept in the same warm family as SECTION_ENVIRONMENT's S1
 // `background` (#9f6246) and `ground` (#59664d) so G3's tint mix lands on a
 // coherent palette rather than clashing with it.
-const DIRT_BASE = new Color('#9a5636')
-const DIRT_DARK = new Color('#6e3b23')
-const GRASS_BASE = new Color('#5c6b3f')
-const GRASS_DARK = new Color('#454f30')
+const DIRT_BASE = new Color('#c99a74')
+const DIRT_DARK = new Color('#8e5f3f')
+const GRASS_BASE = new Color('#8fa257')
+const GRASS_DARK = new Color('#5f7038')
 
 const dirtScratch = new Color()
 const grassScratch = new Color()

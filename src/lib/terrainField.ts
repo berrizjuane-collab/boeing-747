@@ -57,7 +57,7 @@ function valueNoise2D(x: number, z: number, cellSize: number, salt: number): num
 }
 
 /** Fractal sum of valueNoise2D octaves, normalised back to ~[0, 1]. */
-function fbm2D(x: number, z: number, salt: number, octaves: number, baseCellSize: number): number {
+export function fbm2D(x: number, z: number, salt: number, octaves: number, baseCellSize: number): number {
   const lacunarity = 2.1
   const gain = 0.55
   let amplitude = 1
@@ -148,7 +148,7 @@ export interface FieldInstance {
   rotationY: number
 }
 
-interface JitteredGridOptions {
+export interface JitteredGridOptions {
   minX: number
   maxX: number
   minZ: number
@@ -170,7 +170,7 @@ interface JitteredGridOptions {
  * for byte from (bounds, cellSize, salt) alone — no iteration-order
  * dependence, no external RNG state.
  */
-function sampleJitteredGrid(options: JitteredGridOptions): FieldInstance[] {
+export function sampleJitteredGrid(options: JitteredGridOptions): FieldInstance[] {
   const { minX, maxX, minZ, maxZ, cellSize, salt, densityAt, excluded } = options
   const instances: FieldInstance[] = []
   const startCol = Math.floor(minX / cellSize)

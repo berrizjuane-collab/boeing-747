@@ -1,6 +1,7 @@
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
 import { Vector2, type Mesh } from 'three'
+import { updateCanopyMistColor } from '../lib/canopyMist'
 import { sampleEnvironmentTheme } from '../lib/environmentTheme'
 import { createTerrainDiscGeometry, updateTerrainDiscForCenter } from '../lib/terrainGeometry'
 import { applyGroundTint, groundFade } from '../lib/terrainGroundCurves'
@@ -35,9 +36,8 @@ const TERRAIN_RECENTER_STEP = 200
 export function TerrainGround() {
   const meshRef = useRef<Mesh>(null)
   const geometry = useMemo(createTerrainDiscGeometry, [])
-  const { material, canopyMistColor } = useMemo(createTerrainGroundMaterial, [])
+  const { material } = useMemo(createTerrainGroundMaterial, [])
   const lastCenter = useRef({ x: Number.NaN, z: Number.NaN })
-  const hsl = useRef({ h: 0, s: 0, l: 0 })
   const tier = useQualityStore((state) => state.tier)
 
   // plan4.md G2/04-04: regenerated only when the tier actually changes
@@ -86,14 +86,10 @@ export function TerrainGround() {
     applyGroundTint(material.color, theme.ground, progress)
 
     // G4: canopy mist — warmer and measurably brighter than theme.background
-    // itself, not a copy of scene.fog.color (see terrainGroundMaterial.ts).
-    canopyMistColor.value.copy(theme.background)
-    canopyMistColor.value.getHSL(hsl.current)
-    canopyMistColor.value.setHSL(
-      (hsl.current.h + 0.02) % 1,
-      Math.max(hsl.current.s, 0.4),
-      Math.min(1, hsl.current.l + 0.22),
-    )
+    // itself, not a copy of scene.fog.color. Round 5: computed once here
+    // into the shared canopyMist.ts uniform that terrain, forest, grass,
+    // hills and the sky-dome horizon band all read.
+    updateCanopyMistColor(theme.background)
 
     // Pre-existing S2/S3 crossfade, unchanged mechanism.
     const fade = groundFade(progress)

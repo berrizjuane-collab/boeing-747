@@ -1,8 +1,10 @@
 import { useGLTF } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
-import { useEffect, useRef } from 'react'
-import { Box3, Group, Material, Mesh, Vector3 } from 'three'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Box3, Group, type InstancedMesh, Material, Matrix4, Mesh, MeshStandardMaterial, Vector3 } from 'three'
+import { createInteriorTextureKit, upgradeInteriorMaterial } from '../lib/interiorMaterials'
 import { INTERIOR_OFFSET } from '../lib/sceneLayout'
+import { CabinAtmosphere } from './CabinAtmosphere'
 
 // import.meta.env.BASE_URL, not a bare '/': see vite.config.ts's `base` comment.
 useGLTF.setDecoderPath(`${import.meta.env.BASE_URL}draco/`)
@@ -49,12 +51,20 @@ export function InteriorAsset() {
   const { camera } = useThree()
   const groupRef = useRef<Group>(null)
   const lodNodesRef = useRef<LodNode[]>([])
+  // Round 5: procedural PBR maps + screen/window content for the cabin's
+  // sixteen flat glTF materials (interiorMaterials.ts). Generated once per
+  // mount (~1.2 M texels total, byte-identical every time) and disposed
+  // with it; the seat positions feed CabinAtmosphere's reading lights.
+  const textureKit = useMemo(createInteriorTextureKit, [])
+  const [seatWorldPositions, setSeatWorldPositions] = useState<Vector3[]>([])
+  useEffect(() => () => textureKit.dispose(), [textureKit])
 
   useEffect(() => {
     scene.updateWorldMatrix(true, true)
     groupRef.current?.updateWorldMatrix(true, true)
 
     const lodNodes: LodNode[] = []
+    let seatMesh: InstancedMesh | null = null
     scene.traverse((obj) => {
       if (!('isMesh' in obj) || !obj.isMesh) return
       const mesh = obj as Mesh
@@ -76,11 +86,27 @@ export function InteriorAsset() {
       }
       const material = mesh.material as Material
       material.transparent = true
+      if (!mesh.userData.surfaceUpgraded && (material as MeshStandardMaterial).isMeshStandardMaterial) {
+        upgradeInteriorMaterial(mesh, material as MeshStandardMaterial, textureKit, scene)
+        mesh.userData.surfaceUpgraded = true
+      }
+      if ((mesh as InstancedMesh).isInstancedMesh && material.name === 'Mat_Seat') seatMesh = mesh as InstancedMesh
 
       const center = new Box3().setFromObject(mesh).getCenter(new Vector3())
       lodNodes.push({ mesh, center })
     })
     lodNodesRef.current = lodNodes
+
+    if (seatMesh) {
+      const seats: InstancedMesh = seatMesh
+      const matrix = new Matrix4()
+      const positions: Vector3[] = []
+      for (let index = 0; index < seats.count; index += 1) {
+        seats.getMatrixAt(index, matrix)
+        positions.push(new Vector3().setFromMatrixPosition(matrix).applyMatrix4(seats.matrixWorld))
+      }
+      setSeatWorldPositions(positions)
+    }
 
     return () => {
       for (const { mesh } of lodNodes) {
@@ -90,7 +116,7 @@ export function InteriorAsset() {
       }
       lodNodesRef.current = []
     }
-  }, [scene])
+  }, [scene, textureKit])
 
   useFrame(() => {
     for (const { mesh, center } of lodNodesRef.current) {
@@ -107,9 +133,12 @@ export function InteriorAsset() {
   })
 
   return (
-    <group ref={groupRef} rotation={[Math.PI / 2, 0, 0]} position={INTERIOR_OFFSET}>
-      <primitive object={scene} />
-    </group>
+    <>
+      <group ref={groupRef} rotation={[Math.PI / 2, 0, 0]} position={INTERIOR_OFFSET}>
+        <primitive object={scene} />
+      </group>
+      <CabinAtmosphere seatWorldPositions={seatWorldPositions} />
+    </>
   )
 }
 
