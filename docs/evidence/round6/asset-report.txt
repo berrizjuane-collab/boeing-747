@@ -1,0 +1,10 @@
+{
+  "bytes": 62516,
+  "seats": 266,
+  "instanceBatches": 7,
+  "batches": 46,
+  "triangles": 69129,
+  "anchors": "PASS",
+  "spatialOwnership": "PASS",
+  "opaque": "PASS"
+}

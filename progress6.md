@@ -96,6 +96,20 @@ el baseline local anterior cambió Mid→Low en 16.492 ms, Low→High en 3.999 m
 High→Mid en 1.462 ms. El arnés nuevo fija tier desde el inicio y mantiene una
 prueba separada del botón. No se sustituye evidencia High por Low.
 
+## Resultado de navegador conservado
+
+- Siete planos Low 800×600: hero, ficha, cockpit, economy, escalera, upper y
+  salida; todos pasan convergencia, DOM y presupuestos. Sin errores inesperados.
+- Error de descarga: hold 0,4092, objetivo 0,7 conservado, retorno funcional.
+  Descarga retenida: hold 0,4093 y reanudación 0,6993.
+- Diez ciclos en StrictMode y diez en producción: cada ciclo conserva
+  119 geometrías, 41 texturas y 99 programas tras warm-up. Movimiento reducido
+  en estos tests de recursos; suavidad y tour real se verifican por separado.
+- CI del commit `474f0bef` pasó static-checks y despliegue. La matriz visual
+  Low/High/tour continuaba ejecutándose al cerrar el informe; no se declara aprobada.
+- Las capturas preceden sólo la corrección editorial que elimina la promesa de
+  cabina «de punta a punta». El informe registra los hashes exactos probados.
+
 ## Continuación
 
 Fase 3: ritmo/orientación/velocidad de cámara, oscilación ligada al avance y
@@ -103,3 +117,25 @@ composición de salida. Fase 4: transición óptica e IBL. Fase 5: materiales,
 luz, pantallas y ventanas. Fases 6–7: móvil/accesibilidad y rendimiento/cierre.
 No reintroducir offsets aislados, transparencia estructural o join global para
 disimular problemas. Ver los criterios originales de `plan6.md` antes de cerrar.
+
+## Cobertura de hallazgos de la auditoría
+
+| ID | Estado | Evidencia / siguiente paso |
+|---|---|---|
+| A01 | Hipótesis abierta | Timeout CI exacto no reproducido; botón separado de selección de tier. |
+| A02 | Corregido | Captura exige convergencia, frame nuevo y correspondencia de zona DOM. |
+| A03 | Corregido y probado | Integrador único; equivalencia 30/60/120 Hz, delta largo y hold/resume. |
+| A04–A05 | Pendiente fase 3 | Ritmo y orientación exterior no se declaran resueltos. |
+| A06 | Corregido | Prioridades explícitas y matrices antes de consumidores; DOM síncrono. |
+| A07 | Corregido | Recursos cacheados vivos; limpieza de reemplazos propios; ciclos en evidencia. |
+| A08 | Corregido | Lotes espaciales y estructura opaca, sin fade por centro global. |
+| A09 | Corregido geométricamente | Mismo pitch/frame; secciones reales del hull; cabina termina antes de cola. |
+| A10 | Corregido estructuralmente | Cockpit hacia nariz, entrada y giro en volumen libre. |
+| A11 | Corregido | Dos pasillos, configuración representativa y copy sin promesas de cabina completa. |
+| A12 | Corregido | Assets reales, hold antes de 0,41, destino conservado y recuperación. |
+| A13–A14 | Pendiente fase 4 | IBL, transiciones y entorno requieren revisión óptica integral. |
+| A15 | Mitigado | Haces planos apagados; materiales/luz final en fase 5. |
+| A16 | Pendiente fase 6 | Composición móvil y accesibilidad completas. |
+| A17 | Parcial | Ownership y cleanup mejorados; rendimiento físico pendiente. |
+| A18 | Mejorado | Hashes, tier real, resultados parciales, matriz explícita; aceptación visual pendiente. |
+| A19 | Corregido en geometría | Cero colisiones muestreadas; percepción de movimiento pendiente fase 3. |

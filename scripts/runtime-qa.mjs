@@ -22,6 +22,10 @@ try {
   browser = await chromium.launch({ headless: true, executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined, args: ['--no-sandbox', '--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--disable-dev-shm-usage'] })
   report.browser = browser.version()
   page = await browser.newPage({ viewport: { width: Number(process.env.QA_WIDTH ?? 960), height: Number(process.env.QA_HEIGHT ?? 640) }, deviceScaleFactor: 1, ...(process.env.QA_VIDEO === '1' ? {recordVideo:{dir:out}} : {}) })
+  // Lifecycle stress uses reduced motion to revisit mounts without spending
+  // hundreds of software-rendered frames integrating each identical stop.
+  // Real-clock movement is covered separately by QA_VIDEO.
+  if(process.env.QA_CYCLES==='1'){await page.emulateMedia({reducedMotion:'reduce'});report.reducedMotion=true}
   page.on('response', r => { if(r.status() >= 400)report.errors.push({type:'http',url:r.url(),status:r.status()}) })
   page.on('console', m => { if(m.type()==='error')report.errors.push({type:'console',message:m.text()}) })
   page.on('pageerror', e => report.errors.push({ type: 'page', message: e.message }))

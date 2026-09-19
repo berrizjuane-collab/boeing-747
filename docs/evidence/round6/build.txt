@@ -1,0 +1,14 @@
+
+> meridian-a380-experience@0.0.0 build
+> tsc -b && vite build
+
+vite v8.2.0 building client environment for production...
+[2K
+transforming...✓ 677 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                     1.11 kB │ gzip:   0.60 kB
+dist/assets/index-Tfi-hSq6.css     15.23 kB │ gzip:   3.56 kB
+dist/assets/index-CpV9TkPm.js   1,614.14 kB │ gzip: 491.56 kB
+
+✓ built in 786ms
