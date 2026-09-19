@@ -1,108 +1,75 @@
-# Fase 0 — Layout base del interior propio
+# Cabina MERIDIAN — contrato de geometría, ronda 6
 
-**Estado:** layout narrativo y paramétrico definido; blockout Blender ejecutado, reabierto y verificado. La registración gruesa con el exterior ya está ejecutada y verificada; el ajuste fino del umbral y las puertas queda para la Fase 4.  
-**Fuentes reproducibles:** [`blender/interior_blockout.py`](./blender/interior_blockout.py), [`blender/verify_blockout.py`](./blender/verify_blockout.py) y [`blender/render_preview.py`](./blender/render_preview.py).  
-**Alcance:** v1 con tres zonas narrativas: cabina de mando, economy y escalera + piso superior. La última se divide en dos módulos geométricos porque necesita una transición vertical.
+El producto representa un Airbus A380 aunque el repositorio se llame
+`boeing-747`. La cabina es un tramo original representativo, no un plano
+certificado ni la configuración completa de una aerolínea.
 
-## Principio de diseño
+## Fuente de verdad
 
-El interior no será una réplica certificada del A380. Será una recreación propia, controlada y optimizada para la cámara de walkthrough de la Sección 5. Las medidas de este documento son **parámetros de diseño del proyecto**, no afirmaciones sobre la configuración de una aerolínea real.
+`blender/interior_cabin.py` construye la cabina; `interior_blockout.py` conserva
+sus helpers históricos y delega al nuevo constructor. El constructor exporta
+`src/lib/interior-manifest.json`; `sceneLayout.ts` utiliza ese manifiesto para
+anclas, portales, cámara, iluminación y registro. Evitar offsets independientes.
 
-La geometría debe privilegiar lo que verá la cámara:
+| Parámetro | Contrato |
+|---|---|
+| Coordenadas fuente | X lateral, Y arriba, Z hacia la cola; metros |
+| Frame en vuelo | posición [0,40,-80], pitch −3° |
+| Interior / exterior local | [0,−3,−30] / [0,−8.5,−35] |
+| Corrección glTF en runtime | +90° sobre X, antes del frame compartido |
+| Zonas | cockpit 0–8; economy 8–26; escalera 26–32; superior 32–41.5 |
+| Piso superior | Y=2.45 |
+| Semiancho main / upper | 3.2 / 2.78 |
+| Distribución | main 3-4-3, 20 filas; upper 2-4-2, 8 filas; 2 pilotos |
+| Asientos / ancho | 266 / 0.46 |
+| Pasillos | centros X=±1.32; dos pasillos transitables |
+| Puerta superior port | centro [−2.78,4.05,40.5], hueco Z=39.8–41.2 |
 
-- lectura clara del pasillo y de la anchura de la cabina;
-- repetición de asientos mediante instancing;
-- siluetas fuertes para paneles, puertas, ventanillas y escaleras;
-- iluminación integrada en cornisas y paneles;
-- ausencia de detalle invisible desde el recorrido.
+La disposición 3-4-3 puede contrastarse con el [mapa oficial A380 de ANA](https://www.ana.co.jp/en/jp/guide/prepare/seatmap/international/a380/).
+El 2-4-2 superior es una elección representativa del proyecto: no se atribuye
+al mapa ANA ni se afirma fidelidad dimensional de ingeniería. El copy dice
+«configuración representada», sin prometer toda la longitud real de cabina.
 
-## Sistema de coordenadas
+## Construcción y registro
 
-- Unidades Blender: metros.
-- Eje Y: arriba.
-- Eje X: izquierda/derecha de la cabina.
-- Eje Z: longitudinal; nariz en Z = 0 y parte trasera hacia Z positivo.
-- Origen del interior: centro del piso de la cabina de mando.
-- El exterior elegido se registró con una transformación única de escena en Exterior_Root: rotación X = −90° y traslación (0, 0, 28,9781) m; no se ajustaron zonas individuales a ojo.
-- El blockout se registró con Interior_Registration_Root = (0, 3,2, 0,3) m. Los bounds visibles resultantes son 6,32 × 4,58 × 58,00 m y quedan dentro del envelope exterior.
-- Esta es una registración gruesa de Fase 0; el plano de umbral, puertas, decks y recorrido de cámara se validan en el spike de la Fase 4.
+Cockpit orientado hacia −Z, paneles/parabrisas delante y puerta posterior.
+Dos pasillos, bins fuera de ellos, techo curvo, escalera de 16 peldaños sobre
+el pasillo port. El piso superior sirve de descansillo, sin losas coplanares.
+Cierre posterior siguiendo la curva del techo, antes de la intrusión de cola.
 
-## Recorrido de cámara y módulos
+Asientos enlazados y agrupados por zona/bloques de hasta cinco filas: siete
+batches de instancias. Estructura opaca y con escritura de profundidad.
+No usar el antiguo join global ni transparencias para ocultar problemas de LOD.
+`process-glb.mjs` redirige los assets interior al procesador espacial.
 
-La v1 conserva el arco completo con cuatro módulos geométricos:
+```bash
+# Blender 4.5 LTS; o Python con bpy 4.5.3
+blender --background --python blender/interior_blockout.py
+node scripts/process-interior.mjs
+npm run qa:interior
+node scripts/extract-hull.mjs
+node scripts/export-cabin-route.mjs
+blender --background --python blender/verify_cabin.py
+blender --background --python blender/register_interior.py
+blender --background --python blender/verify_registration.py
+```
 
-| Orden | Zona narrativa | Módulo | Rango de diseño Z | Función visual |
-|---:|---|---|---:|---|
-| 1 | Cabina de mando | Cockpit | 0–8 m | Entrada al interior; panel frontal, ventanas y consola |
-| 2 | Economy | Main cabin | 8–34 m | Repetición de asientos, pasillo central y lectura de anchura |
-| 3 | Escalera + piso superior | Stair transition | 34–40 m | Cambio vertical y umbral narrativo |
-| 3 | Escalera + piso superior | Upper deck | 40–58 m | Clímax del doble piso; pasillo más contenido y vista hacia adelante |
+Los artefactos intermedios se escriben en `artifacts/phase6/`. El extractor
+aplica matrices de nodos reales del exterior y produce sus triángulos en
+coordenadas de la cabina. También genera una copia sin KTX2 para inspección en
+Blender; no altera el GLB exterior publicado.
 
-La cámara debe entrar a aproximadamente 1.60 m de altura. Cada módulo termina con una meseta espacial para que el overlay de esa zona pueda leerse sin frenar artificialmente todo el recorrido.
+El verificador muestrea 3.751 posiciones del recorrido, contra los triángulos
+del BLEND fuente y del GLB reimportado. Radio 0.18 m + margen 0.05 m, con
+envolvente adicional 0.052 m para oscilación durante S5. Los cruces deliberados
+de nariz/puerta se excluyen sólo del chequeo contra hull, no contra estructura
+interior. Se verifican bounds y cinco anclas bajo la matriz canónica.
 
-## Parámetros de blockout
+## Inspección
 
-Estos valores son el contrato inicial del blockout y pueden cambiar sólo mediante una anotación de auditoría:
-
-- Cubierta principal: ancho interior de diseño 6.20 m; altura útil 2.20 m.
-- Cubierta superior: ancho interior de diseño 5.50 m; altura útil 2.05 m.
-- Pasillo principal: ancho libre 1.20 m.
-- Separación lateral entre bloque de asientos y pared: 0.12 m mínimo.
-- Paso longitudinal inicial de filas: 0.79 m.
-- Escalera: ancho libre 1.05 m; 15–17 peldaños; descanso intermedio visible desde el pasillo.
-- Paneles: módulos de 2.40 m longitudinales para repetir materiales y mantener draw calls controladas.
-- Ventanillas: instancias por fila; se conserva una guía de luz fría exterior para la iluminación de S5.
-
-No se añadirá una sexta o séptima zona en Fase 0: primera clase y business/economy plus permanecen fuera de la v1, como establece PLAN.md.
-
-## Contrato del asiento base
-
-El asiento será un único mesh base preparado para InstancedMesh:
-
-- origen en el centro de la huella del asiento, apoyado en Y = 0;
-- ancho de diseño: 0.48 m;
-- profundidad de diseño: 0.52 m;
-- altura total de diseño: 1.15 m;
-- piezas visuales mínimas: cojín, respaldo, reposabrazos y carcasa;
-- variaciones por instancia: color de tapizado, estado de pantalla, posición de mesa y fila;
-- no modelar mecanismos internos ni superficies ocultas desde el pasillo.
-
-El contrato de nombres previsto para la escena es:
-
-- Interior_Root
-- Zone_Cockpit
-- Zone_Economy
-- Zone_Stair
-- Zone_UpperDeck
-- Seat_Base
-- Seat_Screen
-- Panel_Ceiling_Module
-- Panel_Window_Module
-- Stair_Main
-- Stair_Railing
-
-La lista de nombres sirve para que el pipeline pueda encontrar módulos sin depender de índices de malla.
-
-## Contrato de paneles e iluminación
-
-Cada zona tendrá paneles modulares con tres niveles:
-
-1. silueta estructural: techo, costados, piso y puertas;
-2. lectura de cámara: ventanillas, compartimientos, galley simplificada, luminarias;
-3. acentos: señalética ficticia, líneas de luz y materiales de la marca neutral.
-
-La iluminación se resolverá en la implementación con luces de cabina y emisivos ligeros. Las texturas y la marca de una aerolínea real no forman parte de este layout.
-
-## Verificación ejecutada en Blender — 2026-08-04
-
-- Blender 5.2.0 LTS arrancó en modo headless y `bpy` cargó correctamente.
-- El archivo BLEND se guardó, se reabrió y pasó [`blender/verify_blockout.py`](./blender/verify_blockout.py): 353 mallas; colecciones `Zone_Cockpit` (15), `Zone_Economy` (220), `Zone_Stair` (20), `Zone_UpperDeck` (98) y `Technical` (4); 250 asientos enlazados a `Seat_Base`, con 251 usuarios de la malla maestra; bounds mundiales de 6.32 × 4.58 × 58.26 m.
-- El GLB se exportó y volvió a abrir en Blender: 360 objetos, 354 mallas, 11 materiales y 750,952 bytes.
-- Se generó una vista QA en Workbench y se inspeccionó visualmente: el pasillo, las filas, los paneles, las ventanillas y la escalera son legibles en el blockout.
-- El recorrido de cámara narrativo completo sigue siendo trabajo de la Fase 2; no se marca aquí como terminado.
-
-## Estado al cierre de Fase 0
-
-El blockout propio está terminado y verificado. La escena registrada con el exterior se guardó, se reabrió y pasó los checks de conteo, jerarquía, transformación y envelope. La evidencia reproducible está en blender/register_interior.py y blender/verify_registration.py.
-
-El asset exterior conserva dos limitaciones explícitas: la UV original no es limpia/no solapada según select_overlap y el material sólo aporta albedo conectado a un Principled BSDF. Ninguna de las dos se marca como completa por inferencia. El ajuste final de umbral/puertas y la decisión sobre limpieza UV/PBR quedan trazados para las fases posteriores.
+`?qa=1&quality=low&time=12` fija tier y reloj antes del primer render.
+Añadir `view=hull|interior|both`, `wireframe=1` o `zones=1` para diagnóstico.
+El arnés `npm run qa:runtime` espera frames convergentes, registra hashes de
+fuentes y guarda capturas con y sin overlays. Ver `progress6.md` para resultados
+reales y pendientes. Las fases 3–7 siguen cubriendo coreografía, materiales,
+iluminación, móvil y rendimiento final.

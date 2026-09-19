@@ -1,0 +1,9 @@
+{
+  "result": "PASS",
+  "checks": [
+    "wheel/key/scrollbar preserve target",
+    "locks independent",
+    "programmatic navigation while locked",
+    "last release restores input"
+  ]
+}

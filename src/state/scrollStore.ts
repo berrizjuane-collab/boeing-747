@@ -4,8 +4,7 @@ import { getActiveSectionIndex } from '../lib/sections'
 
 export interface ScrollSnapshot {
   /**
-   * 0..1 across the whole document. Updated every scroll tick (via GSAP's
-   * scrub, so multiple times per frame while scrolling). Read it with
+   * 0..1 across the whole document. Published once at the start of each rendered frame. Read it with
    * `useScrollStore.getState().progress` inside useFrame/rAF loops — never
    * through the `useScrollStore(s => s.progress)` hook, or every tick
    * re-renders React. This is the hard rule from PLAN.md §2.1.
@@ -20,6 +19,8 @@ export interface ScrollSnapshot {
 }
 
 interface ScrollState extends ScrollSnapshot {
+  targetProgress: number
+  setTarget: (p: number) => void
   setProgress: (p: number) => void
 }
 
@@ -34,5 +35,7 @@ export function deriveScrollSnapshot(globalProgress: number): ScrollSnapshot {
 
 export const useScrollStore = create<ScrollState>((set) => ({
   ...deriveScrollSnapshot(0),
+  targetProgress: 0,
+  setTarget: (p) => set({ targetProgress: Math.min(1, Math.max(0, p)) }),
   setProgress: (progress) => set(deriveScrollSnapshot(progress)),
 }))

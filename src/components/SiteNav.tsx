@@ -1,7 +1,7 @@
 import { BRAND_NAME } from '../lib/content'
 import { SECTIONS } from '../lib/sections'
 import { cycleTier, TIER_SETTINGS, useQualityStore } from '../state/qualityStore'
-import { useScrollStore } from '../state/scrollStore'
+import { usePresentedActive } from '../lib/usePresentedActive'
 
 /**
  * PLAN.md §10.5: 64px fixed transparent bar, wordmark left, 7-mark section
@@ -17,7 +17,6 @@ import { useScrollStore } from '../state/scrollStore'
  * elsewhere solves with a text-shadow instead (index.css).
  */
 export function SiteNav({ onJump }: { onJump: (index: number) => void }) {
-  const activeIndex = useScrollStore((s) => s.activeIndex)
   const tier = useQualityStore((s) => s.tier)
   const setTier = useQualityStore((s) => s.setTier)
 
@@ -27,17 +26,7 @@ export function SiteNav({ onJump }: { onJump: (index: number) => void }) {
       <div className="site-nav__wordmark">{BRAND_NAME}</div>
       <div className="site-nav__right">
         <div className="site-nav__marks">
-          {SECTIONS.map((section, index) => (
-            <button
-              key={section.id}
-              type="button"
-              className="site-nav__mark"
-              data-active={index === activeIndex}
-              aria-current={index === activeIndex ? 'true' : undefined}
-              aria-label={`Saltar a ${section.label}`}
-              onClick={() => onJump(index)}
-            />
-          ))}
+          {SECTIONS.map((section, index) => <SectionMark key={section.id} index={index} onJump={onJump} />)}
         </div>
         <button
           type="button"
@@ -50,4 +39,10 @@ export function SiteNav({ onJump }: { onJump: (index: number) => void }) {
       </div>
     </nav>
   )
+}
+
+function SectionMark({ index, onJump }: { index: number; onJump: (index: number) => void }) {
+  const ref = usePresentedActive<HTMLButtonElement>('activeIndex', index, true)
+  return <button ref={ref} type="button" className="site-nav__mark"
+    aria-label={`Saltar a ${SECTIONS[index].label}`} onClick={() => onJump(index)} />
 }

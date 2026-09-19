@@ -1,6 +1,6 @@
 import type { InteriorZoneKey } from '../lib/cameraPath'
 import { INTERIOR_ZONES } from '../lib/content'
-import { useScrollStore } from '../state/scrollStore'
+import { usePresentedActive } from '../lib/usePresentedActive'
 
 type ZoneKey = InteriorZoneKey
 const ZONE_ORDER: ZoneKey[] = ['cockpit', 'economy', 'stair', 'upperDeck']
@@ -12,7 +12,6 @@ const ZONE_ORDER: ZoneKey[] = ['cockpit', 'economy', 'stair', 'upperDeck']
  * and anywhere outside S5.
  */
 export function InteriorOverlay() {
-  const activeZone = useScrollStore((state) => state.interiorZone)
 
   // Stays mounted outside S5 too (not `if (!inInterior) return null`),
   // matching NarrativeOverlay.tsx's always-mounted-fade-via-data-active
@@ -30,32 +29,22 @@ export function InteriorOverlay() {
     <div className="overlay">
       <div className="overlay__col overlay__col--left">
         <div className="overlay__interior-stack">
-          {ZONE_ORDER.map((key) => {
-            const zone = INTERIOR_ZONES[key]
-            return (
-              <div
-                key={key}
-                className="overlay__panel overlay__panel--interior-zone"
-                data-active={String(key === activeZone)}
-              >
-                <div className="overlay__eyebrow">{zone.eyebrow}</div>
-                <h2 className="overlay__title">{zone.title}</h2>
-                <p className="overlay__body">{zone.body}</p>
-                {zone.data.length > 0 && (
-                  <ul className="overlay__data-list">
-                    {zone.data.map((point) => (
-                      <li key={point.label}>
-                        <div className="overlay__data-label">{point.label}</div>
-                        <div className="overlay__data-value">{point.value}</div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            )
-          })}
+          {ZONE_ORDER.map(key => <ZonePanel key={key} zoneKey={key} />)}
         </div>
       </div>
     </div>
   )
+}
+
+function ZonePanel({ zoneKey }: { zoneKey: ZoneKey }) {
+  const ref = usePresentedActive<HTMLDivElement>('interiorZone', zoneKey)
+  const zone = INTERIOR_ZONES[zoneKey]
+  return <div ref={ref} className="overlay__panel overlay__panel--interior-zone" data-zone={zoneKey}>
+    <div className="overlay__eyebrow">{zone.eyebrow}</div>
+    <h2 className="overlay__title">{zone.title}</h2>
+    <p className="overlay__body">{zone.body}</p>
+    {zone.data.length > 0 && <ul className="overlay__data-list">{zone.data.map(point => <li key={point.label}>
+      <div className="overlay__data-label">{point.label}</div><div className="overlay__data-value">{point.value}</div>
+    </li>)}</ul>}
+  </div>
 }

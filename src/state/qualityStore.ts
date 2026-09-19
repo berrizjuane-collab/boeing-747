@@ -1,3 +1,4 @@
+import { qaTier } from '../lib/qaConfig'
 import { create } from 'zustand'
 
 /**
@@ -99,8 +100,8 @@ interface QualityState {
 }
 
 export const useQualityStore = create<QualityState>((set, get) => ({
-  tier: guessInitialTier(),
-  auto: true,
+  tier: qaTier ?? guessInitialTier(),
+  auto: qaTier === null,
   setTier: (tier, source) => {
     if (source === 'auto' && !get().auto) return
     set({ tier, auto: source === 'auto' })

@@ -11,5 +11,5 @@ import { detectWebGL2Support } from './lib/webglSupport.ts'
 // boundary once something inside has already thrown.
 const root = createRoot(document.getElementById('root')!)
 root.render(
-  <StrictMode>{detectWebGL2Support() ? <App /> : <StaticFallback />}</StrictMode>,
+  <StrictMode>{!new URLSearchParams(location.search).has('static') && detectWebGL2Support() ? <App /> : <StaticFallback />}</StrictMode>,
 )

@@ -1,3 +1,8 @@
+import { useScrollStore } from '../state/scrollStore'
+import { useQualityStore } from '../state/qualityStore'
+import { useAssetState } from '../state/assetState'
+import { getAircraftPose } from '../lib/aircraftPose'
+import { NOSE_PORTAL, EXIT_PORTAL, portalRadius } from '../lib/thresholdPortals'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useRef } from 'react'
 import { Frustum, InstancedMesh, Matrix4, Mesh, type Camera, type Scene } from 'three'
@@ -8,6 +13,7 @@ import { terrainGenerationStats } from '../state/terrainGenerationStats'
 
 declare global {
   interface Window {
+    __MERIDIAN_FRAME__?: Record<string, unknown>
     __MERIDIAN_PERF__?: {
       fps: number
       drawCalls: number
@@ -82,10 +88,11 @@ export function StatsCollector() {
   const { camera, gl, scene } = useThree()
   const lastTime = useRef(performance.now())
   const frames = useRef(0)
+  const frameId = useRef(0)
   const frustum = useRef(new Frustum())
   const projection = useRef(new Matrix4())
 
-  useFrame(() => {
+  useFrame(({ clock }, delta) => {
     frames.current += 1
     const now = performance.now()
     const elapsed = now - lastTime.current
@@ -108,6 +115,26 @@ export function StatsCollector() {
       sceneEnvironmentIsNull: scene.environment === null,
       effectiveExposure: exposureState.value,
       terrainGenerationMs: terrainGenerationStats.lastGenerationMs,
+    }
+    if (gl.info.render.calls > 0) {
+      for (const key of ['exterior', 'environment'] as const) {
+        if (useAssetState.getState().assets[key].stage === 'prepared') useAssetState.getState().set(key, 'ready')
+      }
+    }
+    const scroll = useScrollStore.getState()
+    const pose = getAircraftPose(scroll.progress)
+    window.__MERIDIAN_FRAME__ = {
+      frameId: ++frameId.current, timestamp: now, delta, simulationTime: clock.elapsedTime,
+      targetProgress: scroll.targetProgress, progress: scroll.progress,
+      section: scroll.activeIndex, zone: scroll.interiorZone,
+      camera: { position: camera.position.toArray(), quaternion: camera.quaternion.toArray(), fov: 'fov' in camera ? camera.fov : null },
+      aircraft: { position: pose.position.toArray(), pitch: pose.pitchRad },
+      tier: useQualityStore.getState().tier, autoQuality: useQualityStore.getState().auto, dpr: gl.getPixelRatio(),
+      assets: useAssetState.getState().assets,
+      portals: [portalRadius(scroll.progress, NOSE_PORTAL), portalRadius(scroll.progress, EXIT_PORTAL)],
+      memory: { ...gl.info.memory, programs: gl.info.programs?.length ?? 0 },
+      perf: window.__MERIDIAN_PERF__,
+      domZone: document.querySelector('[data-zone][data-active="true"]')?.getAttribute('data-zone') ?? null,
     }
     gl.info.reset()
   }, 2)

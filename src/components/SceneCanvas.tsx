@@ -1,3 +1,5 @@
+import { PresentationDriver } from './PresentationDriver'
+import { AssetBoundary } from './AssetBoundary'
 import { Canvas } from '@react-three/fiber'
 import { Suspense, useRef } from 'react'
 import { SRGBColorSpace, type Mesh } from 'three'
@@ -17,20 +19,18 @@ import { KeyframeAuthoringTool } from '../dev/KeyframeAuthoringTool'
 import { useQualityStore, TIER_SETTINGS } from '../state/qualityStore'
 import { useScrollStore } from '../state/scrollStore'
 
-// S4, S5, S6 — mounted only in this window per PLAN.md Fase 4 ("montaje del
-// interior en el grafo sólo en la ventana S4-S6"), so the real interior
-// asset isn't resident in memory/draw calls for the rest of the journey.
+// Keep geometry and lights resident; visibility and IBL ownership follow
+// S4–S6. Repeated visits never rebuild the cabin or its light inventory.
 const INTERIOR_ACTIVE_INDICES = new Set([3, 4, 5])
 
 function InteriorGate() {
   const activeIndex = useScrollStore((s) => s.activeIndex)
-  if (!INTERIOR_ACTIVE_INDICES.has(activeIndex)) return null
   return (
     <>
-      <InteriorLighting />
-      <Suspense fallback={null}>
+      <InteriorLighting active={INTERIOR_ACTIVE_INDICES.has(activeIndex)} />
+      <AssetBoundary asset="interior"><Suspense fallback={null}>
         <InteriorAsset />
-      </Suspense>
+      </Suspense></AssetBoundary>
     </>
   )
 }
@@ -77,14 +77,15 @@ export function SceneCanvas({ debugMode }: { debugMode: boolean }) {
         gl.outputColorSpace = SRGBColorSpace
       }}
     >
-      <Suspense fallback={null}>
+      <PresentationDriver />
+      <AssetBoundary asset="environment"><Suspense fallback={null}>
         <EnvironmentPlaceholder />
-      </Suspense>
+      </Suspense></AssetBoundary>
       <RunwayEnvironment />
       <SunMesh ref={sunRef} />
-      <Suspense fallback={null}>
+      <AssetBoundary asset="exterior"><Suspense fallback={null}>
         <ExteriorAsset />
-      </Suspense>
+      </Suspense></AssetBoundary>
       <InteriorGate />
       <Hotspots />
       <ThresholdFrame />

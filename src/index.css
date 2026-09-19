@@ -612,6 +612,8 @@ body {
 }
 
 .interior-guardrail[data-active='true'] {
+  pointer-events: auto;
+  max-width: calc(100vw - 32px);
   opacity: 1;
   transform: translate(-50%, 0);
 }
@@ -1240,3 +1242,6 @@ body {
     justify-content: flex-end;
   }
 }
+
+.interior-guardrail button { margin: 6px; padding: 8px 12px; color: white; background: #263846; border: 1px solid #a8bdc9; border-radius: 4px; cursor: pointer; }
+.interior-guardrail[data-active="true"] { pointer-events: auto; }

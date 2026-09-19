@@ -1,3 +1,4 @@
+import { interiorToWorld } from '../lib/sceneLayout'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
 import {
@@ -10,6 +11,8 @@ import {
   SpotLight,
   SRGBColorSpace,
   UnsignedByteType,
+  type WebGLRenderer,
+  type WebGLRenderTarget,
 } from 'three'
 import { SECTIONS } from '../lib/sections'
 import { TIER_SETTINGS, useQualityStore } from '../state/qualityStore'
@@ -46,7 +49,7 @@ const CABIN_POINT_LIGHTS: readonly CabinPointDefinition[] = [
     color: '#ffd1a3',
     intensity: 45,
     distance: 18,
-    position: [0, 40.1, -107],
+    position: interiorToWorld([0, 2.05, 3.5]),
   },
   {
     name: 'Interior · Practical · Economy forward',
@@ -55,7 +58,7 @@ const CABIN_POINT_LIGHTS: readonly CabinPointDefinition[] = [
     color: '#ffe0bd',
     intensity: 55,
     distance: 22,
-    position: [0, 40.2, -96],
+    position: interiorToWorld([0, 2.1, 13]),
   },
   {
     name: 'Interior · Practical · Economy aft',
@@ -64,7 +67,7 @@ const CABIN_POINT_LIGHTS: readonly CabinPointDefinition[] = [
     color: '#ffe0bd',
     intensity: 55,
     distance: 22,
-    position: [0, 40.2, -83],
+    position: interiorToWorld([0, 2.1, 23]),
   },
   {
     name: 'Interior · Practical · Stair',
@@ -73,7 +76,7 @@ const CABIN_POINT_LIGHTS: readonly CabinPointDefinition[] = [
     color: '#ffc78e',
     intensity: 58,
     distance: 20,
-    position: [0, 41.2, -73],
+    position: interiorToWorld([-1.32, 4.3, 29]),
   },
   {
     name: 'Interior · Practical · Upper deck',
@@ -82,7 +85,7 @@ const CABIN_POINT_LIGHTS: readonly CabinPointDefinition[] = [
     color: '#ffe7cf',
     intensity: 50,
     distance: 21,
-    position: [0, 43.2, -60],
+    position: interiorToWorld([0, 4.45, 37]),
   },
 ]
 
@@ -94,8 +97,8 @@ const CABIN_SPOT_LIGHTS: readonly CabinSpotDefinition[] = [
     color: '#ffc98f',
     intensity: 90,
     distance: 28,
-    position: [0, 44, -108],
-    target: [0, 38.2, -99],
+    position: interiorToWorld([0, 2.1, 3]),
+    target: interiorToWorld([0, 1, 1.4]),
     angle: 0.78,
   },
   {
@@ -105,8 +108,8 @@ const CABIN_SPOT_LIGHTS: readonly CabinSpotDefinition[] = [
     color: '#cde1ff',
     intensity: 80,
     distance: 30,
-    position: [0, 46, -73],
-    target: [0, 40.5, -64],
+    position: interiorToWorld([-1.32, 4.5, 31]),
+    target: interiorToWorld([-1.32, 3.9, 35]),
     angle: 0.72,
   },
 ]
@@ -174,7 +177,8 @@ function configureShadow(light: SpotLight) {
   light.shadow.normalBias = 0.02
 }
 
-export function InteriorLighting() {
+const fillCache = new WeakMap<WebGLRenderer, WebGLRenderTarget>()
+export function InteriorLighting({ active }: { active: boolean }) {
   const { camera, gl, scene } = useThree()
   const pointLightRefs = useRef<Array<PointLight | null>>([])
   const spotLightRefs = useRef<Array<SpotLight | null>>([])
@@ -190,11 +194,18 @@ export function InteriorLighting() {
   )
 
   useEffect(() => {
+    if (!active) return
     const previousEnvironment = scene.environment
+    let environmentTarget = fillCache.get(gl)
+    if (!environmentTarget) {
     const fillTexture = createCabinFillTexture()
     const pmrem = new PMREMGenerator(gl)
     pmrem.compileEquirectangularShader()
-    const environmentTarget = pmrem.fromEquirectangular(fillTexture)
+    environmentTarget = pmrem.fromEquirectangular(fillTexture)
+    fillCache.set(gl, environmentTarget)
+    fillTexture.dispose()
+    pmrem.dispose()
+    }
     scene.environment = environmentTarget.texture
 
     for (const light of spotLightRefs.current) {
@@ -214,11 +225,9 @@ export function InteriorLighting() {
       // live HDRI the instant S6 hands off to S7. Only restore it if nothing
       // else has taken scene.environment over since we set it.
       if (scene.environment === environmentTarget.texture) scene.environment = previousEnvironment
-      environmentTarget.dispose()
-      fillTexture.dispose()
-      pmrem.dispose()
+      // Cached with the renderer, reused on every return to the cabin.
     }
-  }, [gl, scene])
+  }, [gl, scene, active])
 
   useFrame(() => {
     const factor = cabinFactor(useScrollStore.getState().progress)

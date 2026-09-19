@@ -115,10 +115,10 @@ export const INTERIOR_ZONES: Record<'cockpit' | 'economy' | 'stair' | 'upperDeck
   },
   economy: {
     eyebrow: 'S5 — Economy',
-    title: 'El plano que muestra la anchura real',
+    title: 'Dos pasillos, tres bloques de asientos',
     body: 'La cubierta principal, de punta a punta — el pasillo más largo de la aeronave.',
     data: [
-      { label: 'Disposición típica', value: '3-4-3 por fila', verified: true },
+      { label: 'Configuración representada', value: '3-4-3 por fila', verified: false },
       { label: 'Ancho de fuselaje', value: '7,14 m', verified: true },
     ],
   },
@@ -133,7 +133,7 @@ export const INTERIOR_ZONES: Record<'cockpit' | 'economy' | 'stair' | 'upperDeck
     title: 'El doble piso, de nariz a cola',
     body: 'A diferencia de una joroba delantera, esta cubierta corre de punta a punta — el motivo por el que este recorrido se construyó sobre el A380.',
     data: [
-      { label: 'Disposición típica', value: '2-4-2 por fila', verified: true },
+      { label: 'Configuración representada', value: '2-4-2 por fila', verified: false },
       { label: 'Volumen de cabina', value: '530 m³', verified: true },
     ],
   },

@@ -5,47 +5,19 @@ del repositorio, `boeing-747`, se conserva únicamente por compatibilidad con
 la URL histórica de GitHub Pages; el producto, el paquete y toda la metadata
 se denominan **MERIDIAN — Airbus A380-800**.
 
-**Documentación completa y estado real:** [`PLAN.md`](./PLAN.md) y
-[`PROGRESS.md`](./PROGRESS.md) conservan la primera entrega; la ronda de
-corrección visual quedó registrada en [`plan2.md`](./plan2.md) y
-[`progress2.md`](./progress2.md). La ronda de fidelidad de entorno y
-dirección de arte vive en [`plan3.md`](./plan3.md) y
-[`progress3.md`](./progress3.md), con sus Fases 0/A/B implementadas y
-verificadas. [`plan4.md`](./plan4.md) / [`progress4.md`](./progress4.md)
-cubren la ronda de ambientación natural del hero (Fases 0₄ y G cerradas
-allí; sus Fases H e I se cierran en la ronda 5). Los **documentos activos**
-son [`plan5.md`](./plan5.md) —realismo del mundo: bosque, colinas, cielo,
-aeródromo completo y cabina con materiales PBR procedurales— y su registro
-de evidencia [`progress5.md`](./progress5.md), con capturas antes/después
-en [`docs/evidence/round5/`](./docs/evidence/round5/).
+**Documentación activa:** [`plan6.md`](./plan6.md) y [`progress6.md`](./progress6.md).
+Las rondas anteriores se conservan como historial. El producto aún requiere
+correcciones visuales; sus declaraciones históricas de cierre no sustituyen
+la validación actual.
 
 ## Estado actual
 
-Fases 0–9 y ronda de corrección visual implementadas. El recorrido integra
-un exterior A380 con librea y superficie PBR, interior original final de
-cuatro zonas, tres HDRI procedurales normalizadas, KTX2/Basis, cruce de
-umbral, entorno aeroportuario, postproceso por tier, overlays narrativos,
-hotspots, fallback sin WebGL2 y accesibilidad.
-
-La segunda ronda corrigió la continuidad de cámara y el estado de overlays,
-reconstruyó cockpit/economy/escalera/piso superior, normalizó iluminación y
-atmósfera, rehízo pista/vegetación/torre/nubes y convirtió los criterios
-visuales en pruebas y capturas reproducibles sobre el build de producción.
-
-La quinta ronda (`plan5.md`) puebla el mundo: bosque instanciado en tres
-bandas con claros y colinas, pasto que crece exactamente donde la textura
-del terreno lo pinta, banda de horizonte en ambos domos de cielo, nubes en
-el hero, un aeródromo completo (terminal acristalada con mangas, torre de
-control detallada, hangares abovedados, calle de rodaje, apron con marcas,
-luces de pista, granja de combustible), asfalto con depósitos de goma,
-luces de navegación en el A380 y, en la cabina, materiales PBR
-procedurales con UVs generadas en shader (el GLB no trae UVs), pantallas
-con contenido (PFD, IFE), ventanillas con vista exterior, haces de luz,
-polvo en suspensión y luces de lectura.
-
-**Límite de verificación:** Safari/iOS y Android físicos requieren hardware
-real; Chromium móvil emulado no sustituye esa prueba. El resto de la matriz
-automatizada y la evidencia exacta están registradas en `progress2.md`.
+Implementación de las primeras tres fases del plan 6 (**0, 1 y 2**): diagnóstico
+reproducible, progreso presentado único, preparación real y recuperación de
+assets, propiedad estable de recursos y reconstrucción/registro de la cabina.
+Consulta resultados y límites en `progress6.md` y el contrato geométrico en
+[`INTERIOR_LAYOUT.md`](./INTERIOR_LAYOUT.md). Las fases 3–7 siguen pendientes:
+coreografía, transiciones, materiales/iluminación, móvil y rendimiento final.
 
 ## Desarrollo
 

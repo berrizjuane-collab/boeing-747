@@ -1,3 +1,4 @@
+import { interiorToWorld, INTERIOR_MANIFEST } from './sceneLayout'
 import { Vector3 } from 'three'
 
 export interface PortalWindow {
@@ -19,7 +20,7 @@ export interface PortalWindow {
 // reseals shortly into S5 so the hull isn't gaping open for the interior
 // walkthrough. Center matches dissolveHullMaterial's default.
 export const NOSE_PORTAL: PortalWindow = {
-  center: new Vector3(0, 40, -114),
+  center: new Vector3(...interiorToWorld([0, 1.6, -4])),
   start: 0.4,
   peak: 0.45,
   end: 0.52,
@@ -38,7 +39,7 @@ export const EXIT_PORTAL: PortalWindow = {
   // Port-side upper-deck doorway. Camera keyframe 12 meets this exact X/Z
   // plane before keyframe 13 clears laterally, so frame, dissolve and path
   // all describe one physical threshold rather than three nearby effects.
-  center: new Vector3(-2.75, 40.4, -53.8),
+  center: new Vector3(...interiorToWorld(INTERIOR_MANIFEST.anchors.exit)),
   start: 0.79,
   peak: 0.83,
   end: 0.87,

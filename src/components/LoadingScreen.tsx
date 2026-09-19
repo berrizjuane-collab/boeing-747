@@ -1,10 +1,9 @@
-import { useProgress } from '@react-three/drei'
 import { useEffect, useRef, useState } from 'react'
 import { BRAND_NAME } from '../lib/content'
-import { BLOCKING_ASSET_WEIGHTS, BLOCKING_TOTAL_WEIGHT, weightForItem } from '../lib/loadingWeights'
+import { useAssetState } from '../state/assetState'
 import { loadingState } from '../state/loadingState'
 
-const BLOCKING_ITEM_COUNT = Object.keys(BLOCKING_ASSET_WEIGHTS).length
+
 
 /**
  * S0 (PLAN.md §10.4): black, centered wordmark, hairline rule filling
@@ -23,8 +22,9 @@ const BLOCKING_ITEM_COUNT = Object.keys(BLOCKING_ASSET_WEIGHTS).length
  * whatever has registered so far happens to be idle.
  */
 export function LoadingScreen({ onComplete }: { onComplete: () => void }) {
-  const { active, item, total } = useProgress()
-  const loadedUrlsRef = useRef<Set<string>>(new Set())
+  const assets = useAssetState((s) => s.assets)
+  const ready = assets.exterior.stage === 'ready' && assets.environment.stage === 'ready'
+  const failed = assets.exterior.stage === 'error' || assets.environment.stage === 'error'
   const completedRef = useRef(false)
   const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [weightedPct, setWeightedPct] = useState(0)
@@ -32,15 +32,7 @@ export function LoadingScreen({ onComplete }: { onComplete: () => void }) {
   const [mounted, setMounted] = useState(true)
 
   useEffect(() => {
-    if (!item || loadedUrlsRef.current.has(item)) return
-    loadedUrlsRef.current.add(item)
-    let loadedWeight = 0
-    for (const url of loadedUrlsRef.current) loadedWeight += weightForItem(url)
-    setWeightedPct(Math.min(100, (loadedWeight / BLOCKING_TOTAL_WEIGHT) * 100))
-  }, [item])
-
-  useEffect(() => {
-    if (completedRef.current || active || total < BLOCKING_ITEM_COUNT) return
+    if (completedRef.current || !ready) return
     completedRef.current = true
     setWeightedPct(100)
     // Starts the exposure ramp (EnvironmentPlaceholder.tsx) immediately,
@@ -57,7 +49,7 @@ export function LoadingScreen({ onComplete }: { onComplete: () => void }) {
     // cancel the timer on that update, leaving a transparent
     // `.loading-screen--exit` mounted forever and making readiness checks hang.
     exitTimerRef.current = setTimeout(() => setMounted(false), 550)
-  }, [active, total, onComplete])
+  }, [ready, onComplete])
 
   useEffect(
     () => () => {
@@ -74,6 +66,7 @@ export function LoadingScreen({ onComplete }: { onComplete: () => void }) {
       <div className="loading-screen__rule">
         <div className="loading-screen__rule-fill" style={{ width: `${weightedPct}%` }} />
       </div>
+      {failed && <p role="alert">No se pudo cargar la experiencia. <button onClick={() => location.reload()}>Reintentar</button> <a href={`${import.meta.env.BASE_URL}?static=1`}>Ver versión sin 3D</a></p>}
       <div className="loading-screen__pct">{String(Math.round(weightedPct)).padStart(2, '0')}%</div>
     </div>
   )

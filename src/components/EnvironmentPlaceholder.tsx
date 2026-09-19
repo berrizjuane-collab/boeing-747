@@ -1,3 +1,5 @@
+import { qaTime } from '../lib/qaConfig'
+import { useAssetState } from '../state/assetState'
 import { Environment } from '@react-three/drei'
 import { useFrame, useLoader, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
@@ -70,6 +72,7 @@ const SKY_RADIUS = 1200
 const WARM_FOG_COLOR = new Color('#E89B6C')
 
 export function EnvironmentPlaceholder() {
+  useEffect(() => { useAssetState.getState().set('environment', 'prepared') }, [])
   const { scene } = useThree()
   const colorRef = useRef(new Color('#9f6246'))
   const fogColorRef = useRef(new Color('#9f6246'))
@@ -142,7 +145,7 @@ export function EnvironmentPlaceholder() {
     scene.environmentIntensity = theme.environmentIntensity
 
     const revealStart = loadingState.revealStartSeconds
-    const loadReveal = revealStart === null ? 0 : clamp01Reveal((performance.now() / 1000 - revealStart) / LOAD_REVEAL_DURATION)
+    const loadReveal = qaTime !== null ? 1 : revealStart === null ? 0 : clamp01Reveal((performance.now() / 1000 - revealStart) / LOAD_REVEAL_DURATION)
     // Not gl.toneMappingExposure: PostFX.tsx's <EffectComposer> forces
     // gl.toneMapping to NoToneMapping for as long as it's mounted (which is
     // always, as of Fase 7), and three.js's tonemapping_fragment shader

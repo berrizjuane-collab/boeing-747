@@ -1,5 +1,9 @@
 # PLAN 6 — Reparación de continuidad, geometría y calidad visual
 
+**Actualización 2026-09-19:** implementación de fases 0–2 y evidencia en
+[`progress6.md`](./progress6.md). La planificación original sigue abajo; sus
+criterios de aceptación no se dan por cumplidos sólo por implementar código.
+
 **Fecha:** 2026-09-18. **Estado:** planificación; ninguna corrección implementada en esta ronda.
 
 **Repositorio:** `berrizjuane-collab/boeing-747`. **Base auditada:** `52725ba2225351ecf350f06e06be564c65cb6ddd` (`main`).

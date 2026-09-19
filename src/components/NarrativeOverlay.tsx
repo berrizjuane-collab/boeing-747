@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useLayoutEffect, useRef } from 'react'
 import {
   EXIT_CONTENT,
   FOOTER_ATTRIBUTION,
@@ -11,6 +11,7 @@ import {
 } from '../lib/content'
 import { localProgress, SECTIONS } from '../lib/sections'
 import { useScrollStore } from '../state/scrollStore'
+import { usePresentedActive } from '../lib/usePresentedActive'
 
 // Fraction of S2's own local progress (0..1) at which each TAKEOFF_DATA
 // item reveals — PLAN.md §3 S2 asks for data "disparados progresivamente
@@ -22,8 +23,7 @@ const TAKEOFF_REVEAL_AT = [0.08, 0.32, 0.58, 0.8]
 function TakeoffData() {
   const itemRefs = useRef<(HTMLLIElement | null)[]>([])
 
-  useEffect(() => {
-    let raf = 0
+  useLayoutEffect(() => {
     const tick = () => {
       const { progress } = useScrollStore.getState()
       const local = localProgress(progress, SECTIONS[1])
@@ -31,10 +31,9 @@ function TakeoffData() {
         const el = itemRefs.current[i]
         if (el) el.dataset.revealed = String(local >= threshold)
       })
-      raf = requestAnimationFrame(tick)
     }
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
+    tick()
+    return useScrollStore.subscribe(tick)
   }, [])
 
   return (
@@ -64,12 +63,12 @@ function Panel({
   side: 'left' | 'right'
   children: React.ReactNode
 }) {
-  const isActive = useScrollStore((s) => s.activeIndex === index)
+  const activeRef = usePresentedActive<HTMLDivElement>('activeIndex', index)
   return (
     <div className={`overlay__col overlay__col--${side}`}>
       <div
         className={`overlay__panel overlay__panel--${SECTIONS[index].id}`}
-        data-active={isActive}
+        ref={activeRef}
         data-section={SECTIONS[index].id}
       >
         {children}
@@ -100,7 +99,7 @@ function Panel({
  * it only changes 6 times across the page (scrollStore.ts).
  */
 export function NarrativeOverlayHead() {
-  const thresholdActive = useScrollStore((s) => s.activeIndex === 3)
+  const thresholdRef = usePresentedActive<HTMLDivElement>('activeIndex', 3)
 
   return (
     <>
@@ -143,7 +142,7 @@ export function NarrativeOverlayHead() {
       {/* S4: "mínimo o nulo... a lo sumo una línea" (PLAN.md §3 S4) — kept
           outside the thirds grid since it's a single centered line, not a
           two-column panel. */}
-      <div className="overlay__threshold-line" data-active={thresholdActive}>
+      <div className="overlay__threshold-line" ref={thresholdRef}>
         {THRESHOLD_LINE}
       </div>
     </>

@@ -1527,4 +1527,5 @@ def build():
 
 
 if __name__ == "__main__":
-    build()
+    from interior_cabin import build_registered
+    build_registered(globals())

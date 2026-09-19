@@ -1,6 +1,5 @@
-// Plain mutable module state (same reasoning as loadingState.ts / perfStats.ts):
-// written once when interior.glb finishes loading, read every frame from
-// InteriorLoadGuardrail.tsx's rAF loop.
-export const interiorLoadState: { loaded: boolean } = {
-  loaded: false,
+// Compatibility accessor; readiness comes from preparation, never a URL event.
+import { useAssetState } from './assetState'
+export const interiorLoadState = {
+  get loaded() { return useAssetState.getState().assets.interior.stage === 'ready' },
 }

@@ -1,6 +1,7 @@
 import { CatmullRomCurve3, Quaternion, Vector3 } from 'three'
 import { SECTIONS, getActiveSectionIndex } from './sections'
-import { INTERIOR_ANCHORS_WORLD } from './sceneLayout'
+import { INTERIOR_ANCHORS_WORLD, interiorToWorld } from './sceneLayout'
+import { sampleCabinRoute } from './cabinRoute'
 
 export interface CameraKeyframe {
   sectionIndex: number
@@ -98,6 +99,26 @@ export const KEYFRAMES: CameraKeyframe[] = [
   { sectionIndex: 6, camPos: [-200, 92, 96], camTarget: [-141.05, 76.67, 44.13], fov: 35, roll: 0 },
 ]
 
+// Registration-only changes in round 6. Exterior shot timing remains phase 3.
+KEYFRAMES[6].camPos = interiorToWorld([0, 1.1, -4])
+KEYFRAMES[6].camTarget = interiorToWorld([0, 1.1, 2])
+KEYFRAMES[7].camPos = interiorToWorld([0, 1.1, 0])
+KEYFRAMES[7].camTarget = interiorToWorld([0, 1.1, 4])
+for (const [index, p] of [[8,.5],[9,.608],[10,.718],[11,.8],[12,.83],[13,.835]]) {
+  const sample = sampleCabinRoute(p)!
+  KEYFRAMES[index].camPos = sample.position.toArray() as [number,number,number]
+  KEYFRAMES[index].camTarget = sample.target.toArray() as [number,number,number]
+  KEYFRAMES[index].fov = sample.fov
+}
+
+// Target distance is not a camera channel. Normalize the exterior exit's
+// look rays to match the cabin so target diagnostics measure motion, not
+// arbitrary 5→60 metre look-ray interpolation (orientation is unchanged).
+for (let i = 14; i < KEYFRAMES.length; i++) {
+  const k = KEYFRAMES[i], p = new Vector3(...k.camPos)
+  k.camTarget = new Vector3(...k.camTarget).sub(p).normalize().multiplyScalar(5).add(p).toArray() as [number,number,number]
+}
+
 const POSITION_CURVE = new CatmullRomCurve3(KEYFRAMES.map((keyframe) => new Vector3(...keyframe.camPos)))
 
 // Sampling only once per control-point segment measures its chord, not the
@@ -177,8 +198,8 @@ const CAMERA_TRAVERSAL: readonly CameraTraversalBand[] = [
 
   { start: 0.82, end: 0.83, fromIndex: 11, toIndex: 12 },
   { start: 0.83, end: 0.835, fromIndex: 12, toIndex: 13 },
-  { start: 0.835, end: 0.88, fromIndex: 13, toIndex: 14 },
-  { start: 0.88, end: 0.95, fromIndex: 14, toIndex: 15 },
+  { start: 0.835, end: 0.895, fromIndex: 13, toIndex: 14 },
+  { start: 0.895, end: 0.95, fromIndex: 14, toIndex: 15 },
   { start: 0.95, end: 1, fromIndex: 15, toIndex: 16 },
 ]
 
@@ -272,6 +293,8 @@ export interface SampledCamera {
 
 /** Samples the continuous camera traversal at global scroll progress. */
 export function sampleCamera(progress: number): SampledCamera {
+  const cabin = sampleCabinRoute(progress)
+  if (cabin) return cabin
   const { band, t } = traversalSample(progress)
   const from = KEYFRAMES[band.fromIndex]
   const to = KEYFRAMES[band.toIndex]

@@ -53,6 +53,10 @@ if (!inputArg || !outputArg) {
 
 const input = resolve(inputArg)
 const output = resolve(outputArg)
+if (/interior/i.test(inputArg + outputArg)) {
+  execFileSync(process.execPath, ['scripts/process-interior.mjs', input, output], {stdio:'inherit'})
+  process.exit(0)
+}
 const ktxModeFlagIndex = rest.indexOf('--ktx-mode')
 const ktxMode = ktxModeFlagIndex >= 0 ? rest[ktxModeFlagIndex + 1] : 'etc1s'
 const joinDrawCalls = rest.includes('--join-draw-calls')

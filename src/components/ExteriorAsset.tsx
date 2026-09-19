@@ -1,6 +1,8 @@
+import { useAssetState } from '../state/assetState'
+import { qaView, qaWireframe } from '../lib/qaConfig'
 import { useGLTF } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Group, Matrix4, Mesh, Object3D, Vector3 } from 'three'
 // three-stdlib's mergeBufferGeometries is broken: its per-geometry
 // consistency checks live inside a `geometries.forEach` callback, so their
@@ -75,7 +77,8 @@ export function ExteriorAsset() {
     },
     [gl],
   )
-  const { scene } = useGLTF(`${import.meta.env.BASE_URL}models/exterior.glb`, true, true, extendLoader)
+  const { scene: source } = useGLTF(`${import.meta.env.BASE_URL}models/exterior.glb`, true, true, extendLoader)
+  const scene = useMemo(() => source.clone(true), [source])
   const groupRef = useRef<Group>(null)
   const poseGroupRef = useRef<Group>(null)
   const dissolveMaterialRef = useRef<DissolveHullMaterial | null>(null)
@@ -90,6 +93,7 @@ export function ExteriorAsset() {
     // broke the draw-call budget, replaced by RunwayEnvironment.tsx's
     // one-draw analytical contact shadow). Removed rather than left set:
     // with no caster, neither flag ever does anything on these meshes.
+    const restores: (() => void)[] = []
     let gear: Object3D | null = null
     scene.traverse((obj) => {
       if (obj.name === 'A380' && (obj as Mesh).isMesh) {
@@ -97,6 +101,8 @@ export function ExteriorAsset() {
         const sourceMaterial = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material
         const dissolveMaterial = createDissolveHullMaterial(sourceMaterial)
         mesh.material = dissolveMaterial
+        dissolveMaterial.wireframe = qaWireframe
+        restores.push(() => { mesh.material = sourceMaterial })
         dissolveMaterialRef.current = dissolveMaterial
       }
       if (obj.name === 'LandingGear') gear = obj
@@ -128,7 +134,7 @@ export function ExteriorAsset() {
         const gearMaterial = Array.isArray(gearMeshes[0].material) ? gearMeshes[0].material[0] : gearMeshes[0].material
         const mergedMesh = new Mesh(merged, gearMaterial)
         mergedMesh.name = 'LandingGear_Merged'
-        gearMeshes.forEach((mesh) => mesh.geometry.dispose())
+        // Shared GLTF geometries belong to the loader cache.
         for (const child of [...gearGroup.children]) gearGroup.remove(child)
         gearGroup.add(mergedMesh)
       }
@@ -178,7 +184,9 @@ export function ExteriorAsset() {
         belly: [0, bellyY - 0.25, -8],
       })
     }
+    useAssetState.getState().set('exterior', 'prepared')
     return () => {
+      restores.forEach((restore) => restore())
       const dissolveMaterial = dissolveMaterialRef.current
       dissolveMaterial?.userData.aircraftSurfaceMaps.normal.dispose()
       dissolveMaterial?.userData.aircraftSurfaceMaps.roughness.dispose()
@@ -208,6 +216,8 @@ export function ExteriorAsset() {
 
     group.position.set(position.x, position.y + jitter, position.z)
     group.rotation.x = pitchRad
+    group.visible = qaView !== 'interior'
+    group.updateMatrixWorld(true)
 
     const dissolveUniforms = dissolveMaterialRef.current?.userData.dissolveUniforms
     if (dissolveUniforms) {
@@ -222,12 +232,12 @@ export function ExteriorAsset() {
       gear.position.y = t * GEAR_RETRACT_RISE
       gear.visible = t < 1
     }
-  })
+  }, -70)
 
   return (
     <group ref={groupRef}>
       <group ref={poseGroupRef} rotation={[Math.PI / 2, 0, 0]} position={EXTERIOR_LOCAL_OFFSET}>
-        <primitive object={scene} />
+        <primitive object={scene} dispose={null} />
       </group>
       {extremes && <AircraftNavLights extremes={extremes} />}
     </group>

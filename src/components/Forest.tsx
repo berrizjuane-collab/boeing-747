@@ -1,3 +1,4 @@
+import { qaTime } from '../lib/qaConfig'
 import { useFrame } from '@react-three/fiber'
 import { useLayoutEffect, useMemo, useRef } from 'react'
 import { Color, InstancedMesh as InstancedMeshImpl, Object3D, StaticDrawUsage, type BufferGeometry, type Material } from 'three'
@@ -119,7 +120,7 @@ export function Forest() {
 
   useFrame((_, delta) => {
     if (reducedMotionState.active) return
-    trees.windTime.value += Math.min(delta, 0.1)
+    trees.windTime.value = qaTime ?? trees.windTime.value + Math.min(delta, 0.1)
   })
 
   return (

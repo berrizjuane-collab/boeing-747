@@ -1,5 +1,5 @@
 import { EXTERIOR_HOTSPOTS, INTERIOR_HOTSPOTS } from '../lib/content'
-import { INTERIOR_ANCHORS_WORLD } from '../lib/sceneLayout'
+import { interiorToWorld } from '../lib/sceneLayout'
 import { useScrollStore } from '../state/scrollStore'
 import { Hotspot } from './Hotspot'
 
@@ -16,7 +16,7 @@ const ENGINE_POSITION = [-13, 28, -88] as const
 const WINGLET_POSITION = [39, 41, -80] as const
 const EMPENNAGE_POSITION = [0, 54, -45] as const
 
-// S5 anchors: real offsets from INTERIOR_ANCHORS_WORLD, not independent
+// S5 anchors: real offsets from interiorToWorld, not independent
 // guesses — seat/screen/window/overheadBin cluster around the economy
 // anchor (where the camera actually dwells), galley near the stair anchor
 // (real A380s galley near the stair/door zone). Still tune-after-screenshot
@@ -42,13 +42,11 @@ const EMPENNAGE_POSITION = [0, 54, -45] as const
 // These four (unlike the exterior and galley anchors, both confirmed
 // on-screen) are the one placement still worth a further visual pass — see
 // PROGRESS.md Fase 6.
-const ECONOMY = INTERIOR_ANCHORS_WORLD.economy
-const STAIR = INTERIOR_ANCHORS_WORLD.stair
-const SEAT_POSITION = [ECONOMY[0] - 0.6, ECONOMY[1] - 0.1, ECONOMY[2] + 11] as const
-const SCREEN_POSITION = [ECONOMY[0] - 0.6, ECONOMY[1], ECONOMY[2] + 11.3] as const
-const WINDOW_POSITION = [ECONOMY[0] + 1, ECONOMY[1] + 0.1, ECONOMY[2] + 13] as const
-const OVERHEAD_BIN_POSITION = [ECONOMY[0] + 0.6, ECONOMY[1] + 0.3, ECONOMY[2] + 10] as const
-const GALLEY_POSITION = [STAIR[0] + 2, STAIR[1], STAIR[2] - 2] as const
+const SEAT_POSITION = interiorToWorld([-.765, 1, 18.74])
+const SCREEN_POSITION = interiorToWorld([-.765, 1, 18.94])
+const WINDOW_POSITION = interiorToWorld([-3.1, 1.34, 20])
+const OVERHEAD_BIN_POSITION = interiorToWorld([-2.88, 1.95, 19])
+const GALLEY_POSITION = interiorToWorld([1.8, 1.2, 25.5])
 
 const EXTERIOR_SECTION_INDEX = 2 // S3
 const INTERIOR_SECTION_INDEX = 4 // S5

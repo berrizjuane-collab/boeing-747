@@ -113,7 +113,7 @@ test('B2: the global traversal visits every keyframe in order, including a real 
     [0.7816, 11],
     [0.83, 12],
     [0.835, 13],
-    [0.88, 14],
+    [0.895, 14],
     [0.95, 15],
     [1, 16],
   ]

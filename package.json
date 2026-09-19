@@ -13,8 +13,10 @@
     "qa:hdri": "node scripts/measure-hdri.mjs --assert-ratio=4 --assert-median-ratio=4",
     "qa:interior": "node scripts/verify-interior-glb.mjs",
     "qa:d3": "node scripts/d3-frame-sequence.mjs",
-    "qa:visual": "node scripts/visual-qa.mjs",
-    "qa:clips": "node scripts/cut-visual-clips.mjs"
+    "qa:visual": "node scripts/runtime-qa.mjs",
+    "qa:clips": "node scripts/cut-visual-clips.mjs",
+    "qa:runtime": "node scripts/runtime-qa.mjs",
+    "build:interior": "node scripts/process-interior.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",

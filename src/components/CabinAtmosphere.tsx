@@ -1,5 +1,5 @@
 import { useFrame } from '@react-three/fiber'
-import { useLayoutEffect, useMemo, useRef } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import {
   AdditiveBlending,
   BufferGeometry,
@@ -15,7 +15,8 @@ import {
   Vector3,
 } from 'three'
 import { createSoftDotTexture } from '../lib/interiorSurfaceMaps'
-import { INTERIOR_OFFSET } from '../lib/sceneLayout'
+import { interiorToWorld, INTERIOR_MANIFEST, FLYING_POSE } from '../lib/sceneLayout'
+import { useQualityStore, TIER_SETTINGS } from '../state/qualityStore'
 import { SECTIONS } from '../lib/sections'
 import { seededRandom } from '../lib/seededRandom'
 import { reducedMotionState } from '../state/reducedMotion'
@@ -54,18 +55,11 @@ interface WindowSpec {
 }
 
 function windowSpecs(): WindowSpec[] {
-  const list: WindowSpec[] = []
-  for (let index = 0; index < 13; index += 1) {
-    for (const side of [-1, 1] as const) list.push({ x: side * 3.01, y: 1.4, z: 9.05 + 1.95 * index, side })
-  }
-  for (let index = 0; index < 8; index += 1) {
-    for (const side of [-1, 1] as const) list.push({ x: side * 2.665, y: 3.56, z: 41.05 + 1.9 * index, side })
-  }
-  return list
+  return INTERIOR_MANIFEST.windows as WindowSpec[]
 }
 
 function toWorld([x, y, z]: readonly [number, number, number]): [number, number, number] {
-  return [x + INTERIOR_OFFSET[0], y + INTERIOR_OFFSET[1], z + INTERIOR_OFFSET[2]]
+  return interiorToWorld([x, y, z])
 }
 
 function createShaftMaterial(color: string) {
@@ -109,9 +103,10 @@ const SHAFT_LENGTH = 4.6
 const SHAFT_WIDTH = 1.15
 const SHAFT_DROP_ANGLE = 0.62 // radians below horizontal
 
-function LightShafts({ side, color, strength }: { side: 1 | -1; color: string; strength: number }) {
+export function LightShafts({ side, color, strength }: { side: 1 | -1; color: string; strength: number }) {
   const meshRef = useRef<InstancedMeshImpl>(null)
   const material = useMemo(() => createShaftMaterial(color), [color])
+  useEffect(() => () => material.dispose(), [material])
   const windows = useMemo(() => windowSpecs().filter((w) => w.side === side), [side])
 
   useLayoutEffect(() => {
@@ -190,17 +185,18 @@ function DustMotes() {
     [sprite],
   )
   const basePositions = useMemo(() => (geometry.getAttribute('position').array as Float32Array).slice(), [geometry])
-  const drift = useRef(0)
+  const particleFraction = useQualityStore(s => TIER_SETTINGS[s.tier].particlesPct)
+  useEffect(() => () => { geometry.dispose(); material.dispose(); sprite.dispose() }, [geometry, material, sprite])
 
-  useFrame((_, delta) => {
+  useFrame(({ clock }) => {
     const points = pointsRef.current
     if (!points) return
     const factor = cabinFactor(useScrollStore.getState().progress)
     material.opacity = factor * 0.55
-    points.visible = factor > 0.01
+    points.visible = factor > 0.01 && particleFraction > 0
+    geometry.setDrawRange(0, Math.floor(DUST_COUNT * particleFraction))
     if (!points.visible || reducedMotionState.active) return
-    drift.current += Math.min(delta, 0.1)
-    const t = drift.current
+    const t = clock.elapsedTime
     const position = geometry.getAttribute('position')
     const phases = geometry.getAttribute('aPhase')
     const array = position.array as Float32Array
@@ -223,8 +219,8 @@ function ReadingLights({ seatWorldPositions }: { seatWorldPositions: Vector3[] }
     const positions = new Float32Array(seatWorldPositions.length * 3)
     seatWorldPositions.forEach((seat, index) => {
       positions[index * 3] = seat.x
-      positions[index * 3 + 1] = seat.y + 1.62
-      positions[index * 3 + 2] = seat.z + 0.12
+      positions[index * 3 + 1] = seat.y + 1.62 * Math.cos(FLYING_POSE.pitchDeg * Math.PI / 180)
+      positions[index * 3 + 2] = seat.z + 1.62 * Math.sin(FLYING_POSE.pitchDeg * Math.PI / 180) + 0.12
     })
     const result = new BufferGeometry()
     result.setAttribute('position', new Float32BufferAttribute(positions, 3))
@@ -245,6 +241,7 @@ function ReadingLights({ seatWorldPositions }: { seatWorldPositions: Vector3[] }
       }),
     [sprite],
   )
+  useEffect(() => () => { geometry.dispose(); material.dispose(); sprite.dispose() }, [geometry, material, sprite])
   useFrame(() => {
     const factor = cabinFactor(useScrollStore.getState().progress)
     material.opacity = factor * 0.9
@@ -257,8 +254,7 @@ function ReadingLights({ seatWorldPositions }: { seatWorldPositions: Vector3[] }
 export function CabinAtmosphere({ seatWorldPositions }: { seatWorldPositions: Vector3[] }) {
   return (
     <group name="Cabin · Atmosphere">
-      <LightShafts side={1} color="#ffd39a" strength={0.7} />
-      <LightShafts side={-1} color="#9fc6ff" strength={0.24} />
+      {/* Beam sheets remain disabled until phase 5 optical review. */}
       <DustMotes />
       <ReadingLights seatWorldPositions={seatWorldPositions} />
     </group>

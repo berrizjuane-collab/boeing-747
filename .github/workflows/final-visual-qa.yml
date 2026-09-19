@@ -1,112 +1,69 @@
 name: Final visual QA
-
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
-
 permissions:
   contents: read
-
 concurrency:
   group: final-visual-qa-${{ github.ref }}
   cancel-in-progress: true
-
 jobs:
   static-checks:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Static checks
-        run: |
-          npm run lint
-          npm test
-          npm run qa:hdri
-          npm run qa:interior
-          npm run build
-
+      - run: npm ci
+      - run: npm run lint && npm test && npm run qa:hdri && npm run qa:interior && npm run build
   visual-evidence:
     needs: static-checks
     runs-on: ubuntu-latest
-    # Full-resolution High screenshots take ~47 minutes on GitHub's shared
-    # SwiftShader runner. The recorded tour is independent evidence, so run
-    # both modes in parallel with isolated time budgets and reports.
-    timeout-minutes: 75
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        mode: [screenshots, video]
+        include:
+          - name: low
+            tier: low
+            video: '0'
+          - name: high
+            tier: high
+            video: '0'
+          - name: tour
+            tier: low
+            video: '1'
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
-
-      - name: Install media tools
-        if: matrix.mode == 'video'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
-
-      - name: Build production bundle
-        run: npm run build
-
-      - name: Start production preview
-        run: |
-          npm run preview -- --host 127.0.0.1 > /tmp/meridian-preview.log 2>&1 &
-          for attempt in {1..60}; do
-            if curl --fail --silent http://127.0.0.1:4173/boeing-747/ >/dev/null; then
-              exit 0
-            fi
-            sleep 1
-          done
-          cat /tmp/meridian-preview.log
-          exit 1
-
-      - name: Capture final product
-        run: npm run qa:visual
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium ffmpeg
+      - run: npm run build
+      - name: Capture verified frames (fixed tier before first render)
+        run: npm run qa:runtime
         env:
-          VISUAL_QA_MODE: ${{ matrix.mode }}
-
-      - name: Cut short MP4 clips
-        if: matrix.mode == 'video'
-        run: npm run qa:clips
-
-      - name: Archive preview log
-        if: always()
-        run: |
-          mkdir -p artifacts/final-visuals
-          cp /tmp/meridian-preview.log artifacts/final-visuals/preview.log
-
-      - name: Upload screenshots and clips
+          QA_TIER: ${{ matrix.tier }}
+          QA_BUTTON: ${{ matrix.name == 'low' && '1' || '0' }}
+          QA_VIDEO: ${{ matrix.video }}
+          QA_SOURCE_SHA: ${{ github.sha }}
+          QA_DIR: artifacts/phase6/${{ matrix.name }}
+          QA_WIDTH: '1440'
+          QA_HEIGHT: '900'
+          QA_TIMEOUT: '600000'
+      - name: Upload evidence including partial failure report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: meridian-final-visuals-${{ matrix.mode }}
-          path: artifacts/final-visuals
+          name: meridian-phase6-${{ matrix.name }}
+          path: artifacts/phase6
           if-no-files-found: error
           retention-days: 30

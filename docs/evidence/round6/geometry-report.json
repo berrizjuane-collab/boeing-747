@@ -1,0 +1,64 @@
+{
+  "radius": 0.18,
+  "margin": 0.05,
+  "samples": 3751,
+  "source": {
+    "vertices": 42503,
+    "triangles": 77641,
+    "bounds": [
+      [
+        -3.240000009536743,
+        -0.10000000149011612,
+        0.0
+      ],
+      [
+        3.240000009536743,
+        4.690000057220459,
+        41.505001068115234
+      ]
+    ],
+    "minimumClearance": {
+      "distance": 0.25500011444091797,
+      "p": 0.4718,
+      "object": "Cockpit_Structure_Mat_Shell",
+      "position": [
+        0.0,
+        1.100000023841858,
+        1.2360386848449707
+      ]
+    },
+    "collisionSamples": 0,
+    "firstCollisions": []
+  },
+  "final": {
+    "vertices": 152039,
+    "triangles": 69129,
+    "bounds": [
+      [
+        -3.240000009536743,
+        -0.10010376572608948,
+        0.0
+      ],
+      [
+        3.2398478984832764,
+        4.690000057220459,
+        41.505001068115234
+      ]
+    ],
+    "minimumClearance": {
+      "distance": 0.2548646926879883,
+      "p": 0.4718,
+      "object": "Cockpit_Structure_Mat_Shell",
+      "position": [
+        0.0,
+        1.100000023841858,
+        1.2360386848449707
+      ]
+    },
+    "collisionSamples": 0,
+    "firstCollisions": []
+  },
+  "hullMinimum": 1.2633339166641235,
+  "hullCollisionSamples": 0,
+  "hullFirstCollisions": []
+}

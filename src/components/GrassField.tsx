@@ -1,3 +1,4 @@
+import { qaTime } from '../lib/qaConfig'
 import { useFrame } from '@react-three/fiber'
 import { useLayoutEffect, useMemo, useRef } from 'react'
 import { Color, InstancedMesh as InstancedMeshImpl, Object3D, StaticDrawUsage } from 'three'
@@ -55,7 +56,7 @@ export function GrassField() {
 
   useFrame((_, delta) => {
     if (reducedMotionState.active) return
-    windTime.value += Math.min(delta, 0.1)
+    windTime.value = qaTime ?? windTime.value + Math.min(delta, 0.1)
   })
 
   return (

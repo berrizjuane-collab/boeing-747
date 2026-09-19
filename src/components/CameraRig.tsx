@@ -1,3 +1,4 @@
+import { qaTime } from '../lib/qaConfig'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useRef } from 'react'
 import { PerspectiveCamera as PerspectiveCameraImpl, Vector3 } from 'three'
@@ -61,7 +62,7 @@ export function CameraRig({ enabled }: { enabled: boolean }) {
     // the tracking shot cannot cause a positional discontinuity.
     const heroProgress = localProgress(progress, SECTIONS[0])
     const parallaxStrength = progress < SECTIONS[0].end ? 1 - heroProgress : 0
-    if (!reducedMotion && parallaxStrength > 0) {
+    if (qaTime === null && !reducedMotion && parallaxStrength > 0) {
       PARALLAX_POSITION.set(
         pointer.current.x * 1.25 * parallaxStrength,
         pointer.current.y * 0.55 * parallaxStrength,
@@ -99,7 +100,8 @@ export function CameraRig({ enabled }: { enabled: boolean }) {
       camera.fov = fov
       camera.updateProjectionMatrix()
     }
-  })
+    camera.updateMatrixWorld(true)
+  }, -80)
 
   return null
 }

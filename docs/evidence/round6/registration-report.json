@@ -1,0 +1,10 @@
+{
+  "anchorErrors": {
+    "cockpit": 0.0,
+    "economy": 0.0,
+    "stair": 0.0,
+    "upperDeck": 0.0,
+    "exit": 0.0
+  },
+  "result": "PASS"
+}
