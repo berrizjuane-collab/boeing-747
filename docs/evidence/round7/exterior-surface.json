@@ -1,0 +1,22 @@
+{
+  "triangles": 67580,
+  "trianglesWithoutUv": 0,
+  "degenerateUvTriangles": 11040,
+  "degenerateUvShare": 0.1633619414027819,
+  "nonUnitNormals": 0,
+  "texelDensity": {
+    "unit": "uv units per world unit",
+    "p05": 0.0041901513288967445,
+    "p50": 0.015738033703422843,
+    "p95": 0.03502666495146965,
+    "spreadP95OverP05": 8.359283997671769
+  },
+  "uvCoverage": {
+    "grid": 128,
+    "occupiedCells": 10147,
+    "occupiedShare": 0.61932373046875,
+    "cellsCoveredMoreThanOnce": 10044,
+    "overlapUpperBound": 0.9898492165171972,
+    "note": "Triangles are stamped by UV bounding box, so overlap is an upper bound, not a measured figure."
+  }
+}

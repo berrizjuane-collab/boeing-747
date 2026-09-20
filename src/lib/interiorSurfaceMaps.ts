@@ -128,15 +128,30 @@ export function createWeaveMaps(size = 128, threads = 24): SurfaceKit {
   }
 }
 
-/** Carpet albedo: base colour with lighter/darker flecks and a faint diagonal pile direction. Tiles. */
+/**
+ * Carpet albedo: base colour with flecks gathered into tufts, and a faint
+ * diagonal pile direction. Tiles.
+ *
+ * plan6 5.5 (A15's "alfombra sin apariencia de grava"). The flecks used to
+ * be decided per texel by a hash, and the shade multiplier was another
+ * per-texel hash on top. Uncorrelated texel-to-texel variation at full
+ * amplitude is gravel, whatever colour it is: a carpet's variation is
+ * correlated over a tuft, several texels wide, because that is the scale of
+ * the thing making it. The fleck mask is now a value-noise field thresholded
+ * at the same share, and the per-texel component is a fraction of what it
+ * was, with the rest carried at tuft scale.
+ */
 export function createCarpetAlbedo(size = 128, base: RGB, fleck: RGB, fleckShare = 0.18): DataTexture {
   const data = new Uint8Array(size * size * 4)
+  const tuft = Math.max(2, Math.round(size / 24))
   for (let y = 0; y < size; y += 1) {
     for (let x = 0; x < size; x += 1) {
       const offset = (y * size + x) * 4
-      const flecked = noise(x, y, 11) < fleckShare
+      const flecked = fbm(x, y, tuft, 11, 2, size / tuft) < fleckShare
       const pile = 0.92 + 0.08 * Math.sin(((x + y) / size) * Math.PI * 12)
-      const shade = (0.85 + noise(x, y, 12) * 0.3) * pile
+      const tuftShade = 0.88 + valueNoise(x, y, tuft, 12, size / tuft) * 0.22
+      const fibre = 0.97 + noise(x, y, 13) * 0.06
+      const shade = tuftShade * fibre * pile
       const source = flecked ? fleck : base
       data[offset] = Math.round(Math.min(255, source[0] * shade))
       data[offset + 1] = Math.round(Math.min(255, source[1] * shade))

@@ -4,7 +4,9 @@ import { Vector2, type Mesh } from 'three'
 import { updateCanopyMistColor } from '../lib/canopyMist'
 import { sampleEnvironmentTheme } from '../lib/environmentTheme'
 import { createTerrainDiscGeometry, updateTerrainDiscForCenter } from '../lib/terrainGeometry'
-import { applyGroundTint, groundFade } from '../lib/terrainGroundCurves'
+import { applyGroundTint } from '../lib/terrainGroundCurves'
+import { aerodromeDetailVisible, undercastOpacity } from '../lib/worldPersistence'
+import { getAircraftPose } from '../lib/aircraftPose'
 import { createTerrainGroundMaterial } from '../lib/terrainGroundMaterial'
 import { createTerrainSurfaceMaps, TERRAIN_SURFACE_MAP_SIZE } from '../lib/terrainSurfaceMaps'
 import { useQualityStore } from '../state/qualityStore'
@@ -91,11 +93,13 @@ export function TerrainGround() {
     // hills and the sky-dome horizon band all read.
     updateCanopyMistColor(theme.background)
 
-    // Pre-existing S2/S3 crossfade, unchanged mechanism.
-    const fade = groundFade(progress)
-    mesh.visible = fade > 0.01
-    material.opacity = fade
-    material.depthWrite = fade > 0.98
+    // plan6 4.1 (A13): the ground no longer crossfades out at the S2/S3
+    // boundary. It is opaque for as long as anything could see it and
+    // culled on the same signal as the rest of the aerodrome — once the
+    // cloud deck above it is closed (worldPersistence.ts). The world now
+    // goes away because something covers it, not because scroll passed a
+    // number.
+    mesh.visible = aerodromeDetailVisible(undercastOpacity(getAircraftPose(progress).altitude))
   })
 
   return <mesh ref={meshRef} name="Environment · Terrain ground" geometry={geometry} material={material} receiveShadow />

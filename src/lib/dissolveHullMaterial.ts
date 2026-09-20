@@ -10,6 +10,14 @@ export interface DissolveUniforms {
   portal2Radius: { value: number }
 }
 
+/**
+ * Object-space tiles per world unit for the procedural surface detail.
+ * The tile carries two vertical panel seams and four horizontal ones, so a
+ * third of a tile per unit puts seams about 1.5 and 0.75 units apart on a
+ * 72-unit fuselage — panel-line scale, not fabric scale.
+ */
+const SURFACE_TILES_PER_UNIT = 1 / 3
+
 export type DissolveHullMaterial = MeshStandardMaterial & {
   userData: Record<string, unknown> & {
     aircraftSurfaceMaps: AircraftSurfaceMaps
@@ -46,7 +54,15 @@ export function createDissolveHullMaterial(baseMaterial: Material): DissolveHull
   material.name = `${baseMaterial.name || 'A380_Hull'}_MERIDIAN_PBR`
   material.normalMap = aircraftSurfaceMaps.normal
   material.normalScale = new Vector2(0.32, 0.32)
-  material.roughnessMap = aircraftSurfaceMaps.roughness
+  // plan6 5.2 / A19: deliberately *not* material.roughnessMap. An audit of
+  // the shipped GLB (scripts/audit-exterior-surface.mjs) measured 16.3% of
+  // the hull's 67,580 triangles carrying zero-area UVs, and texel density
+  // varying 8.4x between the 5th and 95th percentiles. Any map bound to
+  // TEXCOORD_0 therefore collapses to a single texel across a sixth of the
+  // aircraft and is stretched unevenly across the rest. The procedural
+  // roughness is projected from object space below instead, which needs no
+  // UVs at all; the licensed albedo keeps its own, since only it knows
+  // where the livery goes.
   material.roughness = 1
   material.userData = {
     ...material.userData,
@@ -60,17 +76,22 @@ export function createDissolveHullMaterial(baseMaterial: Material): DissolveHull
   }
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms)
+    shader.uniforms.meridianSurfaceRoughness = { value: aircraftSurfaceMaps.roughness }
 
     shader.vertexShader = shader.vertexShader
       .replace(
         '#include <common>',
         `#include <common>
-varying vec3 vDissolveWorldPosition;`,
+varying vec3 vDissolveWorldPosition;
+varying vec3 vMeridianObjectPosition;
+varying vec3 vMeridianObjectNormal;`,
       )
       .replace(
         '#include <worldpos_vertex>',
         `#include <worldpos_vertex>
-vDissolveWorldPosition = ( modelMatrix * vec4( transformed, 1.0 ) ).xyz;`,
+vDissolveWorldPosition = ( modelMatrix * vec4( transformed, 1.0 ) ).xyz;
+vMeridianObjectPosition = position;
+vMeridianObjectNormal = normal;`,
       )
 
     shader.fragmentShader = shader.fragmentShader
@@ -82,7 +103,24 @@ uniform vec3 portal1Center;
 uniform float portal1Radius;
 uniform vec3 portal2Center;
 uniform float portal2Radius;
+uniform sampler2D meridianSurfaceRoughness;
 varying vec3 vDissolveWorldPosition;
+varying vec3 vMeridianObjectPosition;
+varying vec3 vMeridianObjectNormal;
+
+const float MERIDIAN_SURFACE_TILES_PER_UNIT = ${SURFACE_TILES_PER_UNIT};
+
+// Triplanar sample of the panel/rivet roughness tile. The fourth power
+// weighting keeps each face reading from one plane except close to a 45
+// degree edge, where the blend is what avoids a visible join.
+float meridianSurfaceDetail(vec3 objectPosition, vec3 objectNormal) {
+  vec3 blend = pow(abs(normalize(objectNormal)), vec3(4.0));
+  blend /= max(blend.x + blend.y + blend.z, 1e-4);
+  vec3 p = objectPosition * MERIDIAN_SURFACE_TILES_PER_UNIT;
+  return texture2D(meridianSurfaceRoughness, p.yz).g * blend.x
+    + texture2D(meridianSurfaceRoughness, p.zx).g * blend.y
+    + texture2D(meridianSurfaceRoughness, p.xy).g * blend.z;
+}
 
 const float DISSOLVE_EDGE_BAND = 0.7;
 
@@ -100,6 +138,10 @@ float dissolvePortalGlow(vec3 point, vec3 center, float radius) {
       .replace(
         '#include <roughnessmap_fragment>',
         `#include <roughnessmap_fragment>
+
+// Panel-level roughness, projected rather than sampled through the asset's
+// own UVs — see the audit note above material.roughness.
+roughnessFactor = meridianSurfaceDetail(vMeridianObjectPosition, vMeridianObjectNormal);
 
 // The licensed source has one albedo atlas for every surface. Classify broad
 // physical identities from that atlas, then retain the authored roughness
@@ -140,7 +182,7 @@ outgoingLight = mix(outgoingLight, edgeGlow, dissolveGlow);
 #include <opaque_fragment>`,
       )
   }
-  material.customProgramCacheKey = () => 'a380-dissolve-pbr-surface-v3'
+  material.customProgramCacheKey = () => 'a380-dissolve-pbr-surface-v4-triplanar-roughness'
   material.needsUpdate = true
   return material
 }

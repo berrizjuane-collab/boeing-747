@@ -1,6 +1,5 @@
 import { qaTime } from '../lib/qaConfig'
 import { useAssetState } from '../state/assetState'
-import { Environment } from '@react-three/drei'
 import { useFrame, useLoader, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
 import {
@@ -15,7 +14,9 @@ import {
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
 import { TerrainGround } from './TerrainGround'
 import { EXTERIOR_LIGHTS, sampleEnvironmentTheme } from '../lib/environmentTheme'
-import { activeHdriSectionSlot, goldenHourWeight, highAltitudeWeight, sunsetWeight } from '../lib/hdriTheme'
+import { goldenHourWeight, highAltitudeWeight, sunsetWeight } from '../lib/hdriTheme'
+import { activeProbe, probeIntensityScale } from '../lib/iblSchedule'
+import { getCabinProbe } from '../lib/cabinProbe'
 import { duskColorMix, exposureMultiplier } from '../lib/thresholdLighting'
 import { createSkyDomeMaterial } from '../lib/skyDomeMaterial'
 import { exposureState } from '../state/exposureState'
@@ -73,7 +74,7 @@ const WARM_FOG_COLOR = new Color('#E89B6C')
 
 export function EnvironmentPlaceholder() {
   useEffect(() => { useAssetState.getState().set('environment', 'prepared') }, [])
-  const { scene } = useThree()
+  const { gl, scene } = useThree()
   const colorRef = useRef(new Color('#9f6246'))
   const fogColorRef = useRef(new Color('#9f6246'))
   const keyRef = useRef<DirectionalLight>(null)
@@ -133,6 +134,24 @@ export function EnvironmentPlaceholder() {
     scene.fog = new FogExp2(colorRef.current.getHex(), 0.0015)
   }, [scene])
 
+  /**
+   * plan6 4.3 (A14): the single owner of `scene.environment`. Every probe is
+   * resolved here, including the cabin's — InteriorLighting used to install
+   * its own and restore whatever it found, which meant two components fought
+   * over the same field across S4–S6 and the handover depended on which one
+   * unmounted last. All four probes are convolved up front so no PMREM work
+   * lands on a threshold frame.
+   */
+  const probes = useMemo(
+    () => ({
+      golden: goldenHourMap,
+      highAltitude: highAltitudeMap,
+      sunset: sunsetMap,
+      cabin: getCabinProbe(gl),
+    }),
+    [gl, goldenHourMap, highAltitudeMap, sunsetMap],
+  )
+
   useFrame(() => {
     const { progress } = useScrollStore.getState()
     const theme = sampleEnvironmentTheme(progress)
@@ -142,7 +161,8 @@ export function EnvironmentPlaceholder() {
       scene.fog.color.copy(fogColorRef.current)
       scene.fog.density = theme.fogDensity
     }
-    scene.environmentIntensity = theme.environmentIntensity
+    scene.environment = probes[activeProbe(progress)]
+    scene.environmentIntensity = theme.environmentIntensity * probeIntensityScale(progress)
 
     const revealStart = loadingState.revealStartSeconds
     const loadReveal = qaTime !== null ? 1 : revealStart === null ? 0 : clamp01Reveal((performance.now() / 1000 - revealStart) / LOAD_REVEAL_DURATION)
@@ -196,11 +216,6 @@ export function EnvironmentPlaceholder() {
     sunsetMist.value.copy(fogColorRef.current)
     if (sunsetDomeRef.current) sunsetDomeRef.current.visible = sunsetOpacity > 1e-4
   })
-
-  const activeIndex = useScrollStore((s) => s.activeIndex)
-  const hdriSlot = activeHdriSectionSlot(activeIndex)
-  const reflectionMap =
-    hdriSlot === 'golden' ? goldenHourMap : hdriSlot === 'high-altitude' ? highAltitudeMap : hdriSlot === 'sunset' ? sunsetMap : null
 
   return (
     <>
@@ -273,9 +288,6 @@ export function EnvironmentPlaceholder() {
       <mesh ref={sunsetDomeRef} renderOrder={-10} material={sunsetMaterial}>
         <sphereGeometry args={[SKY_RADIUS, 128, 64]} />
       </mesh>
-      {/* Reflection-only: background stays the sky dome above, this just feeds
-          scene.environment for PBR IBL on standard materials (the ground/runway). */}
-      {reflectionMap && <Environment map={reflectionMap} background={false} />}
     </>
   )
 }

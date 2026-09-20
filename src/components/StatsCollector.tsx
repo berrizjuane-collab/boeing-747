@@ -2,7 +2,7 @@ import { useScrollStore } from '../state/scrollStore'
 import { useQualityStore } from '../state/qualityStore'
 import { useAssetState } from '../state/assetState'
 import { getAircraftPose } from '../lib/aircraftPose'
-import { NOSE_PORTAL, EXIT_PORTAL, portalRadius } from '../lib/thresholdPortals'
+import { NOSE_PORTAL, EXIT_PORTAL, nearPlaneCornerDistance, portalRadius } from '../lib/thresholdPortals'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useRef } from 'react'
 import { Frustum, InstancedMesh, Matrix4, Mesh, type Camera, type Scene } from 'three'
@@ -84,6 +84,21 @@ function visibleSceneTriangles(scene: Scene, camera: Camera, frustum: Frustum, p
  * from visible/frustum-intersecting scene meshes once; the accumulated GPU
  * submission count remains exposed separately for diagnosis.
  */
+/**
+ * Reported exactly as the hull material receives them: the opening is a
+ * function of the crossing now (plan6 4.5), so a progress-only reading
+ * would put a number in the evidence that no frame ever rendered.
+ */
+function portalRadii(camera: import('three').Camera, progress: number): [number, number] {
+  const perspective = camera as import('three').PerspectiveCamera
+  const nearCorner =
+    'fov' in perspective ? nearPlaneCornerDistance(perspective.fov, perspective.aspect, perspective.near) : 0
+  return [
+    portalRadius(progress, NOSE_PORTAL, camera.position, nearCorner),
+    portalRadius(progress, EXIT_PORTAL, camera.position, nearCorner),
+  ]
+}
+
 export function StatsCollector() {
   const { camera, gl, scene } = useThree()
   const lastTime = useRef(performance.now())
@@ -131,7 +146,7 @@ export function StatsCollector() {
       aircraft: { position: pose.position.toArray(), pitch: pose.pitchRad },
       tier: useQualityStore.getState().tier, autoQuality: useQualityStore.getState().auto, dpr: gl.getPixelRatio(),
       assets: useAssetState.getState().assets,
-      portals: [portalRadius(scroll.progress, NOSE_PORTAL), portalRadius(scroll.progress, EXIT_PORTAL)],
+      portals: portalRadii(camera, scroll.progress),
       memory: { ...gl.info.memory, programs: gl.info.programs?.length ?? 0 },
       perf: window.__MERIDIAN_PERF__,
       domZone: document.querySelector('[data-zone][data-active="true"]')?.getAttribute('data-zone') ?? null,

@@ -20,7 +20,9 @@ const { AERODROME_KEEP_OUT, isInsideAerodromeKeepOut } = await server.ssrLoadMod
 // two top-level awaits once, when this import was interleaved between the
 // G1 and G2 test() blocks instead ("Vite module runner has been closed").
 const { createTerrainSurfaceMaps, TERRAIN_SURFACE_MAP_SIZE } = await server.ssrLoadModule('/src/lib/terrainSurfaceMaps.ts')
-const { groundTintMix, groundFade, applyGroundTint, GROUND_TINT_RAMP_START, GROUND_TINT_RAMP_END } =
+const { undercastOpacity, aerodromeDetailVisible, UNDERCAST_FADE_END } =
+  await server.ssrLoadModule('/src/lib/worldPersistence.ts')
+const { groundTintMix, applyGroundTint, GROUND_TINT_RAMP_START, GROUND_TINT_RAMP_END } =
   await server.ssrLoadModule('/src/lib/terrainGroundCurves.ts')
 const { Color } = await import('three')
 
@@ -278,16 +280,26 @@ test('G3: fully tinted ground reads near-black in S5/S7, not a lit green field �
   assert.ok(luma(white) - luma(s5Result) > 0.5, 'S5 result must be measurably darker than the untinted white base')
 })
 
-test('G3: the pre-existing S2/S3 fade mechanism is unchanged — groundFade still hides the mesh well before the tint ramp finishes', () => {
-  // plan4.md §3.4: the 30.5% gate isn't touched this round. The ground
-  // plane fades out (groundFade -> 0) at ~0.305, while the tint ramp
-  // (GROUND_TINT_RAMP_END) doesn't finish until 0.42 — so in practice only
-  // the first ~9% of the ramp is ever visible before the mesh disappears.
-  // This is *expected*, not a bug: it's why G3's "S5/S7 stays dark" claim
-  // is a defensive guarantee for whenever a later round's Fase E removes
-  // the gate, not something meant to be visually dramatic under this
-  // round's own scope. Documented here so it isn't rediscovered as a
-  // surprise later.
-  assert.ok(groundFade(0.305) < 0.05, 'mesh must be essentially invisible by 0.305')
-  assert.ok(GROUND_TINT_RAMP_END > 0.305, 'tint ramp intentionally continues past the point the mesh already hid itself')
+test('G3: the ground is hidden by an occluder, not by a scroll gate (supersedes the 30.5% fade)', () => {
+  // Round 6 phase 4 (plan6 4.1, A13) removes `groundFade` outright. The
+  // requirement that replaces it: the world is only ever culled while the
+  // cloud deck above it is closed, and how closed that deck is depends on
+  // how far the aircraft has actually climbed — not on a scroll number. The
+  // consequence the old test recorded (the tint ramp outliving the mesh) no
+  // longer applies, because the ramp now runs on ground that is still drawn.
+  assert.equal(undercastOpacity(0), 0, 'the deck must be open with the aircraft on the runway')
+  assert.ok(aerodromeDetailVisible(undercastOpacity(0)), 'the aerodrome is visible at rest')
+  assert.equal(undercastOpacity(UNDERCAST_FADE_END), 1, 'the deck must close once the aircraft is above it')
+  assert.ok(!aerodromeDetailVisible(1), 'a closed deck is what allows the aerodrome to be culled')
+
+  // Monotone in altitude, so scrolling back down reopens it exactly as it closed.
+  let previous = -1
+  for (let sample = 0; sample <= 200; sample += 1) {
+    const opacity = undercastOpacity((sample / 200) * (UNDERCAST_FADE_END + 6))
+    assert.ok(opacity >= previous - 1e-9, 'the deck must not flicker as the aircraft climbs')
+    previous = opacity
+  }
+
+  // The tint ramp is still authored past the old gate, and now has ground to act on.
+  assert.ok(GROUND_TINT_RAMP_END > 0.305)
 })

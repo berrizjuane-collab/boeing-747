@@ -1,19 +1,7 @@
 import { interiorToWorld } from '../lib/sceneLayout'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
-import {
-  DataTexture,
-  EquirectangularReflectionMapping,
-  Object3D,
-  PMREMGenerator,
-  PointLight,
-  RGBAFormat,
-  SpotLight,
-  SRGBColorSpace,
-  UnsignedByteType,
-  type WebGLRenderer,
-  type WebGLRenderTarget,
-} from 'three'
+import { Object3D, PointLight, SpotLight } from 'three'
 import { SECTIONS } from '../lib/sections'
 import { TIER_SETTINGS, useQualityStore } from '../state/qualityStore'
 import { useScrollStore } from '../state/scrollStore'
@@ -138,36 +126,6 @@ function cabinFactor(progress: number) {
   return Math.min(entry, exit)
 }
 
-/**
- * Small procedural equirectangular fill environment. It is intentionally not
- * presented as an HDRI: the interior brief calls for an irradiated, low-cost
- * fill map, while external HDRIs remain a separate asset gate.
- */
-function createCabinFillTexture() {
-  const width = 64
-  const height = 32
-  const data = new Uint8Array(width * height * 4)
-
-  for (let y = 0; y < height; y += 1) {
-    const vertical = y / (height - 1)
-    const ceilingWarmth = 1 - Math.abs(vertical - 0.2) / 0.8
-    for (let x = 0; x < width; x += 1) {
-      const i = (y * width + x) * 4
-      const sideVariation = 0.92 + 0.08 * Math.sin((x / width) * Math.PI * 2)
-      data[i] = Math.round((90 + 110 * ceilingWarmth) * sideVariation)
-      data[i + 1] = Math.round((82 + 86 * ceilingWarmth) * sideVariation)
-      data[i + 2] = Math.round((74 + 62 * ceilingWarmth) * sideVariation)
-      data[i + 3] = 255
-    }
-  }
-
-  const texture = new DataTexture(data, width, height, RGBAFormat, UnsignedByteType)
-  texture.colorSpace = SRGBColorSpace
-  texture.mapping = EquirectangularReflectionMapping
-  texture.needsUpdate = true
-  return texture
-}
-
 function configureShadow(light: SpotLight) {
   light.castShadow = false
   light.shadow.mapSize.set(1024, 1024)
@@ -177,9 +135,8 @@ function configureShadow(light: SpotLight) {
   light.shadow.normalBias = 0.02
 }
 
-const fillCache = new WeakMap<WebGLRenderer, WebGLRenderTarget>()
 export function InteriorLighting({ active }: { active: boolean }) {
-  const { camera, gl, scene } = useThree()
+  const { camera } = useThree()
   const pointLightRefs = useRef<Array<PointLight | null>>([])
   const spotLightRefs = useRef<Array<SpotLight | null>>([])
   const spotTargets = useMemo(
@@ -193,41 +150,16 @@ export function InteriorLighting({ active }: { active: boolean }) {
     [],
   )
 
+  // plan6 4.3: reflections are not this component's business any more.
+  // EnvironmentPlaceholder owns `scene.environment` for the whole page and
+  // resolves the cabin probe from cabinProbe.ts; this rig only configures
+  // and drives its own lights.
   useEffect(() => {
     if (!active) return
-    const previousEnvironment = scene.environment
-    let environmentTarget = fillCache.get(gl)
-    if (!environmentTarget) {
-    const fillTexture = createCabinFillTexture()
-    const pmrem = new PMREMGenerator(gl)
-    pmrem.compileEquirectangularShader()
-    environmentTarget = pmrem.fromEquirectangular(fillTexture)
-    fillCache.set(gl, environmentTarget)
-    fillTexture.dispose()
-    pmrem.dispose()
-    }
-    scene.environment = environmentTarget.texture
-
     for (const light of spotLightRefs.current) {
       if (light) configureShadow(light)
     }
-
-    return () => {
-      // plan3.md bug #2: this component stays mounted across S4-S6
-      // (INTERIOR_ACTIVE_INDICES in SceneCanvas.tsx), but
-      // EnvironmentPlaceholder's <Environment> mounts *inside* that same
-      // window — its reflectionMap is null through S4/S5, then becomes the
-      // sunset HDRI at the S5/S6 boundary (hdriTheme.ts) — and legitimately
-      // takes ownership of scene.environment back from this fill texture
-      // without either component knowing about the other. Restoring
-      // `previousEnvironment` unconditionally here (captured back at S4,
-      // when it really was null) would stomp that handoff and null out a
-      // live HDRI the instant S6 hands off to S7. Only restore it if nothing
-      // else has taken scene.environment over since we set it.
-      if (scene.environment === environmentTarget.texture) scene.environment = previousEnvironment
-      // Cached with the renderer, reused on every return to the cabin.
-    }
-  }, [gl, scene, active])
+  }, [active])
 
   useFrame(() => {
     const factor = cabinFactor(useScrollStore.getState().progress)

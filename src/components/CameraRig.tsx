@@ -3,6 +3,8 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useRef } from 'react'
 import { PerspectiveCamera as PerspectiveCameraImpl, Vector3 } from 'three'
 import { sampleCamera } from '../lib/cameraPath'
+import { approachEnvelope, walkSwayTarget } from '../lib/cameraEnvelopes'
+import { horizontalPreservingFov } from '../lib/shotFraming'
 import { SECTIONS, localProgress } from '../lib/sections'
 import { reducedMotionState } from '../state/reducedMotion'
 import { useScrollStore } from '../state/scrollStore'
@@ -12,7 +14,6 @@ const PARALLAX_POSITION = new Vector3()
 const PARALLAX_TARGET = new Vector3()
 const WALK_OSCILLATION = new Vector3()
 
-const S5 = SECTIONS[4]
 // PLAN.md §3 S5: "avance por el pasillo... con micro-oscilación lateral y
 // vertical muy sutil para dar sensación de caminata" — a footstep-cadence
 // sway, not a camera shake. Two incommensurate frequencies (2.2, 3.7 Hz) so
@@ -24,6 +25,12 @@ const WALK_LATERAL_AMPLITUDE = 0.045
 const WALK_VERTICAL_HZ = 3.7
 const WALK_VERTICAL_AMPLITUDE = 0.025
 
+// Time constants for the two envelopes, in seconds. The gait settles slowly
+// enough that a wheel notch does not flicker it; the pointer follows fast
+// enough to feel connected while removing the raw per-event jitter.
+const WALK_ENVELOPE_TAU = 0.32
+const POINTER_TAU = 0.12
+
 /**
  * Drives the camera from the scroll-progress curve every frame. Reads
  * `useScrollStore.getState()` (transient, not the hook) so this never
@@ -32,57 +39,70 @@ const WALK_VERTICAL_AMPLITUDE = 0.025
  * Disabled while the keyframe authoring tool owns the camera (OrbitControls
  * takes over in that mode); see KeyframeAuthoringTool.tsx.
  *
- * Two small motion layers on top of the scroll-driven pose, both muted
+ * Two small motion layers sit on top of the scroll-driven pose, both muted
  * under prefers-reduced-motion (§8.1) so neither can compete with or
- * substitute for the scroll narrative: a hero-only mouse parallax (fades to
- * zero at the S1/S2 boundary, so entering the tracking shot can't cause a
- * positional discontinuity), and a S5-only walking sway (§3 S5, see
- * WALK_LATERAL_HZ above).
+ * substitute for the scroll narrative: a hero-only mouse parallax, and the
+ * S5 walking sway. Both are enveloped rather than switched — plan6 3.5 — so
+ * they follow how fast the visitor is actually advancing instead of a
+ * boolean that is equally true while scrolling and while parked.
  */
 export function CameraRig({ enabled }: { enabled: boolean }) {
-  const { camera } = useThree()
+  const { camera, size } = useThree()
+  const pointerTarget = useRef({ x: 0, y: 0 })
   const pointer = useRef({ x: 0, y: 0 })
+  const walkEnvelope = useRef(0)
+  const lastProgress = useRef<number | null>(null)
 
   useEffect(() => {
     const onPointerMove = (event: PointerEvent) => {
-      pointer.current.x = (event.clientX / window.innerWidth) * 2 - 1
-      pointer.current.y = 1 - (event.clientY / window.innerHeight) * 2
+      pointerTarget.current.x = (event.clientX / window.innerWidth) * 2 - 1
+      pointerTarget.current.y = 1 - (event.clientY / window.innerHeight) * 2
     }
     window.addEventListener('pointermove', onPointerMove, { passive: true })
     return () => window.removeEventListener('pointermove', onPointerMove)
   }, [])
 
-  useFrame(({ clock }) => {
+  useFrame(({ clock }, delta) => {
     if (!enabled) return
     const { progress } = useScrollStore.getState()
     const { position, target, fov, rollRad } = sampleCamera(progress)
     const reducedMotion = reducedMotionState.active
 
+    const previous = lastProgress.current
+    lastProgress.current = progress
+    const progressRate = previous === null || delta <= 0 ? 0 : Math.abs(progress - previous) / delta
+
+    // Pointer is smoothed by frame delta rather than read raw: the browser
+    // delivers pointermove in bursts, and feeding those straight into a
+    // camera offset put a visible step in the hero every time one landed.
+    if (qaTime === null && !reducedMotion) {
+      pointer.current.x = approachEnvelope(pointer.current.x, pointerTarget.current.x, delta, POINTER_TAU)
+      pointer.current.y = approachEnvelope(pointer.current.y, pointerTarget.current.y, delta, POINTER_TAU)
+    } else {
+      pointer.current.x = 0
+      pointer.current.y = 0
+    }
+
     // Hero-only parallax: it fades to zero at the S1/S2 boundary, so entering
     // the tracking shot cannot cause a positional discontinuity.
     const heroProgress = localProgress(progress, SECTIONS[0])
     const parallaxStrength = progress < SECTIONS[0].end ? 1 - heroProgress : 0
-    if (qaTime === null && !reducedMotion && parallaxStrength > 0) {
-      PARALLAX_POSITION.set(
-        pointer.current.x * 1.25 * parallaxStrength,
-        pointer.current.y * 0.55 * parallaxStrength,
-        0,
-      )
-      PARALLAX_TARGET.set(
-        pointer.current.x * 0.3 * parallaxStrength,
-        pointer.current.y * 0.18 * parallaxStrength,
-        0,
-      )
+    if (parallaxStrength > 0) {
+      PARALLAX_POSITION.set(pointer.current.x * 1.25 * parallaxStrength, pointer.current.y * 0.55 * parallaxStrength, 0)
+      PARALLAX_TARGET.set(pointer.current.x * 0.3 * parallaxStrength, pointer.current.y * 0.18 * parallaxStrength, 0)
     } else {
       PARALLAX_POSITION.set(0, 0, 0)
       PARALLAX_TARGET.set(0, 0, 0)
     }
 
-    if (!reducedMotion && progress >= S5.start && progress < S5.end) {
+    const walkTarget = walkSwayTarget(progress, progressRate, reducedMotion)
+    walkEnvelope.current = approachEnvelope(walkEnvelope.current, walkTarget, delta, WALK_ENVELOPE_TAU)
+
+    if (walkEnvelope.current > 1e-3) {
       const t = clock.elapsedTime
       WALK_OSCILLATION.set(
-        Math.sin(t * WALK_LATERAL_HZ) * WALK_LATERAL_AMPLITUDE,
-        Math.sin(t * WALK_VERTICAL_HZ) * WALK_VERTICAL_AMPLITUDE,
+        Math.sin(t * WALK_LATERAL_HZ) * WALK_LATERAL_AMPLITUDE * walkEnvelope.current,
+        Math.sin(t * WALK_VERTICAL_HZ) * WALK_VERTICAL_AMPLITUDE * walkEnvelope.current,
         0,
       )
     } else {
@@ -97,7 +117,11 @@ export function CameraRig({ enabled }: { enabled: boolean }) {
     camera.rotateZ(rollRad)
 
     if (camera instanceof PerspectiveCameraImpl) {
-      camera.fov = fov
+      // plan6 3.7: the shot sheet's framing is authored against a landscape
+      // frame. Vertical FOV alone would crop the subject horizontally as the
+      // viewport narrows, so narrower-than-reference aspects open the lens to
+      // hold the authored horizontal field instead of stretching or cutting.
+      camera.fov = horizontalPreservingFov(fov, size.width / size.height)
       camera.updateProjectionMatrix()
     }
     camera.updateMatrixWorld(true)

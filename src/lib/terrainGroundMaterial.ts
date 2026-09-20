@@ -35,11 +35,12 @@ export function createTerrainGroundMaterial(): TerrainGroundMaterialHandles {
     // exactly as before (see G3's tint-mix in EnvironmentPlaceholder.tsx).
     color: '#59664d',
     roughness: 1,
-    // Preserves the existing S2/S3-boundary crossfade (GROUND_FADE_START/
-    // END in EnvironmentPlaceholder.tsx) — unrelated to G4's fog-colour
-    // swap above, and out of scope this round (plan4.md §3.4: the 30.5%
-    // gate isn't touched).
-    transparent: true,
+    // Opaque. It was transparent only to support the S2/S3 crossfade that
+    // round 6 phase 4 removed, and leaving it in the transparent queue
+    // would have drawn the ground *over* the cloud deck that now occludes
+    // it — the deck is transparent, and three sorts every transparent
+    // object after every opaque one.
+    transparent: false,
   })
 
   material.onBeforeCompile = (shader) => {

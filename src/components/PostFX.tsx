@@ -1,15 +1,14 @@
 import { Bloom, DepthOfField, EffectComposer, GodRays, Noise, SMAA, ToneMapping, Vignette } from '@react-three/postprocessing'
-import { SMAAPreset } from 'postprocessing'
-import type { JSX, RefObject } from 'react'
+import { useFrame } from '@react-three/fiber'
+import { SMAAPreset, type DepthOfFieldEffect, type GodRaysEffect } from 'postprocessing'
+import { useRef, type JSX, type RefObject } from 'react'
 import type { Mesh } from 'three'
 import { ACTIVE_TONE_MAPPING_MODE } from '../lib/postFxConfig'
+import { DEPTH_OF_FIELD, GOD_RAYS, cabinFocusDistance, effectMounted, effectWeight } from '../lib/postFxSchedule'
 import { TIER_SETTINGS, useQualityStore } from '../state/qualityStore'
 import { useScrollStore } from '../state/scrollStore'
 import { ExposurePass } from './ExposurePass'
 import { SectionGrade } from './SectionGrade'
-
-const THRESHOLD_SECTION_INDEX = 3 // S4
-const INTERIOR_SECTION_INDEX = 4 // S5
 
 /**
  * `postprocessing` (pmndrs), not three.js's own bundled `EffectComposer` —
@@ -36,8 +35,31 @@ const INTERIOR_SECTION_INDEX = 4 // S5
  */
 export function PostFX({ sunRef }: { sunRef: RefObject<Mesh | null> }) {
   const tier = useQualityStore((s) => s.tier)
-  const activeIndex = useScrollStore((s) => s.activeIndex)
+  // Selecting the *boolean* rather than progress itself: zustand compares
+  // what the selector returns, so this component re-renders exactly twice
+  // per effect over the whole page instead of on every frame of scroll.
+  // Strength and focus never go through props at all — changing a prop on a
+  // postprocessing effect recreates it, which is the composer rebuild this
+  // schedule exists to avoid — they are written to the live effects below.
+  const showDoF = useScrollStore((s) => effectMounted(s.progress, DEPTH_OF_FIELD))
+  const showGodRaysWindow = useScrollStore((s) => effectMounted(s.progress, GOD_RAYS))
+  const dofRef = useRef<DepthOfFieldEffect>(null)
+  const godRaysRef = useRef<GodRaysEffect>(null)
   const settings = TIER_SETTINGS[tier]
+
+  useFrame(() => {
+    const progress = useScrollStore.getState().progress
+    const dof = dofRef.current
+    if (dof) {
+      dof.bokehScale = 1.8 * effectWeight(progress, DEPTH_OF_FIELD)
+      // Focus tracks the subject of each cabin beat instead of sitting at a
+      // fixed six metres, which focused past the instrument panel in the
+      // cockpit and short of the aisle in economy (plan6 4.4).
+      dof.circleOfConfusionMaterial.worldFocusDistance = cabinFocusDistance(progress)
+    }
+    const godRays = godRaysRef.current
+    if (godRays) godRays.godRaysMaterial.weight = 0.35 * effectWeight(progress, GOD_RAYS)
+  })
 
   if (settings.postProcessing === 'toneMappingOnly') {
     // No <SMAA> here: SMAA is a real multi-pass technique (edge detection +
@@ -74,8 +96,11 @@ export function PostFX({ sunRef }: { sunRef: RefObject<Mesh | null> }) {
     )
   }
 
-  const showDoF = activeIndex === INTERIOR_SECTION_INDEX
-  const showGodRays = activeIndex === THRESHOLD_SECTION_INDEX && sunRef.current !== null
+  // plan6 4.4: the mount window is strictly wider than each effect's own
+  // ramp (postFxSchedule.ts), so the composer is only ever rebuilt while the
+  // effect contributes nothing — and both edges sit where the camera is
+  // slowest, not on the thresholds it is crossing.
+  const showGodRays = showGodRaysWindow && sunRef.current !== null
 
   // EffectComposerProps.children is typed JSX.Element | JSX.Element[] — no
   // booleans/null, and no mixing bare elements with a nested array either
@@ -100,21 +125,21 @@ export function PostFX({ sunRef }: { sunRef: RefObject<Mesh | null> }) {
     // worldFocusDistance/worldFocusRange) instead of the normalised
     // 0.015/0.03 pair — which, against this camera's near 0.1 / far 3000,
     // put the focal plane ~45 u down a 30 u cabin and blurred every seat,
-    // panel and screen the camera actually dwells on. 6 u focus with a
-    // 9 u range keeps the row the camera stands in and the next few crisp
-    // and lets the far end of the aisle fall off softly.
-    effects.push(<DepthOfField key="dof" worldFocusDistance={6} worldFocusRange={9} bokehScale={1.8} />)
+    // panel and screen the camera actually dwells on. The focus distance
+    // itself is driven per frame above; these are only its starting values.
+    effects.push(<DepthOfField key="dof" ref={dofRef} worldFocusDistance={4} worldFocusRange={9} bokehScale={0} />)
   }
   if (showGodRays && sunRef.current) {
     // §3 S4 / §7.4: "en el umbral", desktop-high enhancement only.
     effects.push(
       <GodRays
         key="godrays"
+        ref={godRaysRef}
         sun={sunRef.current}
         exposure={0.22}
         decay={0.88}
         density={0.9}
-        weight={0.35}
+        weight={0}
         samples={48}
         blur
       />,

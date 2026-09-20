@@ -1,7 +1,11 @@
 import { CatmullRomCurve3, Quaternion, Vector3 } from 'three'
 import { SECTIONS, getActiveSectionIndex } from './sections'
 import { INTERIOR_ANCHORS_WORLD, interiorToWorld } from './sceneLayout'
-import { sampleCabinRoute } from './cabinRoute'
+import { cabinRouteSpeed, sampleCabinRoute } from './cabinRoute'
+import { createMotionProfile, type MotionKnot } from './motionProfile'
+import { allocateShotSpans, ROTATION_COST_PER_RADIAN, SHOT_SHEET, type InteriorZoneKey, type ShotBand } from './shotSheet'
+
+export type { InteriorZoneKey } from './shotSheet'
 
 export interface CameraKeyframe {
   sectionIndex: number
@@ -33,17 +37,23 @@ export const KEYFRAMES: CameraKeyframe[] = [
   { sectionIndex: 1, camPos: [75, 45, 35], camTarget: [0, 12, -15], fov: 45, roll: 0 },
   { sectionIndex: 1, camPos: [100, 70, -50], camTarget: [0, 35, -70], fov: 42, roll: 0 },
 
-  // S3 — climb + orbit: arcs from rear-lateral to head-on, with a brief bank
-  // (roll) during the turn — the override applied after lookAt. Starts
-  // close to kf3 (S2's end) on purpose, so the S2/S3 boundary reads as one
-  // continuous reposition rather than a cut.
-  { sectionIndex: 2, camPos: [100, 70, -53], camTarget: [0, 35, -72], fov: 42, roll: 6 },
+  // S3 — climb + orbit: arcs from rear-lateral to head-on. The bank through
+  // the turn is authored on the orbit *shot* (shotSheet.ts `bankDegrees`),
+  // not here: this keyframe sits three metres from the last one, so once
+  // scroll is handed out by traversal cost it owns barely a tenth of a
+  // percent of the page, and a six-degree roll authored across it snapped
+  // over about seven pixels of scroll instead of banking through the turn.
+  { sectionIndex: 2, camPos: [100, 70, -53], camTarget: [0, 35, -72], fov: 42, roll: 0 },
   { sectionIndex: 2, camPos: [0, 60, -220], camTarget: [0, 40, -80], fov: 38, roll: 0 },
 
   // S4 — threshold: continues head-on, crosses the nose skin (world z=-115)
   // and ends just past it, approaching the real cockpit (world z=-106, from
   // INTERIOR_ANCHORS_WORLD — see sceneLayout.ts).
-  { sectionIndex: 3, camPos: [0, 41, -114], camTarget: [0, 39, -102], fov: 42, roll: 0 },
+  // fov 45, not 42: the lens has to reach the cabin's 50 by the seam at
+  // 0.46, and doing the whole 42→50 inside S4's four metres made the focal
+  // change the fastest scalar on the page. Starting to open during the
+  // run-in splits it into two comparable halves.
+  { sectionIndex: 3, camPos: [0, 41, -114], camTarget: [0, 39, -102], fov: 45, roll: 0 },
   { sectionIndex: 3, camPos: [0, 39, -110], camTarget: [0, 38.5, -98], fov: 50, roll: 0 },
 
   // S5 — interior walkthrough, v1 scope (§12.3): cockpit → economy →
@@ -91,12 +101,22 @@ export const KEYFRAMES: CameraKeyframe[] = [
   // readable during the crossing and reserves the right third for copy.
   { sectionIndex: 5, camPos: [0, 40.95, -61], camTarget: [-2.75, 40.4, -53.8], fov: 45, roll: 0 },
   { sectionIndex: 5, camPos: [-2.75, 41.05, -53.8], camTarget: [-3.65, 41, -47.05], fov: 44, roll: 0 },
-  { sectionIndex: 5, camPos: [-110, 55, -20], camTarget: [-72.12, 50.32, -31.96], fov: 42, roll: 0 },
-  { sectionIndex: 5, camPos: [-190, 90, 90], camTarget: [-131.5, 74.6, 37.68], fov: 35, roll: 0 },
+  // Port-quarter *aft*, not abeam. The camera leaves the door facing port,
+  // so the size of the turn back onto the aircraft is decided by where this
+  // keyframe sits: abeam at [-110, 55, -20] the aircraft lies 160° round
+  // from the exit heading, and S6 does not have the scroll to turn that far
+  // at a comfortable rate. Aft of the tail the aircraft is forward and to
+  // starboard instead, which is 125° — and it reads as watching the
+  // aircraft depart rather than orbiting it.
+  { sectionIndex: 5, camPos: [-70, 50, 30], camTarget: [0, 42, -70], fov: 38, roll: 0 },
+  // 198 m out, not 262: at the old distance the retreat consumed most of
+  // S6's scroll and the wingspan covered 26% of frame width against 35%
+  // here.
+  { sectionIndex: 5, camPos: [-140, 78, 55], camTarget: [0, 41, -80], fov: 35, roll: 0 },
 
   // S7 — footer: holds near the wide shot, a touch further back so the
   // ending doesn't read as an exact freeze-frame of S6.
-  { sectionIndex: 6, camPos: [-200, 92, 96], camTarget: [-141.05, 76.67, 44.13], fov: 35, roll: 0 },
+  { sectionIndex: 6, camPos: [-147, 79.5, 59], camTarget: [0, 41, -80], fov: 35, roll: 0 },
 ]
 
 // Registration-only changes in round 6. Exterior shot timing remains phase 3.
@@ -119,7 +139,20 @@ for (let i = 14; i < KEYFRAMES.length; i++) {
   k.camTarget = new Vector3(...k.camTarget).sub(p).normalize().multiplyScalar(5).add(p).toArray() as [number,number,number]
 }
 
-const POSITION_CURVE = new CatmullRomCurve3(KEYFRAMES.map((keyframe) => new Vector3(...keyframe.camPos)))
+// plan6 3.3: two bounded position curves instead of one global spline.
+// A Catmull-Rom control point steers the tangents of its neighbours, so
+// while all seventeen keyframes shared a curve the cabin's own interior
+// keyframes were bending the nose approach and the exit break-out — the
+// exact "keyframes exteriores lejanos deforman el tramo de puerta" the plan
+// names. The cabin route (cabinRoute.ts) owns position between the two seams
+// and both seam keyframes are authored to its endpoints, so splitting here
+// costs no continuity and removes the cross-talk entirely.
+const APPROACH_FIRST = 0
+const APPROACH_LAST = 7
+const EXIT_FIRST = 13
+const EXIT_LAST = 16
+const CABIN_START = 0.46
+const CABIN_END = 0.835
 
 // Sampling only once per control-point segment measures its chord, not the
 // Catmull-Rom arc between the points. A dense table makes getPointAt() truly
@@ -127,16 +160,41 @@ const POSITION_CURVE = new CatmullRomCurve3(KEYFRAMES.map((keyframe) => new Vect
 // multiple of the segment count, still gives an exact lookup for every
 // authored keyframe.
 const ARC_SAMPLES_PER_SEGMENT = 512
-const ARC_LENGTH_DIVISIONS = (KEYFRAMES.length - 1) * ARC_SAMPLES_PER_SEGMENT
-POSITION_CURVE.arcLengthDivisions = ARC_LENGTH_DIVISIONS
 
-function buildKeyframeArcLengthU(curve: CatmullRomCurve3): number[] {
-  const cumulative = curve.getLengths(ARC_LENGTH_DIVISIONS)
-  const total = cumulative[cumulative.length - 1]
-  return KEYFRAMES.map((_, index) => cumulative[index * ARC_SAMPLES_PER_SEGMENT] / total)
+interface BoundedCurve {
+  first: number
+  last: number
+  curve: CatmullRomCurve3
+  /** Arc-length u per keyframe index, offset by `first`. */
+  u: number[]
+  length: number
 }
 
-const POSITION_U = buildKeyframeArcLengthU(POSITION_CURVE)
+function buildBoundedCurve(first: number, last: number): BoundedCurve {
+  const points = KEYFRAMES.slice(first, last + 1).map((keyframe) => new Vector3(...keyframe.camPos))
+  const curve = new CatmullRomCurve3(points)
+  const divisions = (points.length - 1) * ARC_SAMPLES_PER_SEGMENT
+  curve.arcLengthDivisions = divisions
+  const cumulative = curve.getLengths(divisions)
+  const total = cumulative[cumulative.length - 1]
+  return {
+    first,
+    last,
+    curve,
+    u: points.map((_, index) => cumulative[index * ARC_SAMPLES_PER_SEGMENT] / total),
+    length: total,
+  }
+}
+
+const APPROACH_CURVE = buildBoundedCurve(APPROACH_FIRST, APPROACH_LAST)
+const EXIT_CURVE = buildBoundedCurve(EXIT_FIRST, EXIT_LAST)
+
+function curveFor(fromIndex: number, toIndex: number): BoundedCurve | null {
+  if (toIndex <= APPROACH_LAST) return APPROACH_CURVE
+  if (fromIndex >= EXIT_FIRST) return EXIT_CURVE
+  return null
+}
+
 const LOOK_DIRECTIONS = KEYFRAMES.map((keyframe) =>
   new Vector3(...keyframe.camTarget).sub(new Vector3(...keyframe.camPos)).normalize(),
 )
@@ -148,70 +206,76 @@ const LOOK_ROTATIONS = LOOK_DIRECTIONS.slice(0, -1).map((direction, index) =>
 )
 const IDENTITY_ROTATION = new Quaternion()
 
-export type InteriorZoneKey = 'cockpit' | 'economy' | 'stair' | 'upperDeck'
+const INTERIOR_SECTION = SECTIONS[4]
 
-interface CameraTraversalBand {
-  start: number
-  end: number
-  fromIndex: number
-  toIndex: number
-  zone?: InteriorZoneKey
+function clampProgress(progress: number) {
+  return Math.min(1, Math.max(0, progress))
 }
 
-const INTERIOR_SECTION = SECTIONS[4]
-const interiorTime = (localProgress: number) =>
-  localProgress <= 0
-    ? INTERIOR_SECTION.start
-    : localProgress >= 1
-      ? INTERIOR_SECTION.end
-      : INTERIOR_SECTION.start + (INTERIOR_SECTION.end - INTERIOR_SECTION.start) * localProgress
-
 /**
- * One gap-free global traversal. Every moving band joins adjacent authored
- * keyframes; a dwell repeats one keyframe over a non-zero scroll interval.
- * Section boundaries therefore choose narrative timing, never disjoint
- * pieces of curve:
- *
- * - S2 absorbs the hero-to-tracking transition.
- * - S3 reaches the threshold approach before S4 begins.
- * - S4 lands in the cockpit exactly as S5 begins.
- * - S5 gives all four zones, including upper deck, a real hold.
- * - S6 turns through the exit before its long cinematic pull-back.
+ * Traversal cost for one shot: metres travelled plus the distance a radian of
+ * look-direction change is declared to be worth. Scroll is then handed out in
+ * proportion to this, so a 195-metre orbit through 97 degrees and a
+ * three-metre reposition can no longer receive comparable amounts of it
+ * (plan6 3.2). Bands on a bounded curve measure real arc length; bands the
+ * cabin route owns are integrated from that route so the two systems agree
+ * about how far the camera actually goes.
  */
-const CAMERA_TRAVERSAL: readonly CameraTraversalBand[] = [
-  { start: 0, end: 0.12, fromIndex: 0, toIndex: 1 },
-  { start: 0.12, end: 0.18, fromIndex: 1, toIndex: 2 },
-  { start: 0.18, end: 0.28, fromIndex: 2, toIndex: 3 },
-  { start: 0.28, end: 0.3, fromIndex: 3, toIndex: 4 },
-  { start: 0.3, end: 0.378, fromIndex: 4, toIndex: 5 },
-  { start: 0.378, end: 0.42, fromIndex: 5, toIndex: 6 },
-  { start: 0.42, end: 0.46, fromIndex: 6, toIndex: 7 },
-  { start: 0.46, end: 0.5, fromIndex: 7, toIndex: 8 },
+function shotCost(fromIndex: number, toIndex: number, authoredStart: number, authoredEnd: number): number {
+  if (fromIndex === toIndex) return 0
 
-  { start: interiorTime(0), end: interiorTime(0.1), fromIndex: 8, toIndex: 8, zone: 'cockpit' },
-  { start: interiorTime(0.1), end: interiorTime(0.28), fromIndex: 8, toIndex: 9 },
-  { start: interiorTime(0.28), end: interiorTime(0.4), fromIndex: 9, toIndex: 9, zone: 'economy' },
-  { start: interiorTime(0.4), end: interiorTime(0.64), fromIndex: 9, toIndex: 10 },
-  { start: interiorTime(0.64), end: interiorTime(0.72), fromIndex: 10, toIndex: 10, zone: 'stair' },
-  { start: interiorTime(0.72), end: interiorTime(0.88), fromIndex: 10, toIndex: 11 },
-  { start: interiorTime(0.88), end: interiorTime(1), fromIndex: 11, toIndex: 11, zone: 'upperDeck' },
+  const curve = curveFor(fromIndex, toIndex)
+  if (curve) {
+    const length = (curve.u[toIndex - curve.first] - curve.u[fromIndex - curve.first]) * curve.length
+    const turn = LOOK_DIRECTIONS[fromIndex].angleTo(LOOK_DIRECTIONS[toIndex])
+    return length + ROTATION_COST_PER_RADIAN * turn
+  }
 
-  { start: 0.82, end: 0.83, fromIndex: 11, toIndex: 12 },
-  { start: 0.83, end: 0.835, fromIndex: 12, toIndex: 13 },
-  { start: 0.835, end: 0.895, fromIndex: 13, toIndex: 14 },
-  { start: 0.895, end: 0.95, fromIndex: 14, toIndex: 15 },
-  { start: 0.95, end: 1, fromIndex: 15, toIndex: 16 },
-]
+  const steps = 192
+  let length = 0
+  let turn = 0
+  let previous = sampleCabinRoute(authoredStart)
+  for (let step = 1; step <= steps; step += 1) {
+    const sample = sampleCabinRoute(authoredStart + ((authoredEnd - authoredStart) * step) / steps)
+    if (!sample || !previous) break
+    length += sample.position.distanceTo(previous.position)
+    turn += previous.target
+      .clone()
+      .sub(previous.position)
+      .normalize()
+      .angleTo(sample.target.clone().sub(sample.position).normalize())
+    previous = sample
+  }
+  return length + ROTATION_COST_PER_RADIAN * turn
+}
+
+/** Authored scroll spans, known before allocation for every pinned shot. */
+const AUTHORED_SPANS = (() => {
+  const spans: Array<{ start: number; end: number }> = []
+  let cursor = 0
+  for (const shot of SHOT_SHEET) {
+    const end = shot.authoredEnd ?? Number.NaN
+    spans.push({ start: cursor, end })
+    if (shot.authoredEnd !== undefined) cursor = shot.authoredEnd
+  }
+  return spans
+})()
+
+const BANDS: readonly ShotBand[] = allocateShotSpans(
+  SHOT_SHEET.map((shot, index) =>
+    shotCost(shot.fromIndex, shot.toIndex, AUTHORED_SPANS[index].start, AUTHORED_SPANS[index].end),
+  ),
+)
 
 function assertValidTraversal() {
-  const first = CAMERA_TRAVERSAL[0]
-  const last = CAMERA_TRAVERSAL[CAMERA_TRAVERSAL.length - 1]
+  const first = BANDS[0]
+  const last = BANDS[BANDS.length - 1]
   if (first.start !== 0 || first.fromIndex !== 0 || last.end !== 1 || last.toIndex !== KEYFRAMES.length - 1) {
     throw new Error('Camera traversal must cover global progress [0, 1]')
   }
 
-  for (let index = 0; index < CAMERA_TRAVERSAL.length; index += 1) {
-    const band = CAMERA_TRAVERSAL[index]
+  for (let index = 0; index < BANDS.length; index += 1) {
+    const band = BANDS[index]
     if (band.end <= band.start || band.toIndex < band.fromIndex || band.toIndex - band.fromIndex > 1) {
       throw new Error(`Invalid camera traversal band at index ${index}`)
     }
@@ -222,7 +286,7 @@ function assertValidTraversal() {
       throw new Error(`Interior zone must be an S5 dwell at band ${index}`)
     }
     if (index > 0) {
-      const previous = CAMERA_TRAVERSAL[index - 1]
+      const previous = BANDS[index - 1]
       if (band.start !== previous.end || band.fromIndex !== previous.toIndex) {
         throw new Error(`Camera traversal has a gap before band ${index}`)
       }
@@ -232,40 +296,75 @@ function assertValidTraversal() {
 
 assertValidTraversal()
 
-const ACCELERATION_SHARE = 0.02
+const BAND_COSTS = BANDS.map((band) => shotCost(band.fromIndex, band.toIndex, band.start, band.end))
+const CUMULATIVE_COST = BAND_COSTS.reduce<number[]>(
+  (accumulator, cost) => [...accumulator, accumulator[accumulator.length - 1] + cost],
+  [0],
+)
+const MOTION_KNOTS: MotionKnot[] = [
+  { progress: 0, cost: 0 },
+  ...BANDS.map((band, index) => ({ progress: band.end, cost: CUMULATIVE_COST[index + 1] })),
+]
 
 /**
- * Integrates a cosine-ramped velocity profile: zero speed at either end,
- * constant cruise speed through the middle. Unlike smoothstep, its short
- * acceleration shoulders only raise peak speed by ~6.4%, which keeps the
- * long S3/S6 moves below the 3-unit sampling budget.
+ * Linear speed the cabin route hands over at a seam, converted into this
+ * traversal's cost units by the adjacent band's own length-to-cost ratio.
+ * Matching *linear* speed is what removes the visible lurch: the cabin's own
+ * cost is rotation-heavy at the cockpit turn, so matching cost rate there
+ * would accelerate the exterior approach into the nose rather than settle it.
  */
-function traversalEase(value: number) {
-  const t = Math.min(1, Math.max(0, value))
-  const ramp = ACCELERATION_SHARE
-  const normalization = 1 - ramp
-
-  if (t < ramp) {
-    return (0.5 * t - (ramp / (2 * Math.PI)) * Math.sin((Math.PI * t) / ramp)) / normalization
-  }
-  if (t > 1 - ramp) {
-    const remaining = 1 - t
-    return 1 - (0.5 * remaining - (ramp / (2 * Math.PI)) * Math.sin((Math.PI * remaining) / ramp)) / normalization
-  }
-  return (t - ramp / 2) / normalization
+function cabinSeamTangent(bandIndex: number, seam: number): number {
+  const linearRate = cabinRouteSpeed(seam)
+  const cost = BAND_COSTS[bandIndex]
+  if (cost <= 0) return Number.NaN
+  const curve = curveFor(BANDS[bandIndex].fromIndex, BANDS[bandIndex].toIndex)
+  if (!curve) return Number.NaN
+  const length =
+    (curve.u[BANDS[bandIndex].toIndex - curve.first] - curve.u[BANDS[bandIndex].fromIndex - curve.first]) * curve.length
+  return linearRate / (length / cost)
 }
 
-function clampProgress(progress: number) {
-  return Math.min(1, Math.max(0, progress))
+const CABIN_ENTRY_BAND = BANDS.findIndex((band) => band.end === CABIN_START)
+const CABIN_EXIT_BAND = BANDS.findIndex((band) => band.start === CABIN_END)
+
+const SEAM_TANGENTS: Record<number, number> = {}
+const entryTangent = cabinSeamTangent(CABIN_ENTRY_BAND, CABIN_START)
+if (Number.isFinite(entryTangent)) SEAM_TANGENTS[CABIN_ENTRY_BAND + 1] = entryTangent
+const exitTangent = cabinSeamTangent(CABIN_EXIT_BAND, CABIN_END)
+if (Number.isFinite(exitTangent)) SEAM_TANGENTS[CABIN_EXIT_BAND] = exitTangent
+
+const MOTION_PROFILE = createMotionProfile(MOTION_KNOTS, SEAM_TANGENTS)
+
+function bandIndexAt(progress: number) {
+  for (let index = 0; index < BANDS.length; index += 1) {
+    if (progress >= BANDS[index].start && progress < BANDS[index].end) return index
+  }
+  return BANDS.length - 1
 }
 
 function traversalSample(progress: number) {
   const clamped = clampProgress(progress)
-  const band =
-    CAMERA_TRAVERSAL.find((candidate) => clamped >= candidate.start && clamped < candidate.end) ??
-    CAMERA_TRAVERSAL[CAMERA_TRAVERSAL.length - 1]
-  const local = (clamped - band.start) / (band.end - band.start)
-  return { band, t: traversalEase(local) }
+  const index = bandIndexAt(clamped)
+  const band = BANDS[index]
+  const span = CUMULATIVE_COST[index + 1] - CUMULATIVE_COST[index]
+  const t = span > 0 ? Math.min(1, Math.max(0, (MOTION_PROFILE.cost(clamped) - CUMULATIVE_COST[index]) / span)) : 0
+  return { band, t }
+}
+
+/** Authored shot bands with their derived scroll spans — the diagnostic view of §3.1's sheet. */
+export const CAMERA_SHOT_BANDS: readonly ShotBand[] = BANDS
+
+/** Traversal cost consumed per unit of scroll. Zero only inside an authored dwell. */
+export function cameraTraversalSpeed(progress: number): number {
+  return MOTION_PROFILE.speed(clampProgress(progress))
+}
+
+/** Global progress at which the camera reaches each authored keyframe. */
+export function keyframeArrivalProgress(): number[] {
+  const arrivals = new Array<number>(KEYFRAMES.length).fill(Number.NaN)
+  arrivals[0] = 0
+  for (const band of BANDS) if (band.toIndex !== band.fromIndex) arrivals[band.toIndex] = band.end
+  return arrivals
 }
 
 /** A testable 0..1 coordinate proving that the authored path is traversed in order. */
@@ -298,8 +397,10 @@ export function sampleCamera(progress: number): SampledCamera {
   const { band, t } = traversalSample(progress)
   const from = KEYFRAMES[band.fromIndex]
   const to = KEYFRAMES[band.toIndex]
-  const positionU = POSITION_U[band.fromIndex] + (POSITION_U[band.toIndex] - POSITION_U[band.fromIndex]) * t
-  const position = POSITION_CURVE.getPointAt(positionU)
+  const curve = curveFor(band.fromIndex, band.toIndex) ?? APPROACH_CURVE
+  const uFrom = curve.u[Math.min(Math.max(band.fromIndex - curve.first, 0), curve.u.length - 1)]
+  const uTo = curve.u[Math.min(Math.max(band.toIndex - curve.first, 0), curve.u.length - 1)]
+  const position = curve.curve.getPointAt(uFrom + (uTo - uFrom) * t)
 
   const lookRotation = new Quaternion()
   if (band.toIndex !== band.fromIndex) {
@@ -308,8 +409,17 @@ export function sampleCamera(progress: number): SampledCamera {
   const lookDirection = LOOK_DIRECTIONS[band.fromIndex].clone().applyQuaternion(lookRotation).normalize()
   const lookDistance = LOOK_DISTANCES[band.fromIndex] + (LOOK_DISTANCES[band.toIndex] - LOOK_DISTANCES[band.fromIndex]) * t
   const target = position.clone().addScaledVector(lookDirection, lookDistance)
-  const fov = from.fov + (to.fov - from.fov) * t
-  const rollDeg = from.roll + (to.roll - from.roll) * t
+  // A lens change is its own move, not a by-product of how fast the camera
+  // happens to be travelling. Easing it inside the shot puts zero focal
+  // rate at both ends, so the threshold's 42→50 opening no longer does most
+  // of its work in the first few pixels of S4 while the camera is still
+  // carrying speed out of the run-in.
+  const fovEase = t * t * (3 - 2 * t)
+  const fov = from.fov + (to.fov - from.fov) * fovEase
+  // sin², not sin: its derivative vanishes at both ends, so the bank enters
+  // and leaves the turn without a roll-rate step at the shot boundary.
+  const bank = band.bankDegrees ? band.bankDegrees * Math.sin(Math.PI * t) ** 2 : 0
+  const rollDeg = from.roll + (to.roll - from.roll) * t + bank
 
   return { position, target, fov, rollRad: (rollDeg * Math.PI) / 180 }
 }

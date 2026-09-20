@@ -13,29 +13,14 @@ export const GROUND_TINT_RAMP_END = SECTIONS[2].end
 // mid-value albedo diluting them.
 export const GROUND_TINT_GAIN = 1.6
 
-// Unchanged from the old EnvironmentPlaceholder.tsx ground plane: the
-// existing S2/S3-boundary crossfade this round doesn't touch (plan4.md
-// §3.4 — the 30.5% gate itself is out of scope this round).
-export const GROUND_FADE_START = SECTIONS[1].end
-export const GROUND_FADE_END = SECTIONS[2].start + 0.025
-
-function clamp01(value: number): number {
-  return Math.min(1, Math.max(0, value))
-}
-
 function smoothstep01(value: number): number {
-  const t = clamp01(value)
+  const t = Math.min(1, Math.max(0, value))
   return t * t * (3 - 2 * t)
 }
 
 /** 0 = fully texture-authored (white multiplier), 1 = fully tinted by theme.ground * GAIN. Pure so it's directly testable without a mounted mesh. */
 export function groundTintMix(progress: number): number {
   return smoothstep01((progress - GROUND_TINT_RAMP_START) / (GROUND_TINT_RAMP_END - GROUND_TINT_RAMP_START))
-}
-
-/** Pre-existing S2/S3 ground-plane crossfade, extracted unchanged from EnvironmentPlaceholder.tsx (not part of this round's scope). */
-export function groundFade(progress: number): number {
-  return clamp01((GROUND_FADE_END - progress) / (GROUND_FADE_END - GROUND_FADE_START))
 }
 
 const tintScratch = new Color()

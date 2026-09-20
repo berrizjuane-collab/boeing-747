@@ -57,7 +57,16 @@ export function SceneCanvas({ debugMode }: { debugMode: boolean }) {
       // R3F spreads over its defaults.
       style={{ position: 'fixed', inset: 0, zIndex: 0, display: 'block' }}
       dpr={[1, dprMax]}
-      camera={{ fov: 45, near: 0.1, far: 3000, position: [60, 8, 55] }}
+      // plan6 4.6: near 0.15, not 0.1. Depth precision is set by the
+      // far/near ratio, and 3000/0.1 spends most of the buffer on the first
+      // few metres. The floor is the camera's own verified clearance:
+      // round 6 phase 2 measured a minimum of 0.2548 u to cabin geometry,
+      // and at near 0.15 the farthest near-plane corner (fov 50, 16:9) sits
+      // 0.207 u out — inside that, where 0.2 would already have been past
+      // it. `far` is deliberately unchanged: the terrain disc reaches
+      // 1500 u and enlarging it to hide a horizon is exactly what the plan
+      // rules out.
+      camera={{ fov: 45, near: 0.15, far: 3000, position: [60, 8, 55] }}
       gl={{ antialias: true }}
       onCreated={({ gl }) => {
         // See StatsCollector.tsx: a multi-pass post-processing composer

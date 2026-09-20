@@ -1,0 +1,1320 @@
+{
+  "source": "9837b273e040ec82822bc1f93e6f4e0eb5be7052",
+  "dirty": true,
+  "tier": "low",
+  "captures": [
+    {
+      "name": "hero",
+      "requested": 0.06,
+      "frame": {
+        "frameId": 42,
+        "timestamp": 81668.30000000075,
+        "delta": 1.366300000000745,
+        "simulationTime": 12,
+        "targetProgress": 0.06004464285714286,
+        "progress": 0.06004464285714286,
+        "section": 0,
+        "zone": null,
+        "camera": {
+          "position": [
+            59.17857627528254,
+            7.812781067013539,
+            53.98291318730014
+          ],
+          "quaternion": [
+            -0.011411847339953318,
+            0.4044156405160045,
+            0.0050466693343666985,
+            0.9144901806880973
+          ],
+          "fov": 52.29466926462436
+        },
+        "aircraft": {
+          "position": [
+            0,
+            8.48,
+            0
+          ],
+          "pitch": 0
+        },
+        "tier": "low",
+        "autoQuality": false,
+        "dpr": 1,
+        "assets": {
+          "exterior": {
+            "stage": "ready"
+          },
+          "environment": {
+            "stage": "ready"
+          },
+          "interior": {
+            "stage": "ready"
+          }
+        },
+        "portals": [
+          0,
+          0
+        ],
+        "memory": {
+          "geometries": 62,
+          "textures": 37,
+          "programs": 48
+        },
+        "perf": {
+          "fps": 1,
+          "drawCalls": 49,
+          "triangles": 284270,
+          "submittedTriangles": 284271,
+          "toneMappingMode": "ACES_FILMIC",
+          "sceneEnvironmentIsNull": false,
+          "effectiveExposure": 0.78,
+          "terrainGenerationMs": 197.3999999994412
+        },
+        "domZone": null
+      },
+      "imageMetrics": {
+        "meanLuma": 124.62681640625,
+        "p05Luma": 6,
+        "p50Luma": 111,
+        "p95Luma": 247,
+        "clippedWhitePct": 0.5773111979166667,
+        "panelContrastEstimate": 16.40625,
+        "horizonRow": 330,
+        "horizonStepEstimate": 34.02663791666701,
+        "horizonStepMedian": 1.8965187499998422,
+        "horizonStepRatio": 17.94163011394949,
+        "groundDetailEnergy": 14.351843291621273
+      }
+    },
+    {
+      "name": "spec",
+      "requested": 0.355,
+      "frame": {
+        "frameId": 84,
+        "timestamp": 129628.30000000075,
+        "delta": 0.2573999999994412,
+        "simulationTime": 12,
+        "targetProgress": 0.3549107142857143,
+        "progress": 0.3549107142857143,
+        "section": 2,
+        "zone": null,
+        "camera": {
+          "position": [
+            29.028498866714095,
+            65.58428192475623,
+            -185.00252120313087
+          ],
+          "quaternion": [
+            -0.002673422227499382,
+            0.9723063229547747,
+            0.13635417942359151,
+            0.1897914774416333
+          ],
+          "fov": 45.04803273444258
+        },
+        "aircraft": {
+          "position": [
+            0,
+            40,
+            -80
+          ],
+          "pitch": -0.05235987755982988
+        },
+        "tier": "low",
+        "autoQuality": false,
+        "dpr": 1,
+        "assets": {
+          "exterior": {
+            "stage": "ready"
+          },
+          "environment": {
+            "stage": "ready"
+          },
+          "interior": {
+            "stage": "ready"
+          }
+        },
+        "portals": [
+          0,
+          0
+        ],
+        "memory": {
+          "geometries": 65,
+          "textures": 38,
+          "programs": 51
+        },
+        "perf": {
+          "fps": 4,
+          "drawCalls": 7,
+          "triangles": 58250,
+          "submittedTriangles": 58251,
+          "toneMappingMode": "ACES_FILMIC",
+          "sceneEnvironmentIsNull": false,
+          "effectiveExposure": 0.8568091143000047,
+          "terrainGenerationMs": 197.3999999994412
+        },
+        "domZone": null
+      },
+      "imageMetrics": {
+        "meanLuma": 178.70638834635417,
+        "p05Luma": 12,
+        "p50Luma": 214,
+        "p95Luma": 249,
+        "clippedWhitePct": 0.76513671875,
+        "panelContrastEstimate": 19.444444444444443,
+        "horizonRow": 185,
+        "horizonStepEstimate": 15.306663541665898,
+        "horizonStepMedian": 0.4715010416664711,
+        "horizonStepRatio": 32.46368976739924,
+        "groundDetailEnergy": 2.7757919777547126
+      }
+    },
+    {
+      "name": "cockpit",
+      "requested": 0.526,
+      "frame": {
+        "frameId": 121,
+        "timestamp": 165002.5,
+        "delta": 1.2405,
+        "simulationTime": 12,
+        "targetProgress": 0.5258928571428572,
+        "progress": 0.5258928571428572,
+        "section": 4,
+        "zone": "cockpit",
+        "camera": {
+          "position": [
+            0.00005257016634422211,
+            37.23072901295505,
+            -106.09082347182972
+          ],
+          "quaternion": [
+            -0.025068845238609198,
+            -0.1306494234651579,
+            -0.003304621047855967,
+            0.9911061298500554
+          ],
+          "fov": 57.855427990929314
+        },
+        "aircraft": {
+          "position": [
+            0,
+            40,
+            -80
+          ],
+          "pitch": -0.05235987755982988
+        },
+        "tier": "low",
+        "autoQuality": false,
+        "dpr": 1,
+        "assets": {
+          "exterior": {
+            "stage": "ready"
+          },
+          "environment": {
+            "stage": "ready"
+          },
+          "interior": {
+            "stage": "ready"
+          }
+        },
+        "portals": [
+          0,
+          0
+        ],
+        "memory": {
+          "geometries": 115,
+          "textures": 39,
+          "programs": 75
+        },
+        "perf": {
+          "fps": 1,
+          "drawCalls": 13,
+          "triangles": 42806,
+          "submittedTriangles": 42807,
+          "toneMappingMode": "ACES_FILMIC",
+          "sceneEnvironmentIsNull": false,
+          "effectiveExposure": 0.6205760498105959,
+          "terrainGenerationMs": 197.3999999994412
+        },
+        "domZone": "cockpit"
+      },
+      "imageMetrics": {
+        "meanLuma": 118.832724609375,
+        "p05Luma": 29,
+        "p50Luma": 110,
+        "p95Luma": 228,
+        "clippedWhitePct": 0.8782552083333334,
+        "panelContrastEstimate": 13.636363636363637,
+        "horizonRow": 164,
+        "horizonStepEstimate": 14.147999374999756,
+        "horizonStepMedian": 0.497265208333431,
+        "horizonStepRatio": 28.451617241464245,
+        "groundDetailEnergy": 2.551044171011783
+      }
+    },
+    {
+      "name": "economy",
+      "requested": 0.608,
+      "frame": {
+        "frameId": 158,
+        "timestamp": 221269.80000000075,
+        "delta": 1.9371000000005587,
+        "simulationTime": 12,
+        "targetProgress": 0.6080357142857142,
+        "progress": 0.6080357142857142,
+        "section": 4,
+        "zone": "economy",
+        "camera": {
+          "position": [
+            -1.3196548231501741,
+            37.9739686947464,
+            -91.91028407831477
+          ],
+          "quaternion": [
+            9.045263729649125e-7,
+            0.9996575374447181,
+            -0.026168810351618218,
+            0.00003455321791103096
+          ],
+          "fov": 57.855427990929314
+        },
+        "aircraft": {
+          "position": [
+            0,
+            40,
+            -80
+          ],
+          "pitch": -0.05235987755982988
+        },
+        "tier": "low",
+        "autoQuality": false,
+        "dpr": 1,
+        "assets": {
+          "exterior": {
+            "stage": "ready"
+          },
+          "environment": {
+            "stage": "ready"
+          },
+          "interior": {
+            "stage": "ready"
+          }
+        },
+        "portals": [
+          0,
+          0
+        ],
+        "memory": {
+          "geometries": 115,
+          "textures": 39,
+          "programs": 75
+        },
+        "perf": {
+          "fps": 1,
+          "drawCalls": 37,
+          "triangles": 86775,
+          "submittedTriangles": 86776,
+          "toneMappingMode": "ACES_FILMIC",
+          "sceneEnvironmentIsNull": false,
+          "effectiveExposure": 0.6282144349118363,
+          "terrainGenerationMs": 197.3999999994412
+        },
+        "domZone": "economy"
+      },
+      "imageMetrics": {
+        "meanLuma": 101.5892578125,
+        "p05Luma": 2,
+        "p50Luma": 89,
+        "p95Luma": 230,
+        "clippedWhitePct": 1.9078776041666665,
+        "panelContrastEstimate": 15.217391304347826,
+        "horizonRow": 366,
+        "horizonStepEstimate": 35.59663645833342,
+        "horizonStepMedian": 3.245552916666469,
+        "horizonStepRatio": 10.967818850075933,
+        "groundDetailEnergy": 5.982399348279315
+      }
+    },
+    {
+      "name": "stair",
+      "requested": 0.718,
+      "frame": {
+        "frameId": 195,
+        "timestamp": 278081.60000000056,
+        "delta": 1.329300000000745,
+        "simulationTime": 12,
+        "targetProgress": 0.7180803571428571,
+        "progress": 0.7180803571428571,
+        "section": 4,
+        "zone": "stair",
+        "camera": {
+          "position": [
+            -1.3198951876177003,
+            39.897757319922455,
+            -80.99601273694242
+          ],
+          "quaternion": [
+            2.747174222411256e-7,
+            0.999657389624357,
+            -0.026174477249000343,
+            0.000010492026205122559
+          ],
+          "fov": 57.855427990929314
+        },
+        "aircraft": {
+          "position": [
+            0,
+            40,
+            -80
+          ],
+          "pitch": -0.05235987755982988
+        },
+        "tier": "low",
+        "autoQuality": false,
+        "dpr": 1,
+        "assets": {
+          "exterior": {
+            "stage": "ready"
+          },
+          "environment": {
+            "stage": "ready"
+          },
+          "interior": {
+            "stage": "ready"
+          }
+        },
+        "portals": [
+          0,
+          0
+        ],
+        "memory": {
+          "geometries": 115,
+          "textures": 39,
+          "programs": 75
+        },
+        "perf": {
+          "fps": 1,
+          "drawCalls": 23,
+          "triangles": 60047,
+          "submittedTriangles": 60048,
+          "toneMappingMode": "ACES_FILMIC",
+          "sceneEnvironmentIsNull": false,
+          "effectiveExposure": 0.6435690959195713,
+          "terrainGenerationMs": 197.3999999994412
+        },
+        "domZone": "stair"
+      },
+      "imageMetrics": {
+        "meanLuma": 133.0377685546875,
+        "p05Luma": 6,
+        "p50Luma": 158,
+        "p95Luma": 227,
+        "clippedWhitePct": 1.134765625,
+        "panelContrastEstimate": 10.606060606060606,
+        "horizonRow": 486,
+        "horizonStepEstimate": 70.37841791666634,
+        "horizonStepMedian": 0.8027856249999843,
+        "horizonStepRatio": 87.667760514107,
+        "groundDetailEnergy": 1.9676868335076396
+      }
+    },
+    {
+      "name": "upper",
+      "requested": 0.8,
+      "frame": {
+        "frameId": 232,
+        "timestamp": 324422.5,
+        "delta": 1.1569000000003726,
+        "simulationTime": 12,
+        "targetProgress": 0.8,
+        "progress": 0.8,
+        "section": 4,
+        "zone": "upperDeck",
+        "camera": {
+          "position": [
+            -1.3197309170320792,
+            41.38880827476009,
+            -73.56386077815037
+          ],
+          "quaternion": [
+            0.0023715589638722903,
+            0.9954124960328661,
+            -0.02561706385031466,
+            0.09215261520645496
+          ],
+          "fov": 57.855427990929314
+        },
+        "aircraft": {
+          "position": [
+            0,
+            40,
+            -80
+          ],
+          "pitch": -0.05235987755982988
+        },
+        "tier": "low",
+        "autoQuality": false,
+        "dpr": 1,
+        "assets": {
+          "exterior": {
+            "stage": "ready"
+          },
+          "environment": {
+            "stage": "ready"
+          },
+          "interior": {
+            "stage": "ready"
+          }
+        },
+        "portals": [
+          0,
+          0.7684113599607778
+        ],
+        "memory": {
+          "geometries": 121,
+          "textures": 39,
+          "programs": 76
+        },
+        "perf": {
+          "fps": 2,
+          "drawCalls": 25,
+          "triangles": 59129,
+          "submittedTriangles": 59130,
+          "toneMappingMode": "ACES_FILMIC",
+          "sceneEnvironmentIsNull": false,
+          "effectiveExposure": 0.65065185546875,
+          "terrainGenerationMs": 197.3999999994412
+        },
+        "domZone": "upperDeck"
+      },
+      "imageMetrics": {
+        "meanLuma": 135.83765299479165,
+        "p05Luma": 9,
+        "p50Luma": 167,
+        "p95Luma": 228,
+        "clippedWhitePct": 0.86083984375,
+        "panelContrastEstimate": 12.962962962962964,
+        "horizonRow": 185,
+        "horizonStepEstimate": 18.82186979166667,
+        "horizonStepMedian": 1.211105625000073,
+        "horizonStepRatio": 15.541063804129832,
+        "groundDetailEnergy": 3.7984696211329187
+      }
+    },
+    {
+      "name": "exit",
+      "requested": 0.833,
+      "frame": {
+        "frameId": 268,
+        "timestamp": 380257.80000000075,
+        "delta": 0.06539999999944121,
+        "simulationTime": 12,
+        "targetProgress": 0.8330357142857143,
+        "progress": 0.8330357142857143,
+        "section": 5,
+        "zone": null,
+        "camera": {
+          "position": [
+            -2.9788152855294765,
+            41.598088552043215,
+            -69.56934263913207
+          ],
+          "quaternion": [
+            0.001122260721008325,
+            0.7288873742056735,
+            -0.001194805497513316,
+            0.6846316591381498
+          ],
+          "fov": 57.855427990929314
+        },
+        "aircraft": {
+          "position": [
+            0,
+            40,
+            -80
+          ],
+          "pitch": -0.05235987755982988
+        },
+        "tier": "low",
+        "autoQuality": false,
+        "dpr": 1,
+        "assets": {
+          "exterior": {
+            "stage": "ready"
+          },
+          "environment": {
+            "stage": "ready"
+          },
+          "interior": {
+            "stage": "ready"
+          }
+        },
+        "portals": [
+          0,
+          1.55
+        ],
+        "memory": {
+          "geometries": 123,
+          "textures": 41,
+          "programs": 76
+        },
+        "perf": {
+          "fps": 2,
+          "drawCalls": 14,
+          "triangles": 59869,
+          "submittedTriangles": 59870,
+          "toneMappingMode": "ACES_FILMIC",
+          "sceneEnvironmentIsNull": false,
+          "effectiveExposure": 0.8060377045679206,
+          "terrainGenerationMs": 197.3999999994412
+        },
+        "domZone": null
+      },
+      "imageMetrics": {
+        "meanLuma": 181.19050944010417,
+        "p05Luma": 52,
+        "p50Luma": 210,
+        "p95Luma": 240,
+        "clippedWhitePct": 0.7132161458333334,
+        "panelContrastEstimate": 10.824742268041238,
+        "horizonRow": 177,
+        "horizonStepEstimate": 22.127996458330983,
+        "horizonStepMedian": 0.1391689583332152,
+        "horizonStepRatio": 159.00094908628583,
+        "groundDetailEnergy": 2.7600858759125018
+      }
+    }
+  ],
+  "trace": [
+    {
+      "frameId": 42,
+      "timestamp": 81668.30000000075,
+      "delta": 1.366300000000745,
+      "simulationTime": 12,
+      "targetProgress": 0.06004464285714286,
+      "progress": 0.06004464285714286,
+      "section": 0,
+      "zone": null,
+      "camera": {
+        "position": [
+          59.17857627528254,
+          7.812781067013539,
+          53.98291318730014
+        ],
+        "quaternion": [
+          -0.011411847339953318,
+          0.4044156405160045,
+          0.0050466693343666985,
+          0.9144901806880973
+        ],
+        "fov": 52.29466926462436
+      },
+      "aircraft": {
+        "position": [
+          0,
+          8.48,
+          0
+        ],
+        "pitch": 0
+      },
+      "tier": "low",
+      "autoQuality": false,
+      "dpr": 1,
+      "assets": {
+        "exterior": {
+          "stage": "ready"
+        },
+        "environment": {
+          "stage": "ready"
+        },
+        "interior": {
+          "stage": "ready"
+        }
+      },
+      "portals": [
+        0,
+        0
+      ],
+      "memory": {
+        "geometries": 62,
+        "textures": 37,
+        "programs": 48
+      },
+      "perf": {
+        "fps": 1,
+        "drawCalls": 49,
+        "triangles": 284270,
+        "submittedTriangles": 284271,
+        "toneMappingMode": "ACES_FILMIC",
+        "sceneEnvironmentIsNull": false,
+        "effectiveExposure": 0.78,
+        "terrainGenerationMs": 197.3999999994412
+      },
+      "domZone": null
+    },
+    {
+      "frameId": 84,
+      "timestamp": 129628.30000000075,
+      "delta": 0.2573999999994412,
+      "simulationTime": 12,
+      "targetProgress": 0.3549107142857143,
+      "progress": 0.3549107142857143,
+      "section": 2,
+      "zone": null,
+      "camera": {
+        "position": [
+          29.028498866714095,
+          65.58428192475623,
+          -185.00252120313087
+        ],
+        "quaternion": [
+          -0.002673422227499382,
+          0.9723063229547747,
+          0.13635417942359151,
+          0.1897914774416333
+        ],
+        "fov": 45.04803273444258
+      },
+      "aircraft": {
+        "position": [
+          0,
+          40,
+          -80
+        ],
+        "pitch": -0.05235987755982988
+      },
+      "tier": "low",
+      "autoQuality": false,
+      "dpr": 1,
+      "assets": {
+        "exterior": {
+          "stage": "ready"
+        },
+        "environment": {
+          "stage": "ready"
+        },
+        "interior": {
+          "stage": "ready"
+        }
+      },
+      "portals": [
+        0,
+        0
+      ],
+      "memory": {
+        "geometries": 65,
+        "textures": 38,
+        "programs": 51
+      },
+      "perf": {
+        "fps": 4,
+        "drawCalls": 7,
+        "triangles": 58250,
+        "submittedTriangles": 58251,
+        "toneMappingMode": "ACES_FILMIC",
+        "sceneEnvironmentIsNull": false,
+        "effectiveExposure": 0.8568091143000047,
+        "terrainGenerationMs": 197.3999999994412
+      },
+      "domZone": null
+    },
+    {
+      "frameId": 121,
+      "timestamp": 165002.5,
+      "delta": 1.2405,
+      "simulationTime": 12,
+      "targetProgress": 0.5258928571428572,
+      "progress": 0.5258928571428572,
+      "section": 4,
+      "zone": "cockpit",
+      "camera": {
+        "position": [
+          0.00005257016634422211,
+          37.23072901295505,
+          -106.09082347182972
+        ],
+        "quaternion": [
+          -0.025068845238609198,
+          -0.1306494234651579,
+          -0.003304621047855967,
+          0.9911061298500554
+        ],
+        "fov": 57.855427990929314
+      },
+      "aircraft": {
+        "position": [
+          0,
+          40,
+          -80
+        ],
+        "pitch": -0.05235987755982988
+      },
+      "tier": "low",
+      "autoQuality": false,
+      "dpr": 1,
+      "assets": {
+        "exterior": {
+          "stage": "ready"
+        },
+        "environment": {
+          "stage": "ready"
+        },
+        "interior": {
+          "stage": "ready"
+        }
+      },
+      "portals": [
+        0,
+        0
+      ],
+      "memory": {
+        "geometries": 115,
+        "textures": 39,
+        "programs": 75
+      },
+      "perf": {
+        "fps": 1,
+        "drawCalls": 13,
+        "triangles": 42806,
+        "submittedTriangles": 42807,
+        "toneMappingMode": "ACES_FILMIC",
+        "sceneEnvironmentIsNull": false,
+        "effectiveExposure": 0.6205760498105959,
+        "terrainGenerationMs": 197.3999999994412
+      },
+      "domZone": "cockpit"
+    },
+    {
+      "frameId": 158,
+      "timestamp": 221269.80000000075,
+      "delta": 1.9371000000005587,
+      "simulationTime": 12,
+      "targetProgress": 0.6080357142857142,
+      "progress": 0.6080357142857142,
+      "section": 4,
+      "zone": "economy",
+      "camera": {
+        "position": [
+          -1.3196548231501741,
+          37.9739686947464,
+          -91.91028407831477
+        ],
+        "quaternion": [
+          9.045263729649125e-7,
+          0.9996575374447181,
+          -0.026168810351618218,
+          0.00003455321791103096
+        ],
+        "fov": 57.855427990929314
+      },
+      "aircraft": {
+        "position": [
+          0,
+          40,
+          -80
+        ],
+        "pitch": -0.05235987755982988
+      },
+      "tier": "low",
+      "autoQuality": false,
+      "dpr": 1,
+      "assets": {
+        "exterior": {
+          "stage": "ready"
+        },
+        "environment": {
+          "stage": "ready"
+        },
+        "interior": {
+          "stage": "ready"
+        }
+      },
+      "portals": [
+        0,
+        0
+      ],
+      "memory": {
+        "geometries": 115,
+        "textures": 39,
+        "programs": 75
+      },
+      "perf": {
+        "fps": 1,
+        "drawCalls": 37,
+        "triangles": 86775,
+        "submittedTriangles": 86776,
+        "toneMappingMode": "ACES_FILMIC",
+        "sceneEnvironmentIsNull": false,
+        "effectiveExposure": 0.6282144349118363,
+        "terrainGenerationMs": 197.3999999994412
+      },
+      "domZone": "economy"
+    },
+    {
+      "frameId": 195,
+      "timestamp": 278081.60000000056,
+      "delta": 1.329300000000745,
+      "simulationTime": 12,
+      "targetProgress": 0.7180803571428571,
+      "progress": 0.7180803571428571,
+      "section": 4,
+      "zone": "stair",
+      "camera": {
+        "position": [
+          -1.3198951876177003,
+          39.897757319922455,
+          -80.99601273694242
+        ],
+        "quaternion": [
+          2.747174222411256e-7,
+          0.999657389624357,
+          -0.026174477249000343,
+          0.000010492026205122559
+        ],
+        "fov": 57.855427990929314
+      },
+      "aircraft": {
+        "position": [
+          0,
+          40,
+          -80
+        ],
+        "pitch": -0.05235987755982988
+      },
+      "tier": "low",
+      "autoQuality": false,
+      "dpr": 1,
+      "assets": {
+        "exterior": {
+          "stage": "ready"
+        },
+        "environment": {
+          "stage": "ready"
+        },
+        "interior": {
+          "stage": "ready"
+        }
+      },
+      "portals": [
+        0,
+        0
+      ],
+      "memory": {
+        "geometries": 115,
+        "textures": 39,
+        "programs": 75
+      },
+      "perf": {
+        "fps": 1,
+        "drawCalls": 23,
+        "triangles": 60047,
+        "submittedTriangles": 60048,
+        "toneMappingMode": "ACES_FILMIC",
+        "sceneEnvironmentIsNull": false,
+        "effectiveExposure": 0.6435690959195713,
+        "terrainGenerationMs": 197.3999999994412
+      },
+      "domZone": "stair"
+    },
+    {
+      "frameId": 232,
+      "timestamp": 324422.5,
+      "delta": 1.1569000000003726,
+      "simulationTime": 12,
+      "targetProgress": 0.8,
+      "progress": 0.8,
+      "section": 4,
+      "zone": "upperDeck",
+      "camera": {
+        "position": [
+          -1.3197309170320792,
+          41.38880827476009,
+          -73.56386077815037
+        ],
+        "quaternion": [
+          0.0023715589638722903,
+          0.9954124960328661,
+          -0.02561706385031466,
+          0.09215261520645496
+        ],
+        "fov": 57.855427990929314
+      },
+      "aircraft": {
+        "position": [
+          0,
+          40,
+          -80
+        ],
+        "pitch": -0.05235987755982988
+      },
+      "tier": "low",
+      "autoQuality": false,
+      "dpr": 1,
+      "assets": {
+        "exterior": {
+          "stage": "ready"
+        },
+        "environment": {
+          "stage": "ready"
+        },
+        "interior": {
+          "stage": "ready"
+        }
+      },
+      "portals": [
+        0,
+        0.7684113599607778
+      ],
+      "memory": {
+        "geometries": 121,
+        "textures": 39,
+        "programs": 76
+      },
+      "perf": {
+        "fps": 2,
+        "drawCalls": 25,
+        "triangles": 59129,
+        "submittedTriangles": 59130,
+        "toneMappingMode": "ACES_FILMIC",
+        "sceneEnvironmentIsNull": false,
+        "effectiveExposure": 0.65065185546875,
+        "terrainGenerationMs": 197.3999999994412
+      },
+      "domZone": "upperDeck"
+    },
+    {
+      "frameId": 268,
+      "timestamp": 380257.80000000075,
+      "delta": 0.06539999999944121,
+      "simulationTime": 12,
+      "targetProgress": 0.8330357142857143,
+      "progress": 0.8330357142857143,
+      "section": 5,
+      "zone": null,
+      "camera": {
+        "position": [
+          -2.9788152855294765,
+          41.598088552043215,
+          -69.56934263913207
+        ],
+        "quaternion": [
+          0.001122260721008325,
+          0.7288873742056735,
+          -0.001194805497513316,
+          0.6846316591381498
+        ],
+        "fov": 57.855427990929314
+      },
+      "aircraft": {
+        "position": [
+          0,
+          40,
+          -80
+        ],
+        "pitch": -0.05235987755982988
+      },
+      "tier": "low",
+      "autoQuality": false,
+      "dpr": 1,
+      "assets": {
+        "exterior": {
+          "stage": "ready"
+        },
+        "environment": {
+          "stage": "ready"
+        },
+        "interior": {
+          "stage": "ready"
+        }
+      },
+      "portals": [
+        0,
+        1.55
+      ],
+      "memory": {
+        "geometries": 123,
+        "textures": 41,
+        "programs": 76
+      },
+      "perf": {
+        "fps": 2,
+        "drawCalls": 14,
+        "triangles": 59869,
+        "submittedTriangles": 59870,
+        "toneMappingMode": "ACES_FILMIC",
+        "sceneEnvironmentIsNull": false,
+        "effectiveExposure": 0.8060377045679206,
+        "terrainGenerationMs": 197.3999999994412
+      },
+      "domZone": null
+    }
+  ],
+  "errors": [],
+  "longTasks": [
+    {
+      "start": 127.30000000074506,
+      "duration": 106
+    },
+    {
+      "start": 375.80000000074506,
+      "duration": 1046
+    },
+    {
+      "start": 1426.9000000003725,
+      "duration": 1116
+    },
+    {
+      "start": 2544.100000000559,
+      "duration": 2815
+    },
+    {
+      "start": 7476.9000000003725,
+      "duration": 1016
+    },
+    {
+      "start": 8500.200000000186,
+      "duration": 700
+    },
+    {
+      "start": 9216.800000000745,
+      "duration": 209
+    },
+    {
+      "start": 9743.900000000373,
+      "duration": 725
+    },
+    {
+      "start": 10469.5,
+      "duration": 42905
+    },
+    {
+      "start": 53391.300000000745,
+      "duration": 64
+    },
+    {
+      "start": 53713.300000000745,
+      "duration": 2390
+    },
+    {
+      "start": 90860.10000000056,
+      "duration": 2150
+    },
+    {
+      "start": 120730.20000000019,
+      "duration": 1549
+    },
+    {
+      "start": 132024.80000000075,
+      "duration": 3062
+    },
+    {
+      "start": 135088.30000000075,
+      "duration": 1763
+    },
+    {
+      "start": 136851.5,
+      "duration": 4829
+    },
+    {
+      "start": 292686.80000000075,
+      "duration": 3185
+    },
+    {
+      "start": 335940.2000000002,
+      "duration": 2329
+    }
+  ],
+  "lastAction": "progress 0.833",
+  "sourceFiles": {
+    "scripts/audit-exterior-surface.mjs": "428859111505b493aa661aa0a0194cef207093385b0f6eba4e1b6f550433bc1a",
+    "src/lib/cabinProbe.ts": "f580cd0eabbe93a34135e7c791cedd8a60be9021965c518a823c056cdb770db4",
+    "src/lib/cabinShafts.ts": "b42958a6ccef6b1bf848bd3a4cd1dc00bc7007dad503bed7ed997cfe201aa32e",
+    "src/lib/cameraEnvelopes.ts": "a7dc3771eb3b7d556860af067088fb4667ba7429d1404f1576b83ead766aa123",
+    "src/lib/iblSchedule.ts": "33774ce6c9e14c1222bed863a11a3d9b55f50bfec871bd1b0206001e4b2c3858",
+    "src/lib/motionProfile.ts": "cb9ff58013314065ad3ab825bf7b4bb1bbba15b9880d88bdfca2748c595c3511",
+    "src/lib/postFxSchedule.ts": "11bbb65839ff3ebf30bbff4ffe23ff138c37bea3ef06e801a7d9154dec69ac96",
+    "src/lib/shotFraming.ts": "5b4ca23e0501a99f0a805fa475f9970148e3cca58c30c7f2959869b83c36e434",
+    "src/lib/shotSheet.ts": "40a13457d2c35db4fb46a360e72ef45afc6ebcda63cbeb0d693b6b8c33831ac9",
+    "src/lib/worldPersistence.ts": "84825b4f19d861ba24bb8fa43a87ae3c13397147610ab107546d0f18c274e21b",
+    "package-lock.json": "29254cd8389ebebcfae4ccc892454563b3bb7e46ae41256ddeddff6892127564",
+    "package.json": "5f5b8e9fc18e7e408acec5ba23b0d6ba4dac3d6f211f2f472ef648b10885d9a4",
+    "public/models/exterior.glb": "836ae214d6dced226f35ea2e811f32e683af721b72527385faa77c1f2f9fc6d6",
+    "public/models/interior.glb": "338d0b99233b758f2fa758ec27e452046dcb7f45aeabf9a820b6530ed26db15b",
+    "scripts/cut-visual-clips.mjs": "48e7983e8a1ad4089dbfef27e6619d1ef814416d0db9bc35b5783aba493faee0",
+    "scripts/d3-frame-sequence.mjs": "77fbd707ad592cac9a1e6749c7c7fa1be57ea79d51037fe7243e82870d799d58",
+    "scripts/export-cabin-route.mjs": "01b17cdf24a384d1bea0738214f800f9e7803cac004253875edc728a9fb88ad9",
+    "scripts/extract-hull.mjs": "9c75e527c53827702efd319f42ca206898b179e896d871e9ac17151df571ba3e",
+    "scripts/imageMetrics.mjs": "a3107b9505b82d8879e5e04cfd79b2926392a0d26b1e879dc43a2cfd7f14a874",
+    "scripts/measure-hdri.mjs": "267660fc7a857649bdd3181235e6a26f5cb118a33aba6d29be4beb2ddba5ca65",
+    "scripts/process-glb.mjs": "eb76451f61e5ec4d7f93422e09439a931d8052a10eecf9d375e35f885f840797",
+    "scripts/process-interior.mjs": "d97e4b2b84dc6fd2d53a8effdaeabe1d06c145593d5616edc470941a193003b7",
+    "scripts/qa-image-metrics.mjs": "577c219f7e1bba65cda1a9391ba3eb9b132361437fabbb41e1f0b173f328da60",
+    "scripts/runtime-qa.mjs": "e375cb3af6483c4d99206de9631c8f6c9e6e2713f566d004c30c7bb15635830d",
+    "scripts/scroll-contract-qa.mjs": "6aac8dcd6d73bf681e1589650b9425bdf89e5a8677eb146796ee548bd0479593",
+    "scripts/verify-interior-glb.mjs": "f4318608b45ce8a22248d83b7a946081b4de47c6774c48b50d48911b39642336",
+    "scripts/visual-qa.mjs": "4892b27177049a5d8d0014d84b429f9b1f9deb88e3013a2d822f5214b6929a44",
+    "src/App.tsx": "2ad42f67648626fb243448a4c4672f4a7172fac928b60cea2f579bc114736394",
+    "src/components/AircraftNavLights.tsx": "5792084b0bd0d05d646cf40de095348a5c09f9f59698e6243f1740f3b2f60c4a",
+    "src/components/AirportBuildings.tsx": "61cf5fd4bca251202af1e655fb73fd5cc42d594876d27db8300da6c2e1f42e59",
+    "src/components/AssetBoundary.tsx": "2cb10338eaaa622c691049f7c0f4af1dcd9156ea2d35ed9649d77cc2f70ce3db",
+    "src/components/CabinAtmosphere.tsx": "dd3bd21e16a36c464909d94d35ddcdc054854079bc0f01c8d9a296dd8d81742b",
+    "src/components/CameraRig.tsx": "d32312e6fdff3e38481bd817214bb84c06287f4217a065fa0778281c083767bc",
+    "src/components/DebugHud.tsx": "a838489ebd7799cb4f9468e38425e50f424497404fb34757a43baf4c92fb51cd",
+    "src/components/EnvironmentPlaceholder.tsx": "e1f08e66713dbacd8c6ef5e9e4670626cf74a3c549b97a84452fa727e230bc02",
+    "src/components/ExposurePass.tsx": "cc4dc9a5b9555d10dfab8866fe0ae46b10a69146c5e3bf8775fe130b84e48a48",
+    "src/components/ExteriorAsset.tsx": "27be0435d4a63ba2e1d4212a8be971f87691ba09583b532919bc64fbe0202b48",
+    "src/components/Forest.tsx": "e891554570acfe7e2638b5c197e757d3349a5efcbbc37d722d7f21f6f5ca24d2",
+    "src/components/GrassField.tsx": "7257c5282f37c6157c4f1d009dfb8b64884a0871a30fe0c7ae7fb978b03786e1",
+    "src/components/Hotspot.tsx": "ba5ae8994bb58c4c915281c60daf4da6f51293895edbb735715471402e30ad62",
+    "src/components/Hotspots.tsx": "fb8881eda372612fe224e8bac10015c6d60a9f8adec3f379116da59565643004",
+    "src/components/InteriorAsset.tsx": "3efb7bacdb554028199820aa2bc2d92436011be9f502daf0a9397e381fe795db",
+    "src/components/InteriorLighting.tsx": "7fafd5c0df58fe4c6fef1532e0a2a2198d92ffd96d9637c5f101bdd6e847caea",
+    "src/components/InteriorLoadGuardrail.tsx": "37d5e5cf26a6168de3c079075fd28420c7424aaa938570da98069516c2619dd0",
+    "src/components/InteriorOverlay.tsx": "3687250426ffde4503c4e799e90bcaece2e02cfe2d179e50654c1912549e626b",
+    "src/components/LoadingScreen.tsx": "951930592ee7d169f43972b9295ff7945c42064c9c3bf1cc2d5a56d30a5ee094",
+    "src/components/NarrativeOverlay.tsx": "0d1f01d1f2f5c3f41503931123f0414d2c8e3f153d091147d661029febe462d7",
+    "src/components/PostFX.tsx": "358d3fe2a3dde084b7307743573d3d2c96060b5f57981b43bbf4c631558f9f46",
+    "src/components/PresentationDriver.tsx": "9ffa598a7b22609f856eb4c05da60e18db2bc4b5c7fd7252becf33ec4a98e21c",
+    "src/components/ReducedMotionCrossfade.tsx": "2163f01355996e1557aee63683438015c03c54c36bd59f498bed3add0719f6a2",
+    "src/components/RunwayEnvironment.tsx": "beb0dfb3adf31a149411236c1a95c8aa4aac2183ec2bfc8a6d01685590071a8a",
+    "src/components/SceneCanvas.tsx": "f9130b7fc1d484722ec4fa262b66885a510de935c8edc59e839794559b92fe0c",
+    "src/components/ScrollTrack.tsx": "a5224e3539f4eea41770e7584becf6834eb55230777e559184112e77d2671a58",
+    "src/components/SectionGrade.tsx": "7458d230c702321ad6345738116c8f2f7e08a2ce4681888b629e736553f4e5e7",
+    "src/components/SiteNav.tsx": "6dd4ded378d1fd54be3c122427bda7482d9115b466ba1c79053b17edd6783f25",
+    "src/components/StaticFallback.tsx": "ffa7edaf82a6c13079b085aee58b42368dd66670e92d820680d490d2f6c7cb1b",
+    "src/components/StatsCollector.tsx": "658af48992e8683bf68a46c1fd579b742477335ca3993c7bcae7c5638acfed13",
+    "src/components/SunMesh.tsx": "27de36eeafd439ff121081b007745e54eb826e1669cf92d9720de6cd4b2423ad",
+    "src/components/TerrainGround.tsx": "ef1459529d76262c896019ddf94697b7faae713ba0e2127f2737456230bc1638",
+    "src/components/ThresholdFrame.tsx": "370e5cdcc028e235744d6e41d279df281776d4155b51882492948273e9c8463c",
+    "src/components/TierAutoDetect.tsx": "36e917f7d2a0001da68e80182b0342a69407238e556ff16a426169d62512895d",
+    "src/dev/AuthoringPanel.tsx": "5d9b47d10e066edc58ea974fb18ebfb093f65eaf156f46d6248f502f28b8b76a",
+    "src/dev/KeyframeAuthoringTool.tsx": "93abfc83ed145942d2f03d0cc3e02c0171ab580299f63ec60e58439ca2bdd84d",
+    "src/dev/authoringState.ts": "eceb6e1a0ec73b14387d44c51195b49bfd9331642feef68814636e531b9b3f2f",
+    "src/index.css": "490b62ca61d4ada4d86ea3f4f18d992f08f3a793a2cc04f8b8d4db53d6495be6",
+    "src/lib/aerodromeKeepOut.ts": "1d28fdaf2ebd0f42f174058b7f9e3b8289bc85bab493628ab41a3042f01c122f",
+    "src/lib/aircraftPose.ts": "3760e85daac4687b486ec550c026e3dd2a82faf8b360ef8c6aa9c13748b73ac2",
+    "src/lib/aircraftSurfaceMaps.ts": "f347649b9642ce5fbad2a3175c50d483fc5a3c000ff73094490dde8e9365e16c",
+    "src/lib/airportLayout.ts": "701556d4e28567ecbc6eb336d22c526e366cbddda1b1f5bb20c3c454cac862d3",
+    "src/lib/airportSurfaceMaps.ts": "f00c50b6c8565d09ecfcce8580a3cb07b054a457fca0789a207937c25bf3969d",
+    "src/lib/cabinRoute.ts": "30d7cb0aecf34c57cc4d82ef6a641676a2ccc6191e282a9a590117fd82e31ced",
+    "src/lib/cameraPath.ts": "bc56f8423175a2ba3b39d705b78303fa0b46c5d7a1b5503047b4672e4c5146ac",
+    "src/lib/canopyMist.ts": "d6e399bbf686c0b91a496e61f8446845c0c3091e692a3b64d7d5016c2aa5e1e2",
+    "src/lib/content.ts": "aa17f9533b938f0659f4c7898993a1ad2e4215a53f4d3e0a7a62d5c72af13700",
+    "src/lib/dissolveHullMaterial.ts": "309935cbc5819a35e7f4eb17b1771bc6ac8440d9667138b2f55fe43183bb249f",
+    "src/lib/environmentTheme.ts": "551d117a3a2b4cab60afccf3bf8e7ff7fb0354f4db1c252ab031f4ba8d373110",
+    "src/lib/exposureEffect.ts": "7799439f956bdf21282b2b9d0c1884bb2e5b4f743cb3c46dfd7d18d17d7d599c",
+    "src/lib/forestMaterial.ts": "5b99f4ffc686c01b5d51e596f8aa41f07dad377b97b2ad4566883073b6419560",
+    "src/lib/forestPlacement.ts": "131e2d33206598fe8c239d795bc43c03991f2070c32cf2151abb149ce41310ed",
+    "src/lib/grassGeometry.ts": "0815aecc39210366931c72d359fc33b260c7370bd6f0aff5b4a09b5317eee45e",
+    "src/lib/grassMaterial.ts": "df7ea12090566a959db224ebfb2e0cb8fd7e7f4c75aadde523b4d3bd50cb44f7",
+    "src/lib/grassPlacement.ts": "e391ac9303258691bc7c7c6ddb67ee5886e4a9daade8564ec102a3f2f4d038b5",
+    "src/lib/hdriTheme.ts": "c82f1c7363e62b1538bcc9774c2b66be3cc15b16ad068023419302b0c14850aa",
+    "src/lib/heroSightline.ts": "5608ee4829f48876d77850958a8e4d7339c6b6199743307d21806b5ab358dc25",
+    "src/lib/hillsField.ts": "dc6ddbf9b9f4d1f890d27d9ade8f12f7b9028aa1b863b1e71dbb9b10b2a4ccbf",
+    "src/lib/interior-manifest.json": "c5bb7c07e1bb7e674e883209ea8b1ae5212e9bbf668f9d4b9c72d40c3bc0adbf",
+    "src/lib/interiorMaterials.ts": "f503b564fde22ec0517af073f15986c0d4e6bb24d2aa746a86263fa4a389a6bf",
+    "src/lib/interiorSurfaceMaps.ts": "4e1f30930d31dfcf04df6927c999e9afc24b99134f6e18a284bfa948eee5d49b",
+    "src/lib/loadingWeights.ts": "9b70301d7c070e805b1fe1070291a4f4e46783a20418855eb60f5d107cfdaa75",
+    "src/lib/postFxConfig.ts": "1d9f2bc26a046822b0f6986865e49a752b46245ac532e4c67d00a15fc6b4894c",
+    "src/lib/presentedProgress.ts": "940851d51c239e1809b4b7ebdc96ed47c0d4af88b08510703acaaa96f39e2b3b",
+    "src/lib/qaConfig.ts": "ba3ddfcc40a72a3d26977668f99c9a7b2951fceeaf0a711d1f71b790be8fc546",
+    "src/lib/runwayGeometry.ts": "17462f14a839dccb8a0ba934023a008fb4cdf3c63d5454a8753dfe04fca4a351",
+    "src/lib/sceneLayout.ts": "dc67594eda308d6fdced381ba630399359e5d39611d7e3adf381368a865d9d83",
+    "src/lib/scrollController.ts": "9044ffe35cd3e0f86787030130401c8c8a45393c826b34da27fe0f1c4efee006",
+    "src/lib/sectionGradeEffect.ts": "4714d386876c737ca7b755cc0af4a70e9d81a16bdc59048a95022ef7d3a2b0a6",
+    "src/lib/sectionGrading.ts": "a21aab2662569f55f25181665c4e627e2cab72f896c5b087c5b2833aa30883a8",
+    "src/lib/sections.ts": "3f88c2767e65aee0275b1bfa6b4a4634b8408bd8a61bdbd16f85dbe5480fdb7b",
+    "src/lib/seededRandom.ts": "0c60c6a85caebfcb3095081d4fc30b44dd42153c16752a3a0e879d6c71979435",
+    "src/lib/skyDomeMaterial.ts": "a7fc9f979e5b1c53b8f80f212f3edb1a7b619ffb1c5c1494396729d52433f758",
+    "src/lib/terrainField.ts": "57d80346e4e1a1530a38c98011a04e95f3416fd5a3f97aeb0fd9330b90160751",
+    "src/lib/terrainGeometry.ts": "7e39a7670bcb41a37e4fa7ea0f8f047a95149e6403485f1c62350cef380f59ef",
+    "src/lib/terrainGroundCurves.ts": "84a1ef9e7b496b9d5a1b288938283b57639ab85e11cace6b5b86b909d87ccf4a",
+    "src/lib/terrainGroundMaterial.ts": "f1e7e64c3cb05bef1e79d7bfa8ebf11605efeee1e92b332c2a10a609d10de57c",
+    "src/lib/terrainSurfaceMaps.ts": "27ac054b34aae542ad0b76d73c72dc411c11e936777656709de0d54edea8e695",
+    "src/lib/thresholdLighting.ts": "cba8a7c47c42ea7c948a5d323b7502bc6a8b9180f896abffccfda3cd71756ab0",
+    "src/lib/thresholdPortals.ts": "f6980fd6eeecfb38b82b9587ca6f29083304a4d2235be4217a15b7ac93c14ee1",
+    "src/lib/treeGeometry.ts": "8ca71ee10fab2e32c06e729fc2e95e76e8f234131c61360fefe8ffba48a2b887",
+    "src/lib/usePresentedActive.ts": "6613e85f9e18363e8452700b5fc80d9e615e12b8c3a85d9629d95c26dddef44f",
+    "src/lib/webglSupport.ts": "6b32bc3856a00d34ef4fd44758252d92d8919484ec4196c9940779c30c81a45c",
+    "src/main.tsx": "32f525d7d1297c8effcb6ec55bb6bbe70055c31eb57e220f690fad998680fa42",
+    "src/state/assetState.ts": "ce3ee429470dc34c6c44a94797353cd7228b028fa3d765eca35ddc12401fcef4",
+    "src/state/exposureState.ts": "3dfa753e2ee4cf9cd0b87a76a85d5c5059fc8624db34aec4129e3124845f7b61",
+    "src/state/interiorLoadState.ts": "a31bc6b2d8eabefcbcf10afcbe613cd2f665cf487953923ef61e6cc2fa96d77b",
+    "src/state/loadingState.ts": "0a290f762e16d04f69291d4997965f14e14e4a83f0231834bfde905ba6e5ac38",
+    "src/state/perfStats.ts": "c98a5f5ab130079a324ffb29076b7309ea4f4e105a712d3cc8b93f188ce795ff",
+    "src/state/qualityStore.ts": "dcb4abdd1831526f48534cdee21884d7bf3c12b2df9c73e834bd8e86c33b5985",
+    "src/state/reducedMotion.ts": "c259e32a5db405b5a8ca53aa3f63faae1bc505db595b96eb32feb1eb80c8dcde",
+    "src/state/scrollStore.ts": "c5339498f5e0b59ae5e7b022bcf665720171de6164461de6b79305a182bc21a5",
+    "src/state/terrainGenerationStats.ts": "dcd35ca6b0811130621289c6a428d713fab522bf367be367146ebd53592b40f4"
+  },
+  "sourceDigest": "ff1fda9d39726cf45e731ce40c507c3c6b328d511e021504158cef9844a9eb3f",
+  "browser": "141.0.7390.37",
+  "url": "http://127.0.0.1:4173/boeing-747/?qa=1&quality=low&time=12",
+  "expectedCaptures": 7,
+  "finalFrame": {
+    "frameId": 279,
+    "timestamp": 383423.9000000004,
+    "delta": 0.015100000000558793,
+    "simulationTime": 12,
+    "targetProgress": 0.8330357142857143,
+    "progress": 0.8330357142857143,
+    "section": 5,
+    "zone": null,
+    "camera": {
+      "position": [
+        -2.9788152855294765,
+        41.598088552043215,
+        -69.56934263913207
+      ],
+      "quaternion": [
+        0.001122260721008325,
+        0.7288873742056735,
+        -0.001194805497513316,
+        0.6846316591381498
+      ],
+      "fov": 57.855427990929314
+    },
+    "aircraft": {
+      "position": [
+        0,
+        40,
+        -80
+      ],
+      "pitch": -0.05235987755982988
+    },
+    "tier": "low",
+    "autoQuality": false,
+    "dpr": 1,
+    "assets": {
+      "exterior": {
+        "stage": "ready"
+      },
+      "environment": {
+        "stage": "ready"
+      },
+      "interior": {
+        "stage": "ready"
+      }
+    },
+    "portals": [
+      0,
+      1.55
+    ],
+    "memory": {
+      "geometries": 123,
+      "textures": 41,
+      "programs": 76
+    },
+    "perf": {
+      "fps": 2,
+      "drawCalls": 14,
+      "triangles": 59869,
+      "submittedTriangles": 59870,
+      "toneMappingMode": "ACES_FILMIC",
+      "sceneEnvironmentIsNull": false,
+      "effectiveExposure": 0.8060377045679206,
+      "terrainGenerationMs": 197.3999999994412
+    },
+    "domZone": null
+  }
+}

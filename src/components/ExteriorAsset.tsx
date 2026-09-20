@@ -21,7 +21,7 @@ import { AircraftNavLights, type AircraftExtremes } from './AircraftNavLights'
 import { createDissolveHullMaterial, type DissolveHullMaterial } from '../lib/dissolveHullMaterial'
 import { EXTERIOR_LOCAL_OFFSET } from '../lib/sceneLayout'
 import { SECTIONS, localProgress } from '../lib/sections'
-import { EXIT_PORTAL, NOSE_PORTAL, portalRadius } from '../lib/thresholdPortals'
+import { EXIT_PORTAL, NOSE_PORTAL, nearPlaneCornerDistance, portalRadius } from '../lib/thresholdPortals'
 import { reducedMotionState } from '../state/reducedMotion'
 import { useScrollStore } from '../state/scrollStore'
 
@@ -32,14 +32,10 @@ useGLTF.setDecoderPath(`${import.meta.env.BASE_URL}draco/`)
 
 const TAXI_SECTION = SECTIONS[1]
 
-// Gear stays down through taxi and the initial rotation off the runway, then
-// retracts (rises + hides) across the back half of S2 (*local* progress —
-// comparing these against raw global progress was the first-pass bug: S2 is
-// only global [0.12,0.28], so gear stayed down all the way to global 0.5)
-// so it's fully tucked away before S3 starts climbing — this scrollytelling
-// never lands, so gear only ever needs to go up, once.
-const GEAR_RETRACT_START = 0.5
-const GEAR_RETRACT_END = 0.78
+// How far the gear travels into the bay. The retraction *schedule* lives in
+// aircraftPose.ts with the rest of the takeoff, so the legs cannot start
+// folding before the aircraft has left the ground; this file only turns the
+// resulting extension into a transform.
 const GEAR_RETRACT_RISE = 3
 
 /**
@@ -195,23 +191,28 @@ export function ExteriorAsset() {
     }
   }, [scene])
 
-  useFrame(({ clock }) => {
+  useFrame(({ camera, clock }) => {
     const group = groupRef.current
     if (!group) return
     const { progress } = useScrollStore.getState()
-    const { position, pitchRad } = getAircraftPose(progress)
+    const { position, pitchRad, gearExtension } = getAircraftPose(progress)
 
-    // Cosmetic taxi vibration: time-driven (not scroll-indexed), fades out
-    // as progress nears the end of S2 to read as "gear unloading" — same
-    // treatment the old placeholder used. This is the "vibración de cámara
-    // en S2" PLAN.md §8.1 asks to remove under reduced motion — the plan's
-    // own §3 attributes the shake to the aircraft's pose, not a separate
-    // camera-side effect, and since the camera tracks alongside the
-    // aircraft through S2 the two read as the same shake to the viewer.
+    // Cosmetic taxi vibration: time-driven (not scroll-indexed). It is the
+    // "vibración de cámara en S2" PLAN.md §8.1 asks to remove under reduced
+    // motion — the plan's own §3 attributes the shake to the aircraft's
+    // pose, not a separate camera-side effect, and since the camera tracks
+    // alongside the aircraft through S2 the two read as the same shake.
+    //
+    // plan6 3.5 / A05: the amplitude is a window, not a ramp that starts at
+    // full. It used to be 1 at the exact instant S2 began, so the shake
+    // switched on hard at the boundary; now it rises with the ground roll
+    // and is gone by the time the wheels leave the runway, which is also
+    // when a real airframe stops being shaken by the surface.
     let jitter = 0
     if (!reducedMotionState.active && progress >= TAXI_SECTION.start && progress < TAXI_SECTION.end) {
-      const fadeOut = 1 - (progress - TAXI_SECTION.start) / (TAXI_SECTION.end - TAXI_SECTION.start)
-      jitter = Math.sin(clock.elapsedTime * 40) * 0.08 * fadeOut
+      const u = localProgress(progress, TAXI_SECTION)
+      const envelope = Math.sin(Math.PI * Math.min(1, u / 0.56)) ** 2
+      jitter = Math.sin(clock.elapsedTime * 40) * 0.08 * envelope
     }
 
     group.position.set(position.x, position.y + jitter, position.z)
@@ -221,16 +222,22 @@ export function ExteriorAsset() {
 
     const dissolveUniforms = dissolveMaterialRef.current?.userData.dissolveUniforms
     if (dissolveUniforms) {
-      dissolveUniforms.portal1Radius.value = portalRadius(progress, NOSE_PORTAL)
-      dissolveUniforms.portal2Radius.value = portalRadius(progress, EXIT_PORTAL)
+      // plan6 4.5: the opening follows the crossing, so it needs the camera
+      // the rig has already posed this frame (CameraRig runs at -80, this at
+      // -70) and the reach of its own near plane.
+      const perspective = camera as import('three').PerspectiveCamera
+      const nearCorner = nearPlaneCornerDistance(perspective.fov, perspective.aspect, perspective.near)
+      dissolveUniforms.portal1Radius.value = portalRadius(progress, NOSE_PORTAL, camera.position, nearCorner)
+      dissolveUniforms.portal2Radius.value = portalRadius(progress, EXIT_PORTAL, camera.position, nearCorner)
     }
 
     const gear = gearRef.current
     if (gear) {
-      const taxiLocal = localProgress(progress, TAXI_SECTION)
-      const t = Math.min(1, Math.max(0, (taxiLocal - GEAR_RETRACT_START) / (GEAR_RETRACT_END - GEAR_RETRACT_START)))
-      gear.position.y = t * GEAR_RETRACT_RISE
-      gear.visible = t < 1
+      gear.position.y = (1 - gearExtension) * GEAR_RETRACT_RISE
+      // Hidden only once fully stowed — removing the legs while any part of
+      // them is still outside the bay is what leaves a hole in the belly
+      // silhouette (plan6 3.6, "contorno final").
+      gear.visible = gearExtension > 0
     }
   }, -70)
 

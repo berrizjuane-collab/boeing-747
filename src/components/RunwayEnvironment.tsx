@@ -21,6 +21,7 @@ import { canopyMistColor } from '../lib/canopyMist'
 import { createRunwayMarkingsGeometry, RUNWAY_LENGTH, RUNWAY_SURFACE_Y, RUNWAY_WIDTH } from '../lib/runwayGeometry'
 import { seededRandom } from '../lib/seededRandom'
 import { SECTIONS } from '../lib/sections'
+import { UNDERCAST_Y, aerodromeDetailVisible, undercastOpacity } from '../lib/worldPersistence'
 import { TIER_SETTINGS, useQualityStore } from '../state/qualityStore'
 import { reducedMotionState } from '../state/reducedMotion'
 import { useScrollStore } from '../state/scrollStore'
@@ -128,7 +129,11 @@ function AircraftGroundShadow() {
     if (!mesh) return
     const progress = useScrollStore.getState().progress
     const pose = getAircraftPose(progress)
-    const altitude = Math.max(0, pose.position.y)
+    // Height above the runway, not the world Y of the aircraft origin: the
+    // origin sits 8.48 units up even with the wheels on the ground, so the
+    // fade below used to be a twentieth of the way out before the aircraft
+    // had moved at all.
+    const altitude = Math.max(0, pose.altitude)
     const runwayPresence = 1 - smoothstep(SECTIONS[1].end - 0.025, SECTIONS[1].end + 0.025, progress)
     const altitudeFade = 1 - smoothstep(8, 48, altitude)
 
@@ -217,7 +222,7 @@ interface CloudSpec {
 }
 
 function createSoftCloudMaterial(color: string, mist?: { value: Color }) {
-  return new ShaderMaterial({
+  const material = new ShaderMaterial({
     name: 'Environment · Soft cloud material',
     transparent: true,
     depthWrite: false,
@@ -285,6 +290,14 @@ function createSoftCloudMaterial(color: string, mist?: { value: Color }) {
       }
     `,
   })
+  // UniformsUtils.merge *clones* every value it copies, so passing the
+  // shared canopy-mist uniform through it produced a private Color frozen
+  // at module-load time: the hero clouds have been dissolving toward a
+  // fixed #e9a66c rather than toward the mist the terrain under them is
+  // actually using. Rebinding the object itself restores the sharing
+  // canopyMist.ts documents.
+  if (mist) material.uniforms.mistColor = mist
+  return material
 }
 
 interface CloudLayerProps {
@@ -398,11 +411,114 @@ const highAltitudeCloudVisibility = (progress: number) =>
 const sunsetCloudVisibility = (progress: number) =>
   Math.min(smoothstep(0.805, 0.85, progress), 1 - smoothstep(0.95, 1, progress))
 
+/**
+ * The occluder that replaces the 30.5% cut (plan6 4.1/4.2). A single
+ * horizontal sheet below the aircraft's cruise height, built from value
+ * noise so it has structure without a texture, that closes over as the
+ * aircraft climbs past it. One draw call, no scroll gate: at any progress
+ * the deck's state is a function of where the aircraft actually is, so
+ * scrolling back down opens it again exactly as it closed.
+ */
+function UndercastDeck() {
+  const meshRef = useRef<import('three').Mesh>(null)
+  const material = useMemo(() => {
+    const created = new ShaderMaterial({
+        name: 'Environment · Undercast deck',
+        transparent: true,
+        depthWrite: false,
+        fog: true,
+        uniforms: UniformsUtils.merge([
+          UniformsLib.fog,
+          { opacity: { value: 0 }, deckColor: { value: new Color('#eef1f4') }, mistColor: { value: new Color() } },
+        ]),
+        vertexShader: /* glsl */ `
+          varying vec2 vUv;
+          #include <fog_pars_vertex>
+          void main() {
+            vUv = uv;
+            vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+            gl_Position = projectionMatrix * mvPosition;
+            #include <fog_vertex>
+          }
+        `,
+        fragmentShader: /* glsl */ `
+          uniform float opacity;
+          uniform vec3 deckColor;
+          uniform vec3 mistColor;
+          varying vec2 vUv;
+          #include <fog_pars_fragment>
+          float band(vec2 p, float scale) {
+            return sin(p.x * scale) * sin(p.y * scale * 1.37) + sin(p.x * scale * 0.61 + 1.7) * sin(p.y * scale * 0.83);
+          }
+          void main() {
+            vec2 p = vUv * 12.0;
+            float structure = 0.5 + 0.18 * band(p, 1.0) + 0.09 * band(p, 2.7) + 0.045 * band(p, 6.1);
+            // Opaque through the bulk and ragged only at its own edge: the
+            // ground detail underneath is culled once this is closed, so a
+            // hole here would show sky where terrain should be.
+            float cover = smoothstep(0.24, 0.62, structure);
+            float rim = 1.0 - smoothstep(0.34, 0.5, length(vUv - vec2(0.5)));
+            float alpha = clamp(mix(cover, 1.0, opacity) * rim * opacity, 0.0, 1.0);
+            if (alpha < 0.004) discard;
+            vec3 shaded = deckColor * (0.88 + 0.12 * structure);
+            gl_FragColor = vec4(shaded, alpha);
+            #include <tonemapping_fragment>
+            #include <colorspace_fragment>
+            #ifdef USE_FOG
+              float mistFactor = 1.0 - exp( - fogDensity * fogDensity * vFogDepth * vFogDepth );
+              gl_FragColor.rgb = mix( gl_FragColor.rgb, mistColor, mistFactor );
+            #endif
+          }
+        `,
+    })
+    // Rebound, not merged — UniformsUtils.merge clones values, so the entry
+    // above is only there to keep the uniform map and the shader source in
+    // agreement. See the note in createSoftCloudMaterial.
+    created.uniforms.mistColor = canopyMistColor
+    return created
+  }, [])
+  useEffect(() => () => material.dispose(), [material])
+
+  useFrame(({ camera }) => {
+    const mesh = meshRef.current
+    if (!mesh) return
+    const opacity = undercastOpacity(getAircraftPose(useScrollStore.getState().progress).altitude)
+    material.uniforms.opacity.value = opacity
+    mesh.visible = opacity > 0.004
+    // Follows the camera in plan so the deck always reaches the horizon,
+    // the same recentring the terrain disc uses.
+    mesh.position.set(camera.position.x, UNDERCAST_Y, camera.position.z)
+  })
+
+  return (
+    <mesh
+      ref={meshRef}
+      name="Environment · Undercast deck"
+      rotation={[-Math.PI / 2, 0, 0]}
+      material={material}
+      frustumCulled={false}
+      // After the aerodrome's own transparent layers, not before them: the
+      // moving contact shadow is a transparent quad at renderOrder 1 on the
+      // runway, and three draws every transparent object in renderOrder
+      // then depth order. Below this value the shadow would show through
+      // the cloud that is meant to be covering it.
+      renderOrder={2}
+    >
+      <planeGeometry args={[3200, 3200]} />
+    </mesh>
+  )
+}
+
 function HeroAirportEnvironment() {
   const groupRef = useRef<import('three').Group>(null)
 
   useFrame(() => {
-    if (groupRef.current) groupRef.current.visible = useScrollStore.getState().progress < 0.305
+    if (!groupRef.current) return
+    // Culled by what is in front of it, not by a scroll number. The runway,
+    // buildings, grass and forest stay drawn for as long as any of them
+    // could still be seen through the deck.
+    const opacity = undercastOpacity(getAircraftPose(useScrollStore.getState().progress).altitude)
+    groupRef.current.visible = aerodromeDetailVisible(opacity)
   })
 
   return (
@@ -421,6 +537,7 @@ export function RunwayEnvironment() {
   return (
     <group name="Environment · Airport and clouds">
       <HeroAirportEnvironment />
+      <UndercastDeck />
       <CloudLayer
         name="Environment · S1/S2 hero clouds"
         color="#fff3e4"

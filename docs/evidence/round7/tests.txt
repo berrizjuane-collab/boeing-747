@@ -1,0 +1,453 @@
+
+> meridian-a380-experience@0.0.0 test
+> node --test tests/*.test.mjs
+
+TAP version 13
+# Subtest: B1: global section/zone state is consistent at all 101 percentage samples
+ok 1 - B1: global section/zone state is consistent at all 101 percentage samples
+  ---
+  duration_ms: 3.995551
+  type: 'test'
+  ...
+# Subtest: B1: every dwell boundary has explicit global and half-open semantics
+ok 2 - B1: every dwell boundary has explicit global and half-open semantics
+  ---
+  duration_ms: 0.286487
+  type: 'test'
+  ...
+# Subtest: B2: the global traversal visits every keyframe in order, including a real upper-deck dwell
+ok 3 - B2: the global traversal visits every keyframe in order, including a real upper-deck dwell
+  ---
+  duration_ms: 0.64571
+  type: 'test'
+  ...
+# Subtest: B2: 1001 samples stay monotonic and continuous in pose and scalar channels
+ok 4 - B2: 1001 samples stay monotonic and continuous in pose and scalar channels
+  ---
+  duration_ms: 97.229736
+  type: 'test'
+  ...
+# max deltas: {"position":{"value":3.4334817958858865,"progress":0.392},"target":{"value":3.0468426230326964,"progress":0.928},"orientationDeg":{"value":2.737680438029579,"progress":0.503},"fovDeg":{"value":0.3236456777017409,"progress":0.395},"rollDeg":{"value":0.19497110566713288,"progress":0.306}}
+# Subtest: B2: all six narrative boundaries pass the same continuity contract
+ok 5 - B2: all six narrative boundaries pass the same continuity contract
+  ---
+  duration_ms: 21.009918
+  type: 'test'
+  ...
+# Subtest: C1: authored exterior normal and roughness maps are present and non-uniform
+ok 6 - C1: authored exterior normal and roughness maps are present and non-uniform
+  ---
+  duration_ms: 19.35315
+  type: 'test'
+  ...
+# Subtest: A2/A3: exterior rig and atmosphere have complete finite section anchors
+ok 7 - A2/A3: exterior rig and atmosphere have complete finite section anchors
+  ---
+  duration_ms: 11.053245
+  type: 'test'
+  ...
+# Subtest: B3: exit frame is present at crossing and absent after crossing
+ok 8 - B3: exit frame is present at crossing and absent after crossing
+  ---
+  duration_ms: 1.048349
+  type: 'test'
+  ...
+# Subtest: B4: every runway marking vertex and normal lies on the horizontal XZ plane
+ok 9 - B4: every runway marking vertex and normal lies on the horizontal XZ plane
+  ---
+  duration_ms: 1.724766
+  type: 'test'
+  ...
+# Subtest: G1: every vertex inside the aerodrome keep-out is exactly flat (y === 0), mirroring B4 for the runway markings
+ok 10 - G1: every vertex inside the aerodrome keep-out is exactly flat (y === 0), mirroring B4 for the runway markings
+  ---
+  duration_ms: 195.165487
+  type: 'test'
+  ...
+# Subtest: G1: relief stays within its declared low amplitude outside the keep-out
+ok 11 - G1: relief stays within its declared low amplitude outside the keep-out
+  ---
+  duration_ms: 159.190188
+  type: 'test'
+  ...
+# Subtest: G1: recentring is deterministic — two identical rebuilds at the same centre produce byte-identical geometry
+ok 12 - G1: recentring is deterministic — two identical rebuilds at the same centre produce byte-identical geometry
+  ---
+  duration_ms: 137.009284
+  type: 'test'
+  ...
+# Subtest: G1: world-space UV — every vertex maps to worldXZ / TERRAIN_TEXTURE_TILE_SIZE, regardless of where the disc is centred
+ok 13 - G1: world-space UV — every vertex maps to worldXZ / TERRAIN_TEXTURE_TILE_SIZE, regardless of where the disc is centred
+  ---
+  duration_ms: 129.009549
+  type: 'test'
+  ...
+# Subtest: G1: disc size clears the fog-transmittance table plan4.md §1.3 derives (edge always far past near-total fog)
+ok 14 - G1: disc size clears the fog-transmittance table plan4.md §1.3 derives (edge always far past near-total fog)
+  ---
+  duration_ms: 0.220283
+  type: 'test'
+  ...
+# Subtest: G2: terrain surface maps are deterministic — two generations at the same size are byte-identical
+ok 15 - G2: terrain surface maps are deterministic — two generations at the same size are byte-identical
+  ---
+  duration_ms: 506.107387
+  type: 'test'
+  ...
+# Subtest: G2: terrain albedo is not a single flat colour (plan4.md — "el color del suelo deja de ser un valor único")
+ok 16 - G2: terrain albedo is not a single flat colour (plan4.md — "el color del suelo deja de ser un valor único")
+  ---
+  duration_ms: 122.030052
+  type: 'test'
+  ...
+# Subtest: G2: terrain normal/roughness maps are non-uniform — mirrors C1 (aircraftSurfaceMaps.ts) for the terrain
+ok 17 - G2: terrain normal/roughness maps are non-uniform — mirrors C1 (aircraftSurfaceMaps.ts) for the terrain
+  ---
+  duration_ms: 36.938848
+  type: 'test'
+  ...
+# Subtest: G2: terrain texture tiles seamlessly — the mask at u=0 matches the mask that RepeatWrapping would sample at u=1
+ok 18 - G2: terrain texture tiles seamlessly — the mask at u=0 matches the mask that RepeatWrapping would sample at u=1
+  ---
+  duration_ms: 125.982526
+  type: 'test'
+  ...
+# Subtest: G2: tier texture sizes match the budget declared in progress4.md 04-04
+ok 19 - G2: tier texture sizes match the budget declared in progress4.md 04-04
+  ---
+  duration_ms: 0.572853
+  type: 'test'
+  ...
+# Subtest: G3: ground tint mix is 0 through the hero and ramps smoothly to 1 by the end of S3
+ok 20 - G3: ground tint mix is 0 through the hero and ramps smoothly to 1 by the end of S3
+  ---
+  duration_ms: 0.418653
+  type: 'test'
+  ...
+# Subtest: G3: fully tinted ground reads near-black in S5/S7, not a lit green field — mirrors plan4.md §3.5's literal claim
+ok 21 - G3: fully tinted ground reads near-black in S5/S7, not a lit green field — mirrors plan4.md §3.5's literal claim
+  ---
+  duration_ms: 0.273702
+  type: 'test'
+  ...
+# Subtest: G3: the ground is hidden by an occluder, not by a scroll gate (supersedes the 30.5% fade)
+ok 22 - G3: the ground is hidden by an occluder, not by a scroll gate (supersedes the 30.5% fade)
+  ---
+  duration_ms: 0.260928
+  type: 'test'
+  ...
+# Subtest: 04-02: seededRandom extracted verbatim — identical sequence to the pre-refactor private generator
+ok 23 - 04-02: seededRandom extracted verbatim — identical sequence to the pre-refactor private generator
+  ---
+  duration_ms: 2.771228
+  type: 'test'
+  ...
+# Subtest: 04-02: terrainField scalar functions are pure — repeated calls at the same point are byte-identical
+ok 24 - 04-02: terrainField scalar functions are pure — repeated calls at the same point are byte-identical
+  ---
+  duration_ms: 1.105854
+  type: 'test'
+  ...
+# Subtest: 04-02: terrainField scalar functions stay within their declared [0, 1] / bounded ranges
+ok 25 - 04-02: terrainField scalar functions stay within their declared [0, 1] / bounded ranges
+  ---
+  duration_ms: 116.60804
+  type: 'test'
+  ...
+# Subtest: 04-02: sampleGrassField / sampleForestField are deterministic — two calls over the same bounds produce identical arrays
+ok 26 - 04-02: sampleGrassField / sampleForestField are deterministic — two calls over the same bounds produce identical arrays
+  ---
+  duration_ms: 228.464604
+  type: 'test'
+  ...
+# Subtest: 04-02: grass instances only land where the shared mask says grass (bug \#16 — no phantom grass off the shared field)
+ok 27 - 04-02: grass instances only land where the shared mask says grass (bug \#16 — no phantom grass off the shared field)
+  ---
+  duration_ms: 159.363461
+  type: 'test'
+  ...
+# Subtest: 04-02: forest bands classify by the same radii the field exports
+ok 28 - 04-02: forest bands classify by the same radii the field exports
+  ---
+  duration_ms: 0.302564
+  type: 'test'
+  ...
+# Subtest: 04-03: aerodrome keep-out contains the full runway footprint
+ok 29 - 04-03: aerodrome keep-out contains the full runway footprint
+  ---
+  duration_ms: 0.459092
+  type: 'test'
+  ...
+# Subtest: 04-03: aerodrome keep-out contains the apron and every hangar
+ok 30 - 04-03: aerodrome keep-out contains the apron and every hangar
+  ---
+  duration_ms: 0.348117
+  type: 'test'
+  ...
+# Subtest: 04-03: no grass or forest instance falls inside the aerodrome keep-out when it is passed as the exclusion
+ok 31 - 04-03: no grass or forest instance falls inside the aerodrome keep-out when it is passed as the exclusion
+  ---
+  duration_ms: 65.598419
+  type: 'test'
+  ...
+# Subtest: 04-03/G1: keepOutFlattenFactor is exactly 0 inside the keep-out and reaches 1 well outside it
+ok 32 - 04-03/G1: keepOutFlattenFactor is exactly 0 inside the keep-out and reaches 1 well outside it
+  ---
+  duration_ms: 0.973852
+  type: 'test'
+  ...
+# Subtest: H1: conifer fronds carry a real sky-facing normal share at every level of detail (n.y ≥ 0.3 everywhere, mean ≥ 0.35 near)
+ok 33 - H1: conifer fronds carry a real sky-facing normal share at every level of detail (n.y ≥ 0.3 everywhere, mean ≥ 0.35 near)
+  ---
+  duration_ms: 62.051895
+  type: 'test'
+  ...
+# Subtest: H1: tree geometry stays inside the declared per-instance triangle budget
+ok 34 - H1: tree geometry stays inside the declared per-instance triangle budget
+  ---
+  duration_ms: 57.882916
+  type: 'test'
+  ...
+# Subtest: H2: forest placement is deterministic, clustered (non-uniform) and never inside the keep-out or the hero sightline
+ok 35 - H2: forest placement is deterministic, clustered (non-uniform) and never inside the keep-out or the hero sightline
+  ---
+  duration_ms: 463.361329
+  type: 'test'
+  ...
+# Subtest: H5: the hero sightline box covers the S1/S2 camera positions and the aircraft at rest
+ok 36 - H5: the hero sightline box covers the S1/S2 camera positions and the aircraft at rest
+  ---
+  duration_ms: 24.754658
+  type: 'test'
+  ...
+# Subtest: H3: grass clumps have n.y > 0 on every vertex and only land where the painted terrain mask is green
+ok 37 - H3: grass clumps have n.y > 0 on every vertex and only land where the painted terrain mask is green
+  ---
+  duration_ms: 375.540915
+  type: 'test'
+  ...
+# Subtest: Hills: zero inside the aerodrome basin, bounded, and the ring geometry is finite with a jagged crest
+ok 38 - Hills: zero inside the aerodrome basin, bounded, and the ring geometry is finite with a jagged crest
+  ---
+  duration_ms: 30.491515
+  type: 'test'
+  ...
+# Subtest: D: every airport footprint is inside the keep-out, markings are flat, airfield lights are on the ground plan
+ok 39 - D: every airport footprint is inside the keep-out, markings are flat, airfield lights are on the ground plan
+  ---
+  duration_ms: 1.165468
+  type: 'test'
+  ...
+# Subtest: D3/G2-mirror: procedural airport and cabin maps are deterministic, non-uniform and tile where they must
+ok 40 - D3/G2-mirror: procedural airport and cabin maps are deterministic, non-uniform and tile where they must
+  ---
+  duration_ms: 1027.184479
+  type: 'test'
+  ...
+# Subtest: I1: both sky domes share one haze-band shader bound to the canopy mist uniform
+ok 41 - I1: both sky domes share one haze-band shader bound to the canopy mist uniform
+  ---
+  duration_ms: 5.328799
+  type: 'test'
+  ...
+# Subtest: 3.1: every shot declares intent, subject and framing, and the bands are gap-free
+ok 42 - 3.1: every shot declares intent, subject and framing, and the bands are gap-free
+  ---
+  duration_ms: 1.501778
+  type: 'test'
+  ...
+# Subtest: 3.2: scroll is handed out by traversal cost, not by keyframe count
+ok 43 - 3.2: scroll is handed out by traversal cost, not by keyframe count
+  ---
+  duration_ms: 0.291809
+  type: 'test'
+  ...
+# Subtest: 3.3: the interior keyframes cannot bend the exterior curve
+ok 44 - 3.3: the interior keyframes cannot bend the exterior curve
+  ---
+  duration_ms: 1.667212
+  type: 'test'
+  ...
+# Subtest: 3.4: C0 holds at every join and C1 holds everywhere the shots keep moving
+ok 45 - 3.4: C0 holds at every join and C1 holds everywhere the shots keep moving
+  ---
+  duration_ms: 14.706516
+  type: 'test'
+  ...
+# Subtest: 3.4: the camera only comes to a stop where a dwell asks it to
+ok 46 - 3.4: the camera only comes to a stop where a dwell asks it to
+  ---
+  duration_ms: 1.26488
+  type: 'test'
+  ...
+# Subtest: 3.4: the cabin walk no longer brakes at each of its nineteen stops
+ok 47 - 3.4: the cabin walk no longer brakes at each of its nineteen stops
+  ---
+  duration_ms: 0.240924
+  type: 'test'
+  ...
+# Subtest: 3.4: the motion profile is monotone, exact at its knots and C1 between them
+ok 48 - 3.4: the motion profile is monotone, exact at its knots and C1 between them
+  ---
+  duration_ms: 26.32259
+  type: 'test'
+  ...
+# Subtest: 3.5: the walking sway follows how fast the visitor advances, not which section they are in
+ok 49 - 3.5: the walking sway follows how fast the visitor advances, not which section they are in
+  ---
+  duration_ms: 0.642892
+  type: 'test'
+  ...
+# Subtest: 3.6: the aircraft rolls before it rotates and rotates before it flies
+ok 50 - 3.6: the aircraft rolls before it rotates and rotates before it flies
+  ---
+  duration_ms: 1.734063
+  type: 'test'
+  ...
+# Subtest: 3.6: the gear retracts only after the wheels are off the ground and hides only when stowed
+ok 51 - 3.6: the gear retracts only after the wheels are off the ground and hides only when stowed
+  ---
+  duration_ms: 13.376243
+  type: 'test'
+  ...
+# Subtest: 3.7: the aircraft never leaves frame during an exterior shot
+ok 52 - 3.7: the aircraft never leaves frame during an exterior shot
+  ---
+  duration_ms: 391.758934
+  type: 'test'
+  ...
+# Subtest: 3.7: screen-space speed stays within budget, which world distance alone cannot show
+ok 53 - 3.7: screen-space speed stays within budget, which world distance alone cannot show
+  ---
+  duration_ms: 389.239901
+  type: 'test'
+  ...
+# Subtest: 3.7: a narrower viewport opens the lens instead of cropping the subject
+ok 54 - 3.7: a narrower viewport opens the lens instead of cropping the subject
+  ---
+  duration_ms: 0.521559
+  type: 'test'
+  ...
+# Subtest: 3.4: the cabin seam is handed over at a matched speed in both directions
+ok 55 - 3.4: the cabin seam is handed over at a matched speed in both directions
+  ---
+  duration_ms: 0.22413
+  type: 'test'
+  ...
+# Subtest: 4.1: nothing about the world is switched by a scroll number any more
+ok 56 - 4.1: nothing about the world is switched by a scroll number any more
+  ---
+  duration_ms: 32.081386
+  type: 'test'
+  ...
+# Subtest: 4.2: the deck only closes once the aircraft is above it, and the aircraft climbs through it
+ok 57 - 4.2: the deck only closes once the aircraft is above it, and the aircraft climbs through it
+  ---
+  duration_ms: 53.699494
+  type: 'test'
+  ...
+# Subtest: 4.3: exactly one schedule owns reflections, and it hands over at the physical crossings
+ok 58 - 4.3: exactly one schedule owns reflections, and it hands over at the physical crossings
+  ---
+  duration_ms: 1.40514
+  type: 'test'
+  ...
+# Subtest: 4.3: the probe swap is staged behind an intensity well, not left as a reflection pop
+ok 59 - 4.3: the probe swap is staged behind an intensity well, not left as a reflection pop
+  ---
+  duration_ms: 64.889678
+  type: 'test'
+  ...
+# Subtest: 4.4: every effect is mounted and unmounted while it contributes nothing
+ok 60 - 4.4: every effect is mounted and unmounted while it contributes nothing
+  ---
+  duration_ms: 16.481912
+  type: 'test'
+  ...
+# Subtest: 4.4: cabin focus follows the subject of each beat instead of a fixed six metres
+ok 61 - 4.4: cabin focus follows the subject of each beat instead of a fixed six metres
+  ---
+  duration_ms: 5.000987
+  type: 'test'
+  ...
+# Subtest: 4.5: the portal opens before contact and reseals only once the near plane is clear
+ok 62 - 4.5: the portal opens before contact and reseals only once the near plane is clear
+  ---
+  duration_ms: 3.357856
+  type: 'test'
+  ...
+# Subtest: 4.5: the hull is open at the frames the camera actually crosses it
+ok 63 - 4.5: the hull is open at the frames the camera actually crosses it
+  ---
+  duration_ms: 74.795226
+  type: 'test'
+  ...
+# Subtest: 4.6: the near plane is tighter for depth precision but still inside the verified clearance
+ok 64 - 4.6: the near plane is tighter for depth precision but still inside the verified clearance
+  ---
+  duration_ms: 0.516795
+  type: 'test'
+  ...
+# Subtest: 5.1: every shot records what it reproduces and what it stylises
+ok 65 - 5.1: every shot records what it reproduces and what it stylises
+  ---
+  duration_ms: 5.518156
+  type: 'test'
+  ...
+# Subtest: 5.2: the hull's procedural surface detail does not depend on the asset's broken UVs
+ok 66 - 5.2: the hull's procedural surface detail does not depend on the asset's broken UVs
+  ---
+  duration_ms: 20.939337
+  type: 'test'
+  ...
+# Subtest: 5.4: every light shaft stops at the floor of the deck it belongs to
+ok 67 - 5.4: every light shaft stops at the floor of the deck it belongs to
+  ---
+  duration_ms: 0.515058
+  type: 'test'
+  ...
+# Subtest: 5.5: the carpet varies at tuft scale, not per texel
+ok 68 - 5.5: the carpet varies at tuft scale, not per texel
+  ---
+  duration_ms: 118.468881
+  type: 'test'
+  ...
+# Subtest: F1: a late interior clamps every presented frame while retaining the requested destination
+ok 69 - F1: a late interior clamps every presented frame while retaining the requested destination
+  ---
+  duration_ms: 1.779182
+  type: 'test'
+  ...
+# Subtest: F1: one smoother has equivalent 30/60/120 Hz response and limits background-tab delta
+ok 70 - F1: one smoother has equivalent 30/60/120 Hz response and limits background-tab delta
+  ---
+  duration_ms: 0.272776
+  type: 'test'
+  ...
+# Subtest: F2: anchors round-trip through the same pitched aircraft basis
+ok 71 - F2: anchors round-trip through the same pitched aircraft basis
+  ---
+  duration_ms: 0.331039
+  type: 'test'
+  ...
+# Subtest: F2: both passenger decks have two clear aisles wider than the camera envelope
+ok 72 - F2: both passenger decks have two clear aisles wider than the camera envelope
+  ---
+  duration_ms: 0.243256
+  type: 'test'
+  ...
+# Subtest: F2: bounded cabin route joins the external curve without a pose or FOV cut
+ok 73 - F2: bounded cabin route joins the external curve without a pose or FOV cut
+  ---
+  duration_ms: 1.057089
+  type: 'test'
+  ...
+1..73
+# tests 73
+# suites 0
+# pass 73
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 19175.144576
