@@ -1,0 +1,21 @@
+{
+  "pass": true,
+  "browser": "153.0.8010.0",
+  "canvas": 0,
+  "zones": 4,
+  "notice": "Tu navegador no admite el recorrido 3D de MERIDIAN. Aquí puedes leer todo el contenido. Ver recorrido 3D",
+  "headings": [
+    "MERIDIAN",
+    "S2 — Rodaje y despegue",
+    "Ficha técnica",
+    "Cruzando el umbral",
+    "S5 — Recorrido interior",
+    "El puesto de pilotaje",
+    "Espacio para viajar",
+    "Entre dos cubiertas",
+    "La cubierta superior",
+    "De vuelta al cielo",
+    "Créditos"
+  ],
+  "sources": 3
+}

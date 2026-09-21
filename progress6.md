@@ -305,3 +305,68 @@ node scripts/audit-exterior-surface.mjs
 PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome \
   QA_CAPTURES=none QA_CYCLES=1 node scripts/runtime-qa.mjs
 ```
+
+---
+
+# Cierre del trabajo pendiente de F5 e implementación de F6
+
+Fecha: 2026-09-21. Base remota auditada: `6a8ef56bbaece739876b052025b9958f41e79ba8`.
+Alcance: **sexto objetivo = F5; séptimo objetivo = F6**. El repositorio se
+llama `boeing-747`, pero la experiencia y los assets representan un A380.
+Las entradas anteriores se conservan como historial, incluidos sus pendientes.
+
+## F5 — Acabado pendiente
+
+| Tarea | Causa comprobada y corrección |
+|---|---|
+| 5.3 Luz y efectos | Comparación a tier High fijo, cámara, reloj y exposición iguales: base → bloom → DoF → haces → completo. Bloom pasa de 0,6/umbral 0,8 a 0,10/umbral 2,5 tras descartar una primera calibración 0,32/1,1 que lavaba el fuselaje; haces de 0,34/0,18 a 0,16/0,08; viñeta 0,4 y grano 0,018. La base conserva exposición, tono y grading. `?qa=1&finish=base` permite inspeccionar el modelado sin esos efectos. |
+| 5.6 Vegetación | El pasto tenía hojas de 11–17 cm y altura cercana a un metro. Se reduce anchura a 2,5–4,5 cm y escala vertical a 0,22–0,46, conservando máscara, raíces y exclusiones. Copas próximas asimétricas e instancias con proporciones variadas; sin aumentar sus triángulos ni draw calls. |
+| 5.7 Aeropuerto | El primer hangar invadía dos metros del borde de pista; las posiciones se reorganizan al oeste del taxiway y una prueba exige separación de pista, taxiway, terminal y otros hangares. Designadores 36/18 integrados en la malla de pintura; se despeja el eje donde se pintan. Dos bancos PAPI direccionales, con rojo/blanco según elevación y caras posteriores oscuras, usan dos draw calls y exclusiones de vegetación propias. Sigue siendo un aeródromo de escala comprimida y ficticio, no una instalación operacional certificada. |
+| 5.8 Nubes, sol y salida | Las nubes de tarjeta reciben espesor óptico, sombreado de lóbulos y variación por instancia. La revisión de imagen encontró además una plancha gris en la salida: la capa inferior ahora tiene relieve, sombreado a escala de 32 m y coordenadas mundiales, con color cálido al atardecer. Mantiene la opacidad/culling reversible de F4. El sol de efectos deja de ser una esfera de radio 18 situada para forzar glare; tiene tamaño angular pequeño y comparte dirección con la luz/HDRI. |
+
+El relieve inferior añade 32.768 triángulos **sólo cuando la capa es visible**,
+sin draw call adicional. Es una aproximación a estratos bajos, no raymarching
+volumétrico. No se ha sustituido el exterior ni reparado sus UV degeneradas:
+se conserva la mitigación de F5 anterior y su atribución. Las limitaciones del
+asset no se convierten en una promesa de fidelidad fotográfica.
+
+## F6 — Narrativa, composición y accesibilidad
+
+| Tarea | Corrección |
+|---|---|
+| 6.1 | Un panel presentado visible; el saliente se oculta en el mismo cambio de estado y sólo el entrante hace fade. `inert` y `aria-hidden` retiran el contenido invisible del foco y del árbol accesible. Se corrigió también la captura de canvas: ocultar sólo el padre ya no basta cuando un hijo declara `visibility:visible`. |
+| 6.2 | Títulos más cortos, tamaños ligados al contenedor, sin `overflow-wrap:anywhere` en palabras ordinarias. Copy para el visitante en vez de describir scroll, cortes de escena o implementación. |
+| 6.3 | Panel inferior acotado en portrait; tercio lateral en landscape/escritorio; contenido excedente desplazable con foco de teclado. La primera prueba de texto al 200 % encontró etiquetas superpuestas aunque `scrollWidth` no aumentaba: tracks intrínsecos y navegación en dos filas corrigen esa causa. |
+| 6.4 | Datos del A380 real distinguidos del interior/aeropuerto simplificados. Configuraciones representadas 3-4-3 y 2-4-2; fuentes y crédito del modelo conservados. Se retira la promesa «nariz a cola» y el colofón desactualizado sobre Lenis/ScrollTrigger. |
+| 6.5 | Hotspots limitados a sección/zona, anclas de cabina ajustadas al registro, oclusión por raycast sin quads negros, foco recuperado al ocultarse, descripción y estado expandido, apertura por teclado/touch y cierre con Escape. Sólo el bitmap canvas es decorativo; su contenedor ya no oculta los controles Html del árbol accesible. Navegar a interior aterriza en el dwell de cockpit. |
+| 6.6 | El modo reducido abre la narrativa completa sin canvas, tanto al inicio como al cambiar la preferencia. Existe «Leer contenido» siempre disponible y opt-in explícito al recorrido 3D. La misma narrativa funciona sin WebGL. Se retira del flujo el dip de 220 ms que no podía ocultar correctamente vuelos largos. |
+
+## Verificación y alcance de aceptación
+
+- **76/76 pruebas Node**; lint sin advertencias de código; build correcto.
+  Permanece el aviso de bundle grande, trabajo de F7.
+- HDRI dentro de gates existentes; GLB interior conserva 266 asientos,
+  69.129 triángulos y 46 batches; registro, ownership y opacidad aprobados.
+- F6: **15 estados** (cockpit/economy/ficha en 390×844, 844×390,
+  768×1024, 1440×900 y 960×640), con exactamente un panel visible,
+  paneles inactivos inert, sin overflow horizontal ni recorte fuera del viewport.
+- Texto al **200 %**: sin superposición de datos ni overflow de página;
+  contenido desplazable y enfocable. Doce avances Tab sin entrar en contenido
+  invisible; recuperación de foco y cambios vivos de reduced motion aprobados.
+- Chromium 153 / SwiftShader / DPR 1: las medidas de FPS en estos informes
+  **no certifican rendimiento en GPU física ni Safari/iPhone/Android**.
+- La aceptación de esta entrega cubre los cambios F5–F6 y los planos/matrices
+  indicados. No equivale al barrido/vídeo completo, diez ciclos finales ni CI
+  integral de F7–F8. Los pendientes históricos A01 y la reparación de UV no
+  se declaran resueltos por estas capturas.
+
+Evidencia, procedencia y reproducción:
+[`docs/evidence/round6/f5-f6/README.md`](docs/evidence/round6/f5-f6/README.md).
+
+Resultado High final: cuatro planos verificados, sin errores de consola/shader;
+75/55/85/29 draw calls en hero/cockpit/economy/sunset y máximo 708.417
+triángulos visibles. ROI de hero: fuselaje 199,38 frente a 199,16 sin efectos;
+cielo 236,29; blancos recortados 0 % en ambas. La comparación intermedia de
+once capturas queda registrada como calibración, no como imagen final aprobada.
+Las capturas no se subieron: la revisión automática rechazó su publicación
+sin autorización explícita; los informes y comandos quedan en el repositorio.

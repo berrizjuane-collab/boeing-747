@@ -1245,3 +1245,91 @@ body {
 
 .interior-guardrail button { margin: 6px; padding: 8px 12px; color: white; background: #263846; border: 1px solid #a8bdc9; border-radius: 4px; cursor: pointer; }
 .interior-guardrail[data-active="true"] { pointer-events: auto; }
+
+/* Round 6 F6: only the presented panel participates in layout, focus or paint.
+   Entering copy fades in; outgoing copy disappears in the same presented frame. */
+.overlay { grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 1fr); }
+.overlay__col { padding-inline: clamp(16px, 2.2vw, 36px); overflow-wrap: normal; min-width: 0; }
+.overlay__panel, .overlay__threshold-line {
+  visibility: hidden;
+  opacity: 0;
+  transform: none;
+  transition: none;
+}
+.overlay__panel {
+  container-type: inline-size;
+  max-height: calc(100dvh - 112px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: #101923;
+  color: #f4f7fb;
+  border-radius: 12px;
+  padding: 1rem;
+}
+.overlay__panel[data-active='true'], .overlay__threshold-line[data-active='true'] {
+  visibility: visible;
+  opacity: 1;
+  transition: opacity 160ms ease-out;
+}
+.overlay__panel[data-active='true'] { pointer-events: auto; }
+.overlay__panel:focus-visible { outline: 2px solid #b8dbff; outline-offset: 3px; }
+.overlay__title { font-size: clamp(1.35rem, 10cqi, 2.4rem); line-height: 1.12; text-wrap: balance; }
+.overlay__title--hero { font-size: clamp(1.2rem, 15cqi, 3.8rem); }
+.overlay__body, .overlay__subtitle, .overlay__eyebrow, .overlay__data-label,
+.overlay__data-value, .overlay__footer-colophon { color: #e0e7ef; }
+.overlay__data-value { font-size: 1.1rem; }
+.overlay__threshold-line { background: #101923; padding: .6rem 1rem; border-radius: 8px; }
+.site-nav__reading { color: #f4f7fb; background: #101923; padding: .55rem; border-radius: 6px; font-size: .8rem; text-decoration: underline; }
+.site-nav__mark { min-width: 24px; min-height: 32px; }
+.site-nav__reading:focus-visible, .site-nav button:focus-visible { outline: 2px solid #b8dbff; outline-offset: 3px; }
+.hotspot[data-interactive='false'] { visibility: hidden; }
+.hotspot__dot-wrap { min-width: 32px; min-height: 32px; }
+.hotspot__card { max-width: min(260px, 65vw); }
+.hotspot__card[data-open='true'] { opacity: 1; transform: none; }
+.fallback__notice { background: #101923; color: #f4f7fb; }
+.fallback__notice a { color: #b8dbff; }
+.fallback__title-hero { font-size: clamp(2rem, 9vw, 6rem); overflow-wrap: normal; }
+@media (max-width: 900px) and (orientation: portrait) {
+  .overlay { grid-template-columns: minmax(0, 1fr); align-items: end; padding: 80px 16px 18px; }
+  .overlay__col, .overlay__col--left, .overlay__col--right { grid-column: 1; padding: 0; text-align: left; }
+  .overlay__panel { max-height: 32dvh; width: 100%; }
+  .overlay__title { font-size: 1.5rem; }
+  .overlay__title--hero { font-size: 2rem; }
+  .overlay__data-list { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: .65rem; padding: 0; }
+  .site-nav__wordmark { display: none; }
+  .site-nav__right { width: 100%; justify-content: space-between; gap: 5px; }
+  .site-nav__marks { gap: 2px; }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  .overlay { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1fr); padding: 68px 0 12px; align-items: center; }
+  .overlay__col { padding: 0 12px; }
+  .overlay__col--left { grid-column: 1; }
+  .overlay__col--right { grid-column: 3; }
+  .overlay__panel { max-height: calc(100dvh - 84px); padding: .7rem; }
+  .overlay__title { font-size: 1.25rem; }
+  .overlay__title--hero { font-size: 1.6rem; }
+  .overlay__data-list { display: block; }
+  .overlay__body { font-size: .95rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .overlay__panel[data-active='true'], .overlay__threshold-line[data-active='true'] { transition: none; }
+}
+/* Keep generous hit areas without turning section markers into white blocks. */
+.site-nav__mark, .site-nav__mark[data-active='true'] {
+  position: relative; width: 24px; height: 32px; background: transparent;
+}
+.site-nav__mark::after { content: ''; position: absolute; left: 6px; right: 6px; top: 15px; height: 3px; background: #b2bdc9; border-radius: 2px; }
+.site-nav__mark[data-active='true']::after { left: 2px; right: 2px; background: #fff; }
+.site-nav__quality { background: #101923; color: #e0e7ef; min-height: 32px; }
+/* Intrinsic tracks respond to text zoom as well as viewport width. */
+@media (max-width: 900px) and (orientation: portrait) {
+  .overlay__data-list { grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); }
+  .site-nav { height: auto; min-height: 64px; padding-block: 8px; }
+  .site-nav__right { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px; }
+  .site-nav__reading { justify-self: start; white-space: nowrap; }
+  .site-nav__marks { grid-column: 1 / -1; grid-row: 2; justify-content: center; }
+  .site-nav__quality { grid-column: 2; grid-row: 1; }
+}
+/* Card visibility is explicit, so Escape can close a focused hotspot. */
+.hotspot:hover .hotspot__card, .hotspot:focus-within .hotspot__card { opacity: 0; }
+.hotspot .hotspot__card[data-open='true'] { opacity: 1; transform: none; }

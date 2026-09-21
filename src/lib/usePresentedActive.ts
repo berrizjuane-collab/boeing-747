@@ -10,6 +10,15 @@ export function usePresentedActive<T extends HTMLElement>(field: 'activeIndex' |
       if (!el) return
       const active = state[field] === value
       if (el.dataset.active !== String(active)) el.dataset.active = String(active)
+      if (!ariaCurrent) {
+        // Invisible copy must not remain in the tab order or accessibility tree.
+        // The complete narrative is available through the persistent reading link.
+        if (!active && el.contains(document.activeElement)) {
+          document.querySelector<HTMLElement>('.site-nav__reading')?.focus({ preventScroll: true })
+        }
+        el.inert = !active
+        el.setAttribute('aria-hidden', String(!active))
+      }
       if (ariaCurrent) {
         if (active) el.setAttribute('aria-current', 'true')
         else el.removeAttribute('aria-current')

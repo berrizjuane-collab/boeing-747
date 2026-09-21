@@ -70,6 +70,9 @@ function Panel({
         className={`overlay__panel overlay__panel--${SECTIONS[index].id}`}
         ref={activeRef}
         data-section={SECTIONS[index].id}
+        tabIndex={0}
+        role="region"
+        aria-label={SECTIONS[index].label}
       >
         {children}
       </div>
@@ -77,27 +80,8 @@ function Panel({
   )
 }
 
-/**
- * DOM narrative layer for S1/S2/S3/S4/S6/S7 (PLAN.md §3, §10.2), split into
- * two components — `NarrativeOverlayHead` (S1-S4) and `NarrativeOverlayTail`
- * (S6-S7) — instead of one, so App.tsx can mount InteriorOverlay.tsx's S5
- * content *between* them. S5 isn't part of either: it's driven by the
- * walkthrough's zone index, not section activeIndex, so it doesn't fit this
- * component's one-panel-per-section shape. That split exists purely for DOM
- * order: PLAN.md §8.3 wants the heading hierarchy linear regardless of
- * scroll position, and this whole narrative layer's panels already stay
- * mounted at all times precisely so a screen reader's heading list reflects
- * every section up front — but headings only read "linear" if they also
- * appear in *story* order (S1→S2→S3→S4→S5→S6→S7), not DOM-insertion order.
- * A single component mounted before InteriorOverlay would put S6/S7 ahead of
- * S5 in that list, which is what a first pass at this (mount all of
- * NarrativeOverlay, then InteriorOverlay, unconditionally) actually did —
- * caught via the Fase 7 Playwright pass's own heading-order dump. Panels
- * stay mounted at all times and fade via `data-active` (see index.css)
- * rather than conditional rendering, so the CSS transition has something to
- * animate both in and out of. `activeIndex` is safe to select reactively —
- * it only changes 6 times across the page (scrollStore.ts).
- */
+/** Presented-frame panels; inactive regions are inert. Full reading mode is
+ * available from navigation independently of camera position. */
 export function NarrativeOverlayHead() {
   const thresholdRef = usePresentedActive<HTMLDivElement>('activeIndex', 3)
 

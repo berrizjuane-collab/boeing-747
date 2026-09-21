@@ -1,0 +1,53 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> meridian-a380-experience@0.0.0 qa:hdri
+> node scripts/measure-hdri.mjs --assert-ratio=4 --assert-median-ratio=4
+
+{
+  "measurements": [
+    {
+      "file": "public/hdri/golden-hour.hdr",
+      "resolution": [
+        4096,
+        2048
+      ],
+      "skyBodyMeanLuminance": 1.0044974696265732,
+      "skyBodyPixelFraction": 0.998429536819458,
+      "medianLuminance": 0.6140188401997089,
+      "p95Luminance": 3.612633748579025,
+      "p99Luminance": 11.713631593608856,
+      "maxLuminance": 754634.268628125,
+      "wholeImageMeanLuminance": 3.268592810216198
+    },
+    {
+      "file": "public/hdri/high-altitude.hdr",
+      "resolution": [
+        4096,
+        2048
+      ],
+      "skyBodyMeanLuminance": 1.254973762679875,
+      "skyBodyPixelFraction": 0.9999860525131226,
+      "medianLuminance": 0.8888596187710762,
+      "p95Luminance": 5.821578152799606,
+      "p99Luminance": 10.821421452617644,
+      "maxLuminance": 8221520.2035,
+      "wholeImageMeanLuminance": 65.02315227409858
+    },
+    {
+      "file": "public/hdri/sunset.hdr",
+      "resolution": [
+        4096,
+        2048
+      ],
+      "skyBodyMeanLuminance": 0.6525807478529103,
+      "skyBodyPixelFraction": 0.9999943971633911,
+      "medianLuminance": 0.38000549633204933,
+      "p95Luminance": 2.583090255188942,
+      "p99Luminance": 4.982563388359546,
+      "maxLuminance": 812277.1601890625,
+      "wholeImageMeanLuminance": 3.0167348676547054
+    }
+  ],
+  "maxMeanRatio": 1.9230934513605082,
+  "maxMedianRatio": 2.339070427535052
+}

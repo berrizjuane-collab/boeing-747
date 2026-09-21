@@ -25,6 +25,7 @@ export function SiteNav({ onJump }: { onJump: (index: number) => void }) {
       <div className="site-nav__scrim" aria-hidden="true" />
       <div className="site-nav__wordmark">{BRAND_NAME}</div>
       <div className="site-nav__right">
+        <a className="site-nav__reading" href="?static=1">Leer contenido</a>
         <div className="site-nav__marks">
           {SECTIONS.map((section, index) => <SectionMark key={section.id} index={index} onJump={onJump} />)}
         </div>

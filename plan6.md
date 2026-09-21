@@ -195,14 +195,14 @@ Archivos principales: `RunwayEnvironment.tsx`, `TerrainGround.tsx`, `terrainGrou
 
 **Depende de:** F2–F4. **Cubre:** A15, A19 y calidad visual general.
 
-- [ ] 5.1 Fijar referencias de acabado por plano: exterior de avión a golden hour, cockpit, doble pasillo, escalera y sunset. Registrar qué se reproduce y qué se estiliza; respetar atribución del asset existente.
-- [ ] 5.2 Inspeccionar exterior en primer plano: contorno de nariz, motores, alas, estabilizadores, tren, seams de albedo, normales y UV. Reparar/retopologizar/bakear sólo las zonas necesarias; si el asset limita irremediablemente los planos requeridos, evaluar sustitución como decisión separada con licencia y coste documentados.
-- [ ] 5.3 Calibrar luz sin bloom/DoF/shafts primero. Mantener contraste entre avión y fondo y detalle de pintura clara. Reintroducir efectos uno por uno con comparación A/B; el humo/brillo no debe ocultar errores de modelado.
-- [ ] 5.4 Sustituir haces triangulares evidentes por aproximación suave y espacialmente limitada: borde/final atenuados, respuesta a ángulo y profundidad, o eliminarlos en planos donde el recurso no se sostiene. Ventanas con vista coherente con altura/hora y dirección; evitar el mismo «cuadro de cielo» pegado en todas.
-- [ ] 5.5 Materiales a escala: tela fina, alfombra sin apariencia de grava, plásticos con roughness apropiada, metal sin brillo uniforme, pantallas legibles y orientadas correctamente. Validar UV del GLB optimizado; atlas por bounding box del batch no equivale a una textura por pantalla.
-- [ ] 5.6 Afinar vegetación por silueta/distancia: el primer plano necesita más credibilidad que los árboles lejanos. Reducir repetición, revisar grosor/altura/color del pasto y relación con suelo. Mantener exclusiones del aeropuerto y correspondencia de máscara.
-- [ ] 5.7 Aeropuerto: arquitectura legible, mangas/terminal/hangares coherentes en planta, marcas y luces bien situadas. Reconciliar numeración/PAPI/consolidación pendientes de plan3 D; no declararlos resueltos sólo por existir luces y hangares nuevos.
-- [ ] 5.8 Cerrar plan3 F1/F3/F4 con nubes de volumen aparente suficiente, sol/glare controlado y composición de salida. Priorizar una imagen estable y legible frente a cantidad de efectos.
+- [x] 5.1 Fijar referencias de acabado por plano: exterior de avión a golden hour, cockpit, doble pasillo, escalera y sunset. Registrar qué se reproduce y qué se estiliza; respetar atribución del asset existente.
+- [x] 5.2 Inspeccionar exterior en primer plano: contorno de nariz, motores, alas, estabilizadores, tren, seams de albedo, normales y UV. Reparar/retopologizar/bakear sólo las zonas necesarias; si el asset limita irremediablemente los planos requeridos, evaluar sustitución como decisión separada con licencia y coste documentados.
+- [x] 5.3 Calibrar luz sin bloom/DoF/shafts primero. Mantener contraste entre avión y fondo y detalle de pintura clara. Reintroducir efectos uno por uno con comparación A/B; el humo/brillo no debe ocultar errores de modelado.
+- [x] 5.4 Sustituir haces triangulares evidentes por aproximación suave y espacialmente limitada: borde/final atenuados, respuesta a ángulo y profundidad, o eliminarlos en planos donde el recurso no se sostiene. Ventanas con vista coherente con altura/hora y dirección; evitar el mismo «cuadro de cielo» pegado en todas.
+- [x] 5.5 Materiales a escala: tela fina, alfombra sin apariencia de grava, plásticos con roughness apropiada, metal sin brillo uniforme, pantallas legibles y orientadas correctamente. Validar UV del GLB optimizado; atlas por bounding box del batch no equivale a una textura por pantalla.
+- [x] 5.6 Afinar vegetación por silueta/distancia: el primer plano necesita más credibilidad que los árboles lejanos. Reducir repetición, revisar grosor/altura/color del pasto y relación con suelo. Mantener exclusiones del aeropuerto y correspondencia de máscara.
+- [x] 5.7 Aeropuerto: arquitectura legible, mangas/terminal/hangares coherentes en planta, marcas y luces bien situadas. Reconciliar numeración/PAPI/consolidación pendientes de plan3 D; no declararlos resueltos sólo por existir luces y hangares nuevos.
+- [x] 5.8 Cerrar plan3 F1/F3/F4 con nubes de volumen aparente suficiente, sol/glare controlado y composición de salida. Priorizar una imagen estable y legible frente a cantidad de efectos.
 
 **Salida:** comparación antes/después con igual cámara, tier, exposición base documentada y tiempo. Hero: mantener gate existente de blancos recortados <2 %, pero añadir regiones de fuselaje/cielo separadas. No «aprobar» una imagen lavada sólo porque ningún píxel llegue a blanco puro. Revisar visualmente bordes de haces, reflejos, repetición, ventanas y acabados a resolución nativa.
 
@@ -212,12 +212,12 @@ Archivos principales: `RunwayEnvironment.tsx`, `TerrainGround.tsx`, `terrainGrou
 
 Archivos: `content.ts`, `NarrativeOverlay.tsx`, `InteriorOverlay.tsx`, `index.css`, `Hotspots.tsx`, `SiteNav.tsx`, `ReducedMotionCrossfade.tsx`, `StaticFallback.tsx`.
 
-- [ ] 6.1 Sincronizar zonas visibles con el progreso presentado. Diseñar fade de paneles para que el texto anterior no permanezca legible encima del siguiente plano; no inferir visibilidad de `data-active` sin mirar opacity/captura real.
-- [ ] 6.2 Reducir títulos a frases útiles al visitante, sin texto que describa cómo está construido el plano. Ajustar tipografía al ancho del panel, no sólo al viewport. Eliminar cortes arbitrarios dentro de palabras ordinarias.
-- [ ] 6.3 Evitar tarjetas que oculten pasillo, cockpit o avión; asignar áreas seguras por plano y adaptar en vertical/landscape. Validar 390×844, 844×390, 768×1024, 1440×900 y zoom de texto 200 % sin recorte inaccesible.
-- [ ] 6.4 Actualizar cifras/etiquetas al modelo final, distinguir datos del A380 de la simplificación visual y conservar fuentes/créditos. Retirar «anchura real» si no está representada.
-- [ ] 6.5 Hotspots registrados al asset, sin aparecer detrás de paredes ni pertenecer a la zona anterior. Teclado/foco predecibles; contenido invisible no recibe interacción accidental. Mantener narrativa accesible completa mediante una solución explícita, no sólo opacidad cero.
-- [ ] 6.6 Reduced motion real: secciones legibles y transiciones discretas controladas, sin largos vuelos de cámara ocultos parcialmente por un crossfade de duración fija. Probar cambios de preferencia durante la sesión y fallback sin WebGL.
+- [x] 6.1 Sincronizar zonas visibles con el progreso presentado. Diseñar fade de paneles para que el texto anterior no permanezca legible encima del siguiente plano; no inferir visibilidad de `data-active` sin mirar opacity/captura real.
+- [x] 6.2 Reducir títulos a frases útiles al visitante, sin texto que describa cómo está construido el plano. Ajustar tipografía al ancho del panel, no sólo al viewport. Eliminar cortes arbitrarios dentro de palabras ordinarias.
+- [x] 6.3 Evitar tarjetas que oculten pasillo, cockpit o avión; asignar áreas seguras por plano y adaptar en vertical/landscape. Validar 390×844, 844×390, 768×1024, 1440×900 y zoom de texto 200 % sin recorte inaccesible.
+- [x] 6.4 Actualizar cifras/etiquetas al modelo final, distinguir datos del A380 de la simplificación visual y conservar fuentes/créditos. Retirar «anchura real» si no está representada.
+- [x] 6.5 Hotspots registrados al asset, sin aparecer detrás de paredes ni pertenecer a la zona anterior. Teclado/foco predecibles; contenido invisible no recibe interacción accidental. Mantener narrativa accesible completa mediante una solución explícita, no sólo opacidad cero.
+- [x] 6.6 Reduced motion real: secciones legibles y transiciones discretas controladas, sin largos vuelos de cámara ocultos parcialmente por un crossfade de duración fija. Probar cambios de preferencia durante la sesión y fallback sin WebGL.
 
 **Salida:** texto completo legible y acorde a la escena, una narrativa activa intencional por estado, sin mezcla de capas durante pausas, foco perdido ni paneles que bloqueen el contenido principal. Contraste medido sobre texto/fondo apropiados, no sólo percentiles del panel completo.
 

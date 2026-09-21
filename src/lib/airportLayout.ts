@@ -27,9 +27,9 @@ export interface Hangar {
 }
 
 export const HANGARS: readonly Hangar[] = [
-  { position: [-38, 7, -150] as const, size: [48, 14, 38] as const, color: '#8a9096', doorColor: '#b7bcc0' },
-  { position: [-100, 7, -150] as const, size: [48, 14, 38] as const, color: '#7f868d', doorColor: '#aeb4b8' },
-  { position: [-165, 6, -160] as const, size: [40, 12, 32] as const, color: '#858c92', doorColor: '#b2b8bc' },
+  { position: [-82, 7, -150] as const, size: [48, 14, 38] as const, color: '#8a9096', doorColor: '#b7bcc0' },
+  { position: [-144, 7, -150] as const, size: [48, 14, 38] as const, color: '#7f868d', doorColor: '#aeb4b8' },
+  { position: [-206, 6, -160] as const, size: [40, 12, 32] as const, color: '#858c92', doorColor: '#b2b8bc' },
 ]
 
 /** Concrete stand area between the parallel taxiway and the terminal. */
@@ -78,6 +78,8 @@ export interface Rect {
 /** Every built footprint, for the keep-out union. */
 export function airportFootprints(): Rect[] {
   const rects: Rect[] = [
+    { minX: -33, maxX: -20, minZ: 178, maxZ: 182 },
+    { minX: 20, maxX: 33, minZ: -182, maxZ: -178 },
     { minX: -RUNWAY_WIDTH / 2, maxX: RUNWAY_WIDTH / 2, minZ: -RUNWAY_LENGTH / 2, maxZ: RUNWAY_LENGTH / 2 },
     { minX: TAXIWAY.x - TAXIWAY.width / 2, maxX: TAXIWAY.x + TAXIWAY.width / 2, minZ: -TAXIWAY.length / 2, maxZ: TAXIWAY.length / 2 },
     {

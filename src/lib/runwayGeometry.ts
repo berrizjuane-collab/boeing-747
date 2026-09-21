@@ -35,10 +35,19 @@ function addHorizontalQuad(buffers: QuadBuffers, x1: number, x2: number, z1: num
  * One merged draw call for every painted marking. Building in XZ directly
  * makes B4 structural: no parent rotation can stand these quads upright.
  */
+// North is -Z in this fictional airport. Reciprocal designators share the
+// painted mesh (no text texture, depth offset or extra draw call).
+export const RUNWAY_DESIGNATORS = [{ text: '36', z: 204, direction: 1 }, { text: '18', z: -204, direction: -1 }] as const
+const DIGITS: Record<string, string[]> = {
+  '1': ['010', '110', '010', '010', '111'],
+  '3': ['111', '001', '111', '001', '111'],
+  '6': ['111', '100', '111', '101', '111'],
+  '8': ['111', '101', '111', '101', '111'],
+}
 export function createRunwayMarkingsGeometry() {
   const buffers: QuadBuffers = { positions: [], normals: [], indices: [] }
 
-  for (let z = -234; z <= 234; z += 18) addHorizontalQuad(buffers, -0.36, 0.36, z, z + 9)
+  for (let z = -180; z <= 180; z += 18) addHorizontalQuad(buffers, -0.36, 0.36, z, z + 9)
   addHorizontalQuad(buffers, -15.35, -14.95, -255, 255)
   addHorizontalQuad(buffers, 14.95, 15.35, -255, 255)
 
@@ -53,6 +62,16 @@ export function createRunwayMarkingsGeometry() {
     addHorizontalQuad(buffers, 6.4, 9.8, z - 0.8, z + 0.8)
   }
 
+  for (const end of RUNWAY_DESIGNATORS) {
+    [...end.text].forEach((digit, d) => DIGITS[digit].forEach((row, y) => {
+      [...row].forEach((pixel, x) => {
+        if (pixel !== '1') return
+        const cx = (d * 4 + x - 3) * 1.2 * end.direction
+        const cz = end.z + (y - 2) * 2.2 * end.direction
+        addHorizontalQuad(buffers, cx - .6, cx + .6, cz - 1.1, cz + 1.1)
+      })
+    }))
+  }
   const geometry = new BufferGeometry()
   geometry.setAttribute('position', new Float32BufferAttribute(buffers.positions, 3))
   geometry.setAttribute('normal', new Float32BufferAttribute(buffers.normals, 3))

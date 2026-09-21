@@ -67,12 +67,15 @@ function HotspotNote({ title, body }: { title: string; body: string }) {
   )
 }
 
-export function StaticFallback() {
+export function StaticFallback({ reason = 'webgl' }: { reason?: 'webgl' | 'reading' | 'motion' }) {
   return (
     <main className="fallback">
       <p className="fallback__notice" role="note">
-        Estás viendo la versión estática de {BRAND_NAME}: tu navegador (o el hardware disponible) no admite WebGL2,
-        así que el recorrido 3D no puede ejecutarse. El contenido es el mismo.
+        {reason === 'webgl'
+          ? `Tu navegador no admite el recorrido 3D de ${BRAND_NAME}. Aquí puedes leer todo el contenido.`
+          : reason === 'motion' ? 'Movimiento reducido: disfruta del recorrido a tu ritmo, sin animaciones.'
+          : 'Todo el recorrido, en una página de lectura.'}
+        {' '}<a href="?motion=3d">Ver recorrido 3D</a>
       </p>
 
       <section className="fallback__section" aria-labelledby="s1-title">

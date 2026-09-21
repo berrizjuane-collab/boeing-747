@@ -72,8 +72,17 @@ function trunk(spec: { radiusTop: number; radiusBottom: number; height: number; 
   return tag(geometry.toNonIndexed(), 0, 0.6, 1, baseY, baseY + spec.height)
 }
 
-function coneTier(tier: TierSpec) {
+function coneTier(tier: TierSpec, irregular = false) {
   const geometry = new ConeGeometry(tier.radius, tier.height, tier.segments, 1, true)
+  if (irregular) {
+    const p = geometry.getAttribute('position')
+    for (let i = 0; i < p.count; i++) {
+      const a = Math.atan2(p.getZ(i), p.getX(i))
+      const scale = 1 + .12 * Math.sin(3 * a + tier.baseY) + .055 * Math.cos(5 * a)
+      p.setXYZ(i, p.getX(i) * scale, p.getY(i), p.getZ(i) * scale)
+    }
+    // Keep the authored sky-facing normals: foliage is a cluster, not a smooth cone.
+  }
   geometry.translate(0, tier.baseY + tier.height / 2, 0)
   return tag(geometry.toNonIndexed(), 1, 0.5, 1.05, tier.baseY, tier.baseY + tier.height)
 }
@@ -91,7 +100,7 @@ export function createConiferGeometry(lod: TreeLod): BufferGeometry {
   const parts: BufferGeometry[] = []
   const trunkSpec = CONIFER_TRUNK[lod]
   if (trunkSpec) parts.push(trunk(trunkSpec))
-  for (const tier of CONIFER_TIERS[lod]) parts.push(coneTier(tier))
+  for (const tier of CONIFER_TIERS[lod]) parts.push(coneTier(tier, lod === 'near'))
   return merge(parts)
 }
 

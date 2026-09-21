@@ -7,6 +7,7 @@ import { ACTIVE_TONE_MAPPING_MODE } from '../lib/postFxConfig'
 import { DEPTH_OF_FIELD, GOD_RAYS, cabinFocusDistance, effectMounted, effectWeight } from '../lib/postFxSchedule'
 import { TIER_SETTINGS, useQualityStore } from '../state/qualityStore'
 import { useScrollStore } from '../state/scrollStore'
+import { finishBloom, finishDoF, finishFull } from '../lib/qaConfig'
 import { ExposurePass } from './ExposurePass'
 import { SectionGrade } from './SectionGrade'
 
@@ -87,9 +88,9 @@ export function PostFX({ sunRef }: { sunRef: RefObject<Mesh | null> }) {
     return (
       <EffectComposer multisampling={0}>
         <ExposurePass />
-        <Bloom luminanceThreshold={0.8} luminanceSmoothing={0.25} mipmapBlur intensity={0.6} />
+        <Bloom luminanceThreshold={2.5} luminanceSmoothing={0.25} mipmapBlur intensity={finishBloom ? 0.10 : 0} />
         <SectionGrade />
-        <Vignette eskil={false} offset={0.15} darkness={0.6} />
+        <Vignette eskil={false} offset={0.15} darkness={finishFull ? 0.4 : 0} />
         <ToneMapping mode={ACTIVE_TONE_MAPPING_MODE} />
         <SMAA preset={SMAAPreset.MEDIUM} />
       </EffectComposer>
@@ -112,9 +113,9 @@ export function PostFX({ sunRef }: { sunRef: RefObject<Mesh | null> }) {
     // §7.4: threshold high so only real highlights bloom, mipmap blur
     // because it's the cheaper of the two implementations the effect
     // offers for the same look.
-    <Bloom key="bloom" luminanceThreshold={0.8} luminanceSmoothing={0.25} mipmapBlur intensity={0.6} />,
+    <Bloom key="bloom" luminanceThreshold={2.5} luminanceSmoothing={0.25} mipmapBlur intensity={finishBloom ? 0.10 : 0} />,
   ]
-  if (showDoF) {
+  if (showDoF && finishDoF) {
     // §3 S5 / §7.4: shallow DoF selling the corridor's scale, S5 (and
     // desktop-high) only. focusDistance/focalLength are normalized (0..1 of
     // the camera's near..far range), tuned for a close, corridor-scale
@@ -129,7 +130,7 @@ export function PostFX({ sunRef }: { sunRef: RefObject<Mesh | null> }) {
     // itself is driven per frame above; these are only its starting values.
     effects.push(<DepthOfField key="dof" ref={dofRef} worldFocusDistance={4} worldFocusRange={9} bokehScale={0} />)
   }
-  if (showGodRays && sunRef.current) {
+  if (showGodRays && sunRef.current && finishFull) {
     // §3 S4 / §7.4: "en el umbral", desktop-high enhancement only.
     effects.push(
       <GodRays
@@ -147,8 +148,8 @@ export function PostFX({ sunRef }: { sunRef: RefObject<Mesh | null> }) {
   }
   effects.push(
     <SectionGrade key="grade" />,
-    <Vignette key="vignette" eskil={false} offset={0.15} darkness={0.6} />,
-    <Noise key="noise" opacity={0.035} premultiply />,
+    <Vignette key="vignette" eskil={false} offset={0.15} darkness={finishFull ? 0.4 : 0} />,
+    <Noise key="noise" opacity={finishFull ? 0.018 : 0} premultiply />,
     <ToneMapping key="tonemap" mode={ACTIVE_TONE_MAPPING_MODE} />,
     // bug #6: multisampling={0} above + gl={{antialias:true}} on the canvas
     // (SceneCanvas.tsx) is inert once EffectComposer takes over the render

@@ -8,3 +8,10 @@ export const qaView = qaEnabled ? params.get('view') : null
 export const qaWireframe = qaEnabled && params.get('wireframe') === '1'
 
 export const qaZoneColors = qaEnabled && params.get('zones') === '1'
+
+/** Ordered A/B additions; never changes tier or the exposure baseline. */
+export const qaFinish = qaEnabled ? params.get('finish') : null
+export const finishBloom = !qaFinish || ['bloom', 'dof', 'shafts', 'full'].includes(qaFinish)
+export const finishDoF = !qaFinish || ['dof', 'shafts', 'full'].includes(qaFinish)
+export const finishShafts = !qaFinish || ['shafts', 'full'].includes(qaFinish)
+export const finishFull = !qaFinish || qaFinish === 'full'

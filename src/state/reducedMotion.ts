@@ -8,10 +8,17 @@ export const reducedMotionState: { active: boolean } = {
   active: false,
 }
 
+const listeners = new Set<() => void>()
+export function subscribeReducedMotion(listener: () => void) {
+  listeners.add(listener)
+  return () => { listeners.delete(listener) }
+}
+
 if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
   const media = window.matchMedia('(prefers-reduced-motion: reduce)')
   reducedMotionState.active = media.matches
   media.addEventListener('change', () => {
     reducedMotionState.active = media.matches
+    listeners.forEach(listener => listener())
   })
 }

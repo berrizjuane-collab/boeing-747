@@ -39,7 +39,7 @@ export function createGrassClumpGeometry(bladeCount = GRASS_BLADES_PER_CLUMP): B
     const rootRadius = 0.05 + hash(blade * 7.7) * 0.2
     const lean = 0.18 + hash(blade * 5.3) * 0.3
     const bladeHeight = 0.6 + hash(blade * 9.1) * 0.5
-    const baseWidth = 0.11 + hash(blade * 11.3) * 0.06
+    const baseWidth = 0.025 + hash(blade * 11.3) * 0.02
     // Bent normal: mostly up, tilted toward the blade's own outward lean.
     const nx = outwardX * 0.42
     const ny = 0.9

@@ -19,16 +19,19 @@ import { getAircraftPose } from '../lib/aircraftPose'
 import { createRunwaySurfaceMaps } from '../lib/airportSurfaceMaps'
 import { canopyMistColor } from '../lib/canopyMist'
 import { createRunwayMarkingsGeometry, RUNWAY_LENGTH, RUNWAY_SURFACE_Y, RUNWAY_WIDTH } from '../lib/runwayGeometry'
+import { duskColorMix } from '../lib/thresholdLighting'
 import { seededRandom } from '../lib/seededRandom'
 import { SECTIONS } from '../lib/sections'
 import { UNDERCAST_Y, aerodromeDetailVisible, undercastOpacity } from '../lib/worldPersistence'
 import { TIER_SETTINGS, useQualityStore } from '../state/qualityStore'
 import { reducedMotionState } from '../state/reducedMotion'
 import { useScrollStore } from '../state/scrollStore'
+import { ApproachLights } from './ApproachLights'
 import { AirportBuildings } from './AirportBuildings'
 import { Forest } from './Forest'
 import { GrassField } from './GrassField'
 
+const CLOUD_DUSK = new Color('#f2d0ae')
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value))
 
 function smoothstep(edge0: number, edge1: number, value: number) {
@@ -69,6 +72,7 @@ function Runway() {
 
   return (
     <group name="Airport · Runway">
+      <ApproachLights />
       <mesh name="Runway · Asphalt" position={[0, -0.045, 0]} material={asphaltMaterial} receiveShadow>
         <boxGeometry args={[RUNWAY_WIDTH, 0.13, RUNWAY_LENGTH]} />
       </mesh>
@@ -244,12 +248,17 @@ function createSoftCloudMaterial(color: string, mist?: { value: Color }) {
     defines: mist ? { USE_MIST_COLOR: '' } : {},
     vertexShader: /* glsl */ `
       varying vec2 vUv;
+      varying float vCloudSeed;
       #include <fog_pars_vertex>
       void main() {
         vUv = uv;
         vec4 localPosition = vec4(position, 1.0);
         #ifdef USE_INSTANCING
           localPosition = instanceMatrix * localPosition;
+        #endif
+        vCloudSeed = 0.0;
+        #ifdef USE_INSTANCING
+          vCloudSeed = fract(sin(dot(instanceMatrix[3].xz, vec2(12.9898, 78.233))) * 43758.5453);
         #endif
         vec4 mvPosition = modelViewMatrix * localPosition;
         gl_Position = projectionMatrix * mvPosition;
@@ -261,6 +270,7 @@ function createSoftCloudMaterial(color: string, mist?: { value: Color }) {
       uniform vec3 cloudColor;
       uniform vec3 mistColor;
       varying vec2 vUv;
+      varying float vCloudSeed;
       #include <fog_pars_fragment>
       float ellipseDistance(vec2 point, vec2 center, vec2 radius) {
         return length((point - center) / radius);
@@ -272,10 +282,13 @@ function createSoftCloudMaterial(color: string, mist?: { value: Color }) {
         float crown = 1.0 - smoothstep(0.78, 1.0, ellipseDistance(p, vec2(0.01, 0.1), vec2(0.29, 0.31)));
         float rightLobe = 1.0 - smoothstep(0.78, 1.0, ellipseDistance(p, vec2(0.235, 0.0), vec2(0.23, 0.22)));
         float body = max(base, max(leftLobe, max(crown, rightLobe)));
-        float detail = 0.92 + 0.08 * sin(vUv.x * 19.0) * sin(vUv.y * 13.0);
-        float alpha = body * detail * opacity;
+        float detail = 0.84 + 0.10 * sin(vUv.x * 19.0 + vCloudSeed * 6.28) * sin(vUv.y * 13.0)
+          + 0.06 * sin(vUv.x * 37.0 + vUv.y * 21.0 + vCloudSeed * 12.0);
+        float thickness = body * detail;
+        float alpha = (1.0 - exp(-2.2 * thickness)) * opacity;
         if (alpha < 0.002) discard;
-        vec3 shaded = cloudColor * (0.86 + 0.14 * smoothstep(-0.3, 0.35, p.y));
+        float crownLight = smoothstep(-0.25, 0.38, p.y) * (0.75 + .25 * crown);
+        vec3 shaded = cloudColor * (0.67 + 0.33 * crownLight) * (0.92 + .08 * detail);
         gl_FragColor = vec4(shaded, alpha);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
@@ -433,10 +446,16 @@ function UndercastDeck() {
         ]),
         vertexShader: /* glsl */ `
           varying vec2 vUv;
+          varying vec3 vDeckWorld;
           #include <fog_pars_vertex>
           void main() {
             vUv = uv;
-            vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+            vec4 world = modelMatrix * vec4(position, 1.0);
+            // World-space relief survives camera recentering without swimming.
+            world.y += 2.5 * sin(world.x * .024) * sin(world.z * .031)
+              + 1.2 * sin(world.x * .053 + world.z * .041);
+            vDeckWorld = world.xyz;
+            vec4 mvPosition = viewMatrix * world;
             gl_Position = projectionMatrix * mvPosition;
             #include <fog_vertex>
           }
@@ -446,12 +465,13 @@ function UndercastDeck() {
           uniform vec3 deckColor;
           uniform vec3 mistColor;
           varying vec2 vUv;
+          varying vec3 vDeckWorld;
           #include <fog_pars_fragment>
           float band(vec2 p, float scale) {
             return sin(p.x * scale) * sin(p.y * scale * 1.37) + sin(p.x * scale * 0.61 + 1.7) * sin(p.y * scale * 0.83);
           }
           void main() {
-            vec2 p = vUv * 12.0;
+            vec2 p = vDeckWorld.xz / 32.0;
             float structure = 0.5 + 0.18 * band(p, 1.0) + 0.09 * band(p, 2.7) + 0.045 * band(p, 6.1);
             // Opaque through the bulk and ragged only at its own edge: the
             // ground detail underneath is culled once this is closed, so a
@@ -460,13 +480,17 @@ function UndercastDeck() {
             float rim = 1.0 - smoothstep(0.34, 0.5, length(vUv - vec2(0.5)));
             float alpha = clamp(mix(cover, 1.0, opacity) * rim * opacity, 0.0, 1.0);
             if (alpha < 0.004) discard;
-            vec3 shaded = deckColor * (0.88 + 0.12 * structure);
+            // Light-facing lobes and cool troughs give the cloud mass depth.
+            float lobes = smoothstep(.2, .85, structure);
+            float slope = band(p + vec2(.12, -.08), 2.7) - band(p, 2.7);
+            vec3 shaded = mix(deckColor * vec3(.56, .65, .78), deckColor,
+              clamp(.28 + .72 * lobes + .22 * slope, 0.0, 1.0));
             gl_FragColor = vec4(shaded, alpha);
             #include <tonemapping_fragment>
             #include <colorspace_fragment>
             #ifdef USE_FOG
               float mistFactor = 1.0 - exp( - fogDensity * fogDensity * vFogDepth * vFogDepth );
-              gl_FragColor.rgb = mix( gl_FragColor.rgb, mistColor, mistFactor );
+              gl_FragColor.rgb = mix( gl_FragColor.rgb, deckColor, mistFactor );
             #endif
           }
         `,
@@ -482,7 +506,9 @@ function UndercastDeck() {
   useFrame(({ camera }) => {
     const mesh = meshRef.current
     if (!mesh) return
-    const opacity = undercastOpacity(getAircraftPose(useScrollStore.getState().progress).altitude)
+    const progress = useScrollStore.getState().progress
+    const opacity = undercastOpacity(getAircraftPose(progress).altitude)
+    material.uniforms.deckColor.value.set('#e7eef4').lerp(CLOUD_DUSK, duskColorMix(progress))
     material.uniforms.opacity.value = opacity
     mesh.visible = opacity > 0.004
     // Follows the camera in plan so the deck always reaches the horizon,
@@ -504,7 +530,7 @@ function UndercastDeck() {
       // the cloud that is meant to be covering it.
       renderOrder={2}
     >
-      <planeGeometry args={[3200, 3200]} />
+      <planeGeometry args={[3200, 3200, 128, 128]} />
     </mesh>
   )
 }

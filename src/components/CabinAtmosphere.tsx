@@ -14,6 +14,7 @@ import {
   StaticDrawUsage,
   Vector3,
 } from 'three'
+import { finishShafts } from '../lib/qaConfig'
 import { SHAFT_DROP_ANGLE, SHAFT_WIDTH, shaftLength } from '../lib/cabinShafts'
 import { createSoftDotTexture } from '../lib/interiorSurfaceMaps'
 import { interiorToWorld, INTERIOR_MANIFEST, FLYING_POSE } from '../lib/sceneLayout'
@@ -184,7 +185,7 @@ export function LightShafts({ side, color, strength }: { side: 1 | -1; color: st
     // Shafts are scattering detail, tiered with the rest of it (plan6 7.4):
     // the tier that draws no dust draws no beams either.
     const tiered = TIER_SETTINGS[useQualityStore.getState().tier].particlesPct
-    material.uniforms.opacity.value = factor * strength * tiered
+    material.uniforms.opacity.value = factor * strength * tiered * (finishShafts ? 1 : 0)
     if (meshRef.current) meshRef.current.visible = factor > 0.01 && tiered > 0
   })
 
@@ -308,8 +309,8 @@ export function CabinAtmosphere({ seatWorldPositions }: { seatWorldPositions: Ve
       {/* plan6 5.4: the beams return, rebuilt as bounded cylindrical
           volumes rather than the fixed additive quads A15 identified. Warm
           sun to starboard, a cooler sky wash to port. */}
-      <LightShafts side={1} color="#ffd9a8" strength={0.34} />
-      <LightShafts side={-1} color="#bdd4f2" strength={0.18} />
+      <LightShafts side={1} color="#ffd9a8" strength={0.16} />
+      <LightShafts side={-1} color="#bdd4f2" strength={0.08} />
       <DustMotes />
       <ReadingLights seatWorldPositions={seatWorldPositions} />
     </group>

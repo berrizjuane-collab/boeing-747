@@ -126,3 +126,17 @@ blender --background --factory-startup --python blender/generate_hdri.py -- --pr
 blender --background --factory-startup --python blender/generate_hdri.py -- --preset high-altitude --output public/hdri/high-altitude.hdr
 blender --background --factory-startup --python blender/generate_hdri.py -- --preset sunset --output public/hdri/sunset.hdr
 ```
+
+### Ronda 6 — acabados y narrativa (F5–F6)
+
+La experiencia incluye lectura completa desde «Leer contenido», narrativa
+estática al activar movimiento reducido, paneles adaptables y hotspots con
+oclusión. Se completó el trabajo de acabado pendiente en vegetación,
+aeropuerto y atmósfera. Ver [progress6.md](progress6.md) y la
+[evidencia F5–F6](docs/evidence/round6/f5-f6/README.md).
+Las fases F7 (rendimiento) y F8 (regresión/cierre global) siguen pendientes.
+
+```bash
+node scripts/narrative-qa.mjs
+node scripts/finish-qa.mjs
+```

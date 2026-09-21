@@ -25,7 +25,7 @@ export interface DataPoint {
 // marketing for a third party. Chosen here (never decided in PLAN.md,
 // which only confirmed *that* a fictional name was needed, not which one).
 export const BRAND_NAME = 'MERIDIAN'
-export const BRAND_SUBTITLE = 'Airbus A380-800 · Doble cubierta, nariz a cola'
+export const BRAND_SUBTITLE = 'Airbus A380-800 · Dos cubiertas, otra escala'
 
 export const HERO_CONTENT = {
   eyebrow: 'MERIDIAN — vuelo de presentación',
@@ -63,8 +63,8 @@ export const THRESHOLD_LINE = 'Cruzando el umbral'
 
 export const EXIT_CONTENT = {
   eyebrow: 'Fin del recorrido',
-  title: 'Un viaje completo',
-  body: 'De la pista a la cabina y de vuelta al cielo — el mismo avión, el mismo scroll, sin un solo corte de escena.',
+  title: 'De vuelta al cielo',
+  body: 'Dos cubiertas, cuatro motores y una silueta inconfundible. El A380 continúa su viaje sobre las nubes.',
 }
 
 // ASSET_AUDIT.md "Texto de atribución propuesto" — reproduced verbatim.
@@ -110,22 +110,22 @@ export const INTERIOR_ZONES: Record<'cockpit' | 'economy' | 'stair' | 'upperDeck
   cockpit: {
     eyebrow: 'S5 — Cabina de mando',
     title: 'El puesto de pilotaje',
-    body: 'La primera parada del recorrido interior: instrumentación de vuelo integrada, a metros del umbral que acabas de cruzar.',
+    body: 'Dos pilotos comparten una cabina con pantallas de vuelo y controles al alcance de la mano.',
     data: [],
   },
   economy: {
     eyebrow: 'S5 — Economy',
-    title: 'Dos pasillos, tres bloques de asientos',
+    title: 'Espacio para viajar',
     body: 'Un tramo representativo de la cubierta principal, con dos pasillos entre tres bloques de asientos.',
     data: [
       { label: 'Configuración representada', value: '3-4-3 por fila', verified: false },
-      { label: 'Ancho de fuselaje', value: '7,14 m', verified: true },
+      { label: 'Ancho del A380 real', value: '7,14 m', verified: true },
     ],
   },
   stair: {
     eyebrow: 'S5 — Escalera',
-    title: 'La transición vertical',
-    body: 'La escalera que conecta ambas cubiertas — visualmente el momento más distintivo del recorrido interior.',
+    title: 'Entre dos cubiertas',
+    body: 'Una escalera une los dos niveles de pasajeros del A380.',
     data: [],
   },
   upperDeck: {
@@ -134,7 +134,7 @@ export const INTERIOR_ZONES: Record<'cockpit' | 'economy' | 'stair' | 'upperDeck
     body: 'El recorrido asciende a un tramo representativo del segundo piso y continúa hacia la puerta lateral.',
     data: [
       { label: 'Configuración representada', value: '2-4-2 por fila', verified: false },
-      { label: 'Volumen de cabina', value: '530 m³', verified: true },
+      { label: 'Volumen del A380 real', value: '530 m³', verified: true },
     ],
   },
 }
@@ -159,7 +159,7 @@ export const EXTERIOR_HOTSPOTS: Record<'engine' | 'winglet' | 'empennage', Hotsp
   winglet: {
     id: 'winglet',
     title: 'Winglet',
-    body: 'Extremo de ala curvado hacia arriba — reduce los vórtices de punta de ala y el arrastre inducido.',
+    body: 'Las aletas en los extremos del ala ayudan a reducir el arrastre inducido.',
   },
   empennage: {
     id: 'empennage',
@@ -185,7 +185,7 @@ export const INTERIOR_HOTSPOTS: Record<'seat' | 'screen' | 'window' | 'overheadB
   window: {
     id: 'window',
     title: 'Ventanilla',
-    body: 'Doble panel acrílico — la piscina de luz fría del corredor entra por aquí.',
+    body: 'Una vista del cielo desde la cubierta de pasajeros.',
   },
   overheadBin: {
     id: 'overheadBin',
@@ -200,4 +200,4 @@ export const INTERIOR_HOTSPOTS: Record<'seat' | 'screen' | 'window' | 'overheadB
 }
 
 export const FOOTER_COLOPHON =
-  'Construido con React Three Fiber, three.js, GSAP ScrollTrigger y Lenis. Interior modelado a medida; exterior procesado con gltf-transform (Draco + KTX2/Basis).'
+  'Una interpretación del Airbus A380: cabina y aeropuerto simplificados, sin representar una aerolínea ni una distribución comercial exacta. Las cifras técnicas corresponden al avión real.'

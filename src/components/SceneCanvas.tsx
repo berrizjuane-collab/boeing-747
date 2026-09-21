@@ -47,7 +47,6 @@ export function SceneCanvas({ debugMode }: { debugMode: boolean }) {
     <Canvas
       // §8.3: canvas content is decorative relative to the DOM narrative,
       // which carries the same information as real, accessible text.
-      aria-hidden="true"
       // Runtime shadows cover the runway and the bounded interior Fase 5
       // lights; any broader shadow budget remains explicit future work.
       shadows
@@ -69,6 +68,10 @@ export function SceneCanvas({ debugMode }: { debugMode: boolean }) {
       camera={{ fov: 45, near: 0.15, far: 3000, position: [60, 8, 55] }}
       gl={{ antialias: true }}
       onCreated={({ gl }) => {
+        // Only the bitmap is decorative. Html hotspots share the wrapper and
+        // must remain accessible when their own visibility gate permits it.
+        gl.domElement.setAttribute('aria-hidden', 'true')
+        gl.domElement.tabIndex = -1
         // See StatsCollector.tsx: a multi-pass post-processing composer
         // calls renderer.render() several times per frame, and info.reset()
         // (which autoReset fires on every one of those calls) would wipe

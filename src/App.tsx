@@ -1,13 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { AuthoringPanel } from './dev/AuthoringPanel'
 import { initScrollController, type ScrollController } from './lib/scrollController'
-import { SECTIONS } from './lib/sections'
+import { SECTION_DESTINATIONS } from './lib/narrativeLayout'
 import { DebugHud } from './components/DebugHud'
 import { InteriorLoadGuardrail } from './components/InteriorLoadGuardrail'
 import { InteriorOverlay } from './components/InteriorOverlay'
 import { LoadingScreen } from './components/LoadingScreen'
 import { NarrativeOverlayHead, NarrativeOverlayTail } from './components/NarrativeOverlay'
-import { ReducedMotionCrossfade } from './components/ReducedMotionCrossfade'
 import { ScrollTrack } from './components/ScrollTrack'
 import { SceneCanvas } from './components/SceneCanvas'
 import { SiteNav } from './components/SiteNav'
@@ -43,14 +42,12 @@ export default function App() {
   }, [])
 
   const jumpToSection = (index: number) => {
-    controllerRef.current?.scrollToFraction(SECTIONS[index].start)
+    controllerRef.current?.scrollToFraction(SECTION_DESTINATIONS[index])
   }
 
   return (
     <>
-      <ReducedMotionCrossfade>
-        <SceneCanvas debugMode={DEV_TOOLS_ENABLED && debugMode} />
-      </ReducedMotionCrossfade>
+      <SceneCanvas debugMode={DEV_TOOLS_ENABLED && debugMode} />
       <ScrollTrack containerRef={trackRef} />
       {/* Split head/tail, InteriorOverlay sandwiched between: DOM order here
           is heading order (NarrativeOverlay.tsx's doc comment) — S1-S4, then

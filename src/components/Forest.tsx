@@ -65,7 +65,7 @@ function PlantBand({ name, geometry, material, plants, palette, tier }: PlantBan
       const plant = plants[index]
       dummy.position.set(plant.x, plant.y - 0.15, plant.z)
       dummy.rotation.set(0, plant.rotationY, 0)
-      dummy.scale.set(plant.scale, plant.scale * plant.heightScale, plant.scale)
+      dummy.scale.set(plant.scale * (0.85 + plant.hue * .3), plant.scale * plant.heightScale, plant.scale * (1.15 - plant.hue * .3))
       dummy.updateMatrix()
       mesh.setMatrixAt(index, dummy.matrix)
       mesh.setColorAt(index, plantColor(color, plant, palette))

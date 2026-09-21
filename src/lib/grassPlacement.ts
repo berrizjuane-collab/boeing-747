@@ -72,7 +72,7 @@ export function placeGrass(): PlacedGrass[] {
     z: instance.z,
     y: groundHeightAt(instance.x, instance.z),
     scale: 0.85 + decorrelate(instance.jitter, 1) * 0.75,
-    heightScale: 0.75 + decorrelate(instance.jitter, 2) * 0.75,
+    heightScale: 0.22 + decorrelate(instance.jitter, 2) * 0.24,
     mask: paintedGrassMaskAt(instance.x, instance.z),
     light: decorrelate(instance.jitter, 3),
     distanceToHero: Math.hypot(instance.x - HERO_ANCHOR.x, instance.z - HERO_ANCHOR.z),
