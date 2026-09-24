@@ -48,7 +48,9 @@ try {
   }
   browser = await chromium.launch({ headless: true, executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined, args: ['--no-sandbox', '--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--disable-dev-shm-usage'] })
   report.browser = browser.version()
-  page = await browser.newPage({ viewport: { width: Number(process.env.QA_WIDTH ?? 960), height: Number(process.env.QA_HEIGHT ?? 640) }, deviceScaleFactor: 1, ...(process.env.QA_RECORD_VIDEO === '1' ? {recordVideo:{dir:out}} : {}) })
+  // The tour video is recorded at half size: at full size it reached ~85 MB
+  // per run and exhausted the account's artifact storage quota.
+  page = await browser.newPage({ viewport: { width: Number(process.env.QA_WIDTH ?? 960), height: Number(process.env.QA_HEIGHT ?? 640) }, deviceScaleFactor: 1, ...(process.env.QA_RECORD_VIDEO === '1' ? {recordVideo:{dir:out,size:{width:Math.round(Number(process.env.QA_WIDTH ?? 960)/2),height:Math.round(Number(process.env.QA_HEIGHT ?? 640)/2)}}} : {}) })
   // Lifecycle stress uses reduced motion to revisit mounts without spending
   // hundreds of software-rendered frames integrating each identical stop.
   // Real-clock movement is covered separately by QA_VIDEO.

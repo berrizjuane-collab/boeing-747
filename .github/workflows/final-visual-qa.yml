@@ -100,6 +100,9 @@ jobs:
           QA_TIMEOUT: '300000'
       - name: Retain route measurements
         if: always()
+        # Evidence, not the verdict: the check above is what gates Pages.
+        # An exhausted artifact quota must not turn a passing run red.
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: meridian-phase7-${{ matrix.name }}-report
@@ -107,16 +110,19 @@ jobs:
             artifacts/phase7/${{ matrix.name }}/report.json
             artifacts/phase7/${{ matrix.name }}/failure.png
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 14
 
       - name: Retain High editorial captures for visual review
         if: always() && matrix.name == 'high-editorial'
+        # Evidence, not the verdict: the check above is what gates Pages.
+        # An exhausted artifact quota must not turn a passing run red.
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: meridian-phase7-high-editorial-captures
           path: artifacts/phase7/high-editorial/*.png
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 14
 
   dynamic-tour:
     needs: static-checks
@@ -145,6 +151,9 @@ jobs:
           QA_TIMEOUT: '300000'
       - name: Retain movement report and full-route video
         if: always()
+        # Evidence, not the verdict: the check above is what gates Pages.
+        # An exhausted artifact quota must not turn a passing run red.
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: meridian-phase8-tour-report
@@ -153,4 +162,4 @@ jobs:
             artifacts/phase8/dynamic-tour/*.webm
             artifacts/phase8/dynamic-tour/failure.png
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 14
