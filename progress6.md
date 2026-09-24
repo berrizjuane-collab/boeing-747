@@ -480,3 +480,29 @@ medidos localmente con `taskset` a dos núcleos en la sección siguiente.
 Un paso de mezcla IBL cuesta ~1,8 s adicionales en software con cubo 256
 (~12 s con cubo 512, descartado). La espera de asentamiento del warm-up del
 tour pasa de 60 s a 180 s por ese motivo; en GPU física es de milisegundos.
+
+### Resultado en GitHub Actions
+
+*Final visual QA* **#52** sobre `5384824`: **verde**, primer veredicto
+completo de la ronda 6 (41 min de reloj). Pasos de prueba por job:
+
+| Job | Minutos |
+|---|---:|
+| static-checks | <1 |
+| low (barrido 0,01 ida y vuelta, 10 ciclos, caché de tiers) | 40 |
+| mid | 33 |
+| high | 38 |
+| high-editorial-a (8 capturas 1440×900) | 24 |
+| high-editorial-b (8 capturas 1440×900) | 34 |
+| dynamic-tour | 29 |
+
+El run #51 (`e92ea0a`) ya había pasado los seis pasos de prueba, pero la
+subida de evidencia falló por *Artifact storage quota has been hit*: la cuota
+de almacenamiento de artefactos de la cuenta privada está agotada. Las subidas
+pasan a `continue-on-error` (la evidencia no decide el veredicto), el vídeo se
+graba a media resolución y la retención baja a 14 días. El workflow de Pages
+compilaba y subía el sitio aunque el despliegue estuviera deshabilitado, y
+fallaba por la misma cuota; ahora su build exige la misma condición que el
+deploy (repo público o `PAGES_ENABLED`). Publicar requiere que el propietario
+haga el repositorio público (el almacenamiento de artefactos es gratuito en
+repos públicos) y elija *GitHub Actions* como origen de Pages.

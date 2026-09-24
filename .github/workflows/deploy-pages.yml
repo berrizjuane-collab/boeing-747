@@ -25,7 +25,10 @@ jobs:
 
   build:
     needs: verify-qa
-    if: needs.verify-qa.result == 'success'
+    # Same condition as deploy: building and uploading a Pages artifact that
+    # can never be deployed only spent the account's artifact quota and
+    # turned this workflow red on a private repository.
+    if: needs.verify-qa.result == 'success' && (github.event.repository.visibility == 'public' || vars.PAGES_ENABLED == 'true')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
