@@ -22,8 +22,15 @@ tienen instrumentación, regresión completa y
 despliegue condicionado al mismo SHA; sus resultados y límites quedan en
 [`progress6.md`](./progress6.md) y
 [`evidencia F7–F8`](./docs/evidence/round6/f7-f8/README.md). La aceptación de
-frame pacing en GPU física y la revisión visual final siguen explícitamente
-pendientes.
+frame pacing en GPU física sigue pendiente.
+
+Una inspección fotograma a fotograma de todo el recorrido
+([evidencia](./docs/evidence/round6/inspeccion/README.md)) encontró y corrigió
+los saltos de escena restantes: telón opaco en el umbral, cortes de color al
+cambiar la sonda de iluminación, apagado brusco del aeródromo bajo las nubes,
+anillo flotante delante del morro y el avión fuera de cuadro en la salida.
+También reparó el arnés de QA, que se colgaba en CI por los colores ANSI de
+Vite y por eso nunca había dado veredicto. Detalle en `progress6.md`.
 
 ## Desarrollo
 

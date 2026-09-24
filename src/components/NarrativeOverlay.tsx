@@ -130,7 +130,10 @@ export function NarrativeOverlayHead() {
 export function NarrativeOverlayTail() {
   return (
     <div className="overlay">
-      <Panel index={5} side="right">
+      {/* Left, not right: the S6 break-out brings the aircraft back into
+          frame from the right (shotSheet.ts), where a right-hand panel
+          hid it from 0.86 to 0.89 at desktop widths. */}
+      <Panel index={5} side="left">
         <div className="overlay__eyebrow">{EXIT_CONTENT.eyebrow}</div>
         <h2 className="overlay__title">{EXIT_CONTENT.title}</h2>
         <p className="overlay__body">{EXIT_CONTENT.body}</p>

@@ -33,6 +33,15 @@ export interface Shot {
    * scroll as a three-metre reposition (plan6 3.2).
    */
   authoredEnd?: number
+  /**
+   * Local-t window over which the look direction is handed from the
+   * scripted slerp to the shot's subject (the aircraft), which the shot then
+   * tracks until its last keyframe. Used where a turn onto the subject would
+   * otherwise leave it out of frame for most of the move. `skew` < 1 moves
+   * the fastest part of the hand-over earlier, while the subject is still
+   * out of shot, so it arrives in frame slowly.
+   */
+  trackSubject?: readonly [start: number, end: number, skew?: number]
 }
 
 const INTERIOR_SECTION = SECTIONS[4]
@@ -217,12 +226,17 @@ export const SHOT_SHEET: readonly Shot[] = [
     framing: 'Aircraft re-enters frame from the right and stays in shot throughout.',
     fromIndex: 13,
     toIndex: 14,
+    // A linear slerp through the 125° turn kept the aircraft out of frame
+    // from 0.86 to 0.895 (measured on HULL_SILHOUETTE, both 16:10 and
+    // portrait). Handing the look to the aircraft early brings it back in
+    // while the camera is still clearing the wing.
+    trackSubject: [0, 1.5, 0.6],
   },
   {
     id: 'S6-pull-back',
     intent: 'retreat',
     subject: 'The wide cinematic shot of the aircraft in flight.',
-    framing: 'Aircraft held in the left half against sunset cloud, never leaving frame.',
+    framing: 'Aircraft held near frame centre against sunset cloud, never leaving frame; copy holds the left third.',
     fromIndex: 14,
     toIndex: 15,
     authoredEnd: SECTIONS[5].end,

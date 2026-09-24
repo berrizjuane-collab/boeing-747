@@ -15,7 +15,7 @@ const {
   aerodromeDetailVisible,
   undercastOpacity,
 } = await server.ssrLoadModule('/src/lib/worldPersistence.ts')
-const { PROBE_CROSSOVERS, activeProbe, probeIntensityScale } = await server.ssrLoadModule('/src/lib/iblSchedule.ts')
+const { PROBE_CROSSOVERS, activeProbe, probeBlend } = await server.ssrLoadModule('/src/lib/iblSchedule.ts')
 const { DEPTH_OF_FIELD, GOD_RAYS, cabinFocusDistance, effectMounted, effectWeight } =
   await server.ssrLoadModule('/src/lib/postFxSchedule.ts')
 const { EXIT_PORTAL, NOSE_PORTAL, nearPlaneCornerDistance, portalRadius, portalSignedDepth } =
@@ -77,12 +77,24 @@ test('4.3: exactly one schedule owns reflections, and it hands over at the physi
   assert.equal(activeProbe(0.9), 'sunset')
   assert.equal(activeProbe(1), 'sunset')
 
-  // The cabin cannot own the aircraft's reflections while the camera is
-  // still outside it, and the sunset cannot take them back before the door.
+  // The cabin cannot light the aircraft from outside, and the sky must not
+  // keep tinting the flight deck once the camera is in it. Crossings are
+  // measured on the camera path, not assumed: the nose skin is crossed at
+  // 0.420, which the previous 0.455 swap had drifted away from.
+  const crossing = (portal, from, to) => {
+    for (let sample = 0; sample <= 4000; sample += 1) {
+      const progress = from + ((to - from) * sample) / 4000
+      if (portalSignedDepth(sampleCamera(progress).position, portal) >= 0) return progress
+    }
+    return null
+  }
+  const noseCrossing = crossing(NOSE_PORTAL, 0.38, 0.5)
+  const doorCrossing = crossing(EXIT_PORTAL, 0.8, 0.86)
   const cabinCrossover = PROBE_CROSSOVERS.find((crossover) => crossover.to === 'cabin')
   const sunsetCrossover = PROBE_CROSSOVERS.find((crossover) => crossover.to === 'sunset')
-  assert.ok(cabinCrossover.at < 0.46 && cabinCrossover.at > 0.44, 'the cabin takes over just inside the nose crossing')
-  assert.ok(sunsetCrossover.at < 0.835 && sunsetCrossover.at > 0.82, 'the sunset takes back at the door')
+  assert.ok(cabinCrossover.at - cabinCrossover.halfWidth > noseCrossing, `the cabin blend starts at ${cabinCrossover.at - cabinCrossover.halfWidth}, before the nose crossing at ${noseCrossing}`)
+  assert.ok(cabinCrossover.at + cabinCrossover.halfWidth < 0.46, 'the cabin owns the reflections by the start of the cabin route')
+  assert.ok(Math.abs(sunsetCrossover.at - doorCrossing) < 0.003, `the sunset blend is centred on the door crossing at ${doorCrossing}`)
 
   // Every probe key the schedule can return must be one the owner supplies.
   const supplied = new Set(['golden', 'highAltitude', 'sunset', 'cabin'])
@@ -91,19 +103,29 @@ test('4.3: exactly one schedule owns reflections, and it hands over at the physi
   }
 })
 
-test('4.3: the probe swap is staged behind an intensity well, not left as a reflection pop', () => {
-  assert.equal(probeIntensityScale(0.1), 1, 'intensity is untouched away from a hand-over')
+test('4.3: probes blend across each hand-over instead of swapping', () => {
+  // A swap hidden in a 45 % intensity well still showed as a one-frame colour
+  // cut (0.279→0.280, 0.454→0.456). Both probes now contribute across the
+  // window, with a mix that never steps.
   for (const crossover of PROBE_CROSSOVERS) {
-    assert.ok(probeIntensityScale(crossover.at) < 0.5, `no well at the ${crossover.to} hand-over`)
+    const middle = probeBlend(crossover.at)
+    assert.equal(middle.to, crossover.to)
+    assert.ok(Math.abs(middle.weight - 0.5) < 1e-9, `the ${crossover.to} hand-over is not half-mixed at its centre`)
+    assert.ok(crossover.halfWidth >= 0.008, `the ${crossover.to} blend is too short to read as a blend`)
   }
-
-  // The well itself must not read as a step: continuous, and flat where it
-  // meets the unchanged value.
-  let previous = probeIntensityScale(0)
+  // Continuous: the effective mix (dominant probe weights) never jumps.
+  const effective = (progress) => {
+    const { from, to, weight } = probeBlend(progress)
+    return { [from]: 1 - weight, ...(to === from ? {} : { [to]: weight }) }
+  }
+  let previous = effective(0)
   for (let sample = 1; sample <= 20000; sample += 1) {
-    const value = probeIntensityScale(sample / 20000)
-    assert.ok(Math.abs(value - previous) < 0.005, `intensity stepped by ${Math.abs(value - previous)} at ${sample / 20000}`)
-    previous = value
+    const current = effective(sample / 20000)
+    for (const key of new Set([...Object.keys(previous), ...Object.keys(current)])) {
+      const step = Math.abs((current[key] ?? 0) - (previous[key] ?? 0))
+      assert.ok(step < 0.005, `probe ${key} stepped by ${step} at ${sample / 20000}`)
+    }
+    previous = current
   }
 })
 

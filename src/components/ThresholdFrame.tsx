@@ -1,7 +1,7 @@
 import { useFrame, useThree } from '@react-three/fiber'
 import { useMemo, useRef } from 'react'
 import { DoubleSide, Group, Mesh, MeshBasicMaterial, Quaternion, Vector3 } from 'three'
-import { EXIT_PORTAL, NOSE_PORTAL, type PortalWindow, frameVisibility } from '../lib/thresholdPortals'
+import { EXIT_PORTAL, type PortalWindow, frameVisibility } from '../lib/thresholdPortals'
 import { useScrollStore } from '../state/scrollStore'
 
 /**
@@ -143,11 +143,13 @@ function DoorFrame({ window }: { window: PortalWindow }) {
   )
 }
 
+/**
+ * Only the upper-deck door gets a frame. The nose has no door to frame: its
+ * 5.85-unit ring sat outside a fuselage about four units in radius at that
+ * plane, and a frame-by-frame sweep showed it as a dark arch floating in
+ * front of the nose from 0.404 to 0.412, attached to nothing. The nose
+ * opening keeps dissolveHullMaterial's own edge glow.
+ */
 export function ThresholdFrame() {
-  return (
-    <>
-      <DoorFrame window={NOSE_PORTAL} />
-      <DoorFrame window={EXIT_PORTAL} />
-    </>
-  )
+  return <DoorFrame window={EXIT_PORTAL} />
 }

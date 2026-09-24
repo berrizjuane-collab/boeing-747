@@ -6,50 +6,62 @@ export type ProbeKey = 'golden' | 'highAltitude' | 'sunset' | 'cabin'
  * `scene.environment` without knowing about the other, and each switching on
  * a section index. This is the single schedule both now read.
  *
- * The hand-overs are placed at the physical crossings rather than at the
- * section boundaries: the cabin cannot own the aircraft's own reflections
- * while the camera is still outside looking at the hull, and the sunset
- * cannot take them back before the camera is through the door.
+ * Every hand-over is a blend between the two probes, not a swap. The earlier
+ * version swapped the cubemap at the bottom of an intensity well that only
+ * dipped to 45 %: a frame-by-frame sweep still showed the tail turning from
+ * gold to blue between 0.279 and 0.280, and the cockpit going from sky-blue
+ * to warm brown between 0.454 and 0.456. EnvironmentPlaceholder renders the
+ * two equirectangular sources mixed by `weight` and convolves that, so the
+ * lighting moves continuously instead of stepping.
+ *
+ * The windows sit on the physical crossings, measured from the camera path
+ * (tests/plan6-fase4): the nose skin is crossed at 0.420 and the upper-deck
+ * door plane at 0.833. The cabin blend starts once the camera is inside the
+ * hull, so the sky can no longer tint the flight deck after the crossing and
+ * the cabin fill never lights the aircraft from outside.
  */
-export const PROBE_CROSSOVERS: readonly { at: number; to: ProbeKey }[] = [
-  { at: 0.28, to: 'highAltitude' },
-  // The nose skin is crossed at 0.46; the swap sits just inside it.
-  { at: 0.455, to: 'cabin' },
-  // The upper-deck door plane is crossed at 0.835.
-  { at: 0.833, to: 'sunset' },
-]
-
-/** Width, in progress, of the intensity well centred on each crossover. */
-export const CROSSOVER_HALF_WIDTH = 0.015
-/** How far environment intensity dips at the exact hand-over. */
-export const CROSSOVER_FLOOR = 0.45
-
-export function activeProbe(progress: number): ProbeKey {
-  let probe: ProbeKey = 'golden'
-  for (const crossover of PROBE_CROSSOVERS) {
-    if (progress >= crossover.at) probe = crossover.to
-  }
-  return probe
+export interface ProbeCrossover {
+  at: number
+  to: ProbeKey
+  /** Half the width, in progress, over which the two probes are mixed. */
+  halfWidth: number
 }
 
-/**
- * A reflection probe is a single cubemap; swapping it is discrete however
- * slowly the sky behind it mixes. Rather than pretend otherwise, the swap is
- * staged: intensity dips into a short well, the probe changes at the bottom
- * of it, and intensity comes back. The reflection therefore changes where it
- * contributes least, which plan6 4.3 names as the alternative to blending
- * two probes per frame.
- */
-export function probeIntensityScale(progress: number): number {
-  let scale = 1
+export const PROBE_CROSSOVERS: readonly ProbeCrossover[] = [
+  { at: 0.28, to: 'highAltitude', halfWidth: 0.02 },
+  { at: 0.435, to: 'cabin', halfWidth: 0.01 },
+  { at: 0.834, to: 'sunset', halfWidth: 0.008 },
+]
+
+const FIRST_PROBE: ProbeKey = 'golden'
+
+export interface ProbeBlend {
+  from: ProbeKey
+  to: ProbeKey
+  /** 0 = only `from`, 1 = only `to`. */
+  weight: number
+}
+
+const smoothstep = (edge0: number, edge1: number, value: number) => {
+  const t = Math.min(1, Math.max(0, (value - edge0) / (edge1 - edge0)))
+  return t * t * (3 - 2 * t)
+}
+
+/** The two probes contributing at `progress` and how far the blend has gone. */
+export function probeBlend(progress: number): ProbeBlend {
+  let current: ProbeKey = FIRST_PROBE
   for (const crossover of PROBE_CROSSOVERS) {
-    const distance = Math.abs(progress - crossover.at)
-    if (distance >= CROSSOVER_HALF_WIDTH) continue
-    // Cosine well: 1 at the edges, CROSSOVER_FLOOR at the centre, with zero
-    // slope at both so the dip cannot itself read as a step.
-    const t = distance / CROSSOVER_HALF_WIDTH
-    const well = CROSSOVER_FLOOR + (1 - CROSSOVER_FLOOR) * (0.5 - 0.5 * Math.cos(Math.PI * t))
-    scale = Math.min(scale, well)
+    const start = crossover.at - crossover.halfWidth
+    const end = crossover.at + crossover.halfWidth
+    if (progress < start) break
+    if (progress < end) return { from: current, to: crossover.to, weight: smoothstep(start, end, progress) }
+    current = crossover.to
   }
-  return scale
+  return { from: current, to: current, weight: 0 }
+}
+
+/** The probe that dominates at `progress` (the blend's nearer end). */
+export function activeProbe(progress: number): ProbeKey {
+  const blend = probeBlend(progress)
+  return blend.weight < 0.5 ? blend.from : blend.to
 }

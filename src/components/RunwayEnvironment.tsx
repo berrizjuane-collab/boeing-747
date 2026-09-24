@@ -23,6 +23,7 @@ import { duskColorMix } from '../lib/thresholdLighting'
 import { seededRandom } from '../lib/seededRandom'
 import { SECTIONS } from '../lib/sections'
 import { UNDERCAST_Y, aerodromeDetailVisible, undercastOpacity } from '../lib/worldPersistence'
+import { deckDissolveAmount, deckDissolveUniform, patchDeckDissolveTree } from '../lib/deckDissolve'
 import { TIER_SETTINGS, useQualityStore } from '../state/qualityStore'
 import { reducedMotionState } from '../state/reducedMotion'
 import { useScrollStore } from '../state/scrollStore'
@@ -544,7 +545,14 @@ function HeroAirportEnvironment() {
     // buildings, grass and forest stay drawn for as long as any of them
     // could still be seen through the deck.
     const opacity = undercastOpacity(getAircraftPose(useScrollStore.getState().progress).altitude)
-    groupRef.current.visible = aerodromeDetailVisible(opacity)
+    const visible = aerodromeDetailVisible(opacity)
+    groupRef.current.visible = visible
+    // Dissolves into the closing deck first, so the cull above removes
+    // nothing still on screen (deckDissolve.ts). Patching is idempotent and
+    // runs while visible so materials created by a tier change are covered
+    // before they can be seen dissolving.
+    deckDissolveUniform.value = deckDissolveAmount(opacity)
+    if (visible) patchDeckDissolveTree(groupRef.current)
   })
 
   return (

@@ -1,13 +1,10 @@
 import {
   DataTexture,
   EquirectangularReflectionMapping,
-  PMREMGenerator,
   RGBAFormat,
   SRGBColorSpace,
   UnsignedByteType,
   type Texture,
-  type WebGLRenderer,
-  type WebGLRenderTarget,
 } from 'three'
 
 /**
@@ -41,27 +38,15 @@ function createCabinFillTexture() {
   return texture
 }
 
-const cache = new WeakMap<WebGLRenderer, WebGLRenderTarget>()
+let fill: DataTexture | null = null
 
 /**
- * The cabin's reflection probe, convolved once per renderer and kept.
- *
- * plan6 4.4/7.3 ask for effects to be prepared before they are visible and
- * for PMREM work to stay out of a visible crossing. This used to run inside
- * InteriorLighting's mount effect, which fires as the camera reaches the
- * threshold — exactly the frame that could least afford it. Calling this at
- * scene setup moves the cost to the load screen.
+ * The cabin's fill environment, as an equirectangular source. It is mixed
+ * with the exterior probes by EnvironmentPlaceholder's ProbeBlender and
+ * convolved there, like every other probe, so the nose and door crossings
+ * blend into and out of the cabin instead of swapping cubemaps.
  */
-export function getCabinProbe(renderer: WebGLRenderer): Texture {
-  const cached = cache.get(renderer)
-  if (cached) return cached.texture
-
-  const fillTexture = createCabinFillTexture()
-  const pmrem = new PMREMGenerator(renderer)
-  pmrem.compileEquirectangularShader()
-  const target = pmrem.fromEquirectangular(fillTexture)
-  cache.set(renderer, target)
-  fillTexture.dispose()
-  pmrem.dispose()
-  return target.texture
+export function getCabinFillTexture(): Texture {
+  fill ??= createCabinFillTexture()
+  return fill
 }

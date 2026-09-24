@@ -1278,7 +1278,19 @@ body {
 .overlay__body, .overlay__subtitle, .overlay__eyebrow, .overlay__data-label,
 .overlay__data-value, .overlay__footer-colophon { color: #e0e7ef; }
 .overlay__data-value { font-size: 1.1rem; }
-.overlay__threshold-line { background: #101923; padding: .6rem 1rem; border-radius: 8px; }
+/* The base rule centres the line with a fixed, inset:0 flex box. A backdrop
+   on that box painted the whole viewport opaque for the entire nose
+   crossing, so the contrast pill is sized to its own text instead. */
+.overlay__threshold-line {
+  inset: 0;
+  margin: auto;
+  width: fit-content;
+  height: fit-content;
+  background: #101923;
+  color: #e0e7ef;
+  padding: .6rem 1rem;
+  border-radius: 8px;
+}
 .site-nav__reading { color: #f4f7fb; background: #101923; padding: .55rem; border-radius: 6px; font-size: .8rem; text-decoration: underline; }
 .site-nav__mark { min-width: 24px; min-height: 32px; }
 .site-nav__reading:focus-visible, .site-nav button:focus-visible { outline: 2px solid #b8dbff; outline-offset: 3px; }
@@ -1318,7 +1330,9 @@ body {
 .site-nav__mark, .site-nav__mark[data-active='true'] {
   position: relative; width: 24px; height: 32px; background: transparent;
 }
-.site-nav__mark::after { content: ''; position: absolute; left: 6px; right: 6px; top: 15px; height: 3px; background: #b2bdc9; border-radius: 2px; }
+/* The dark rim keeps light marks legible over the bright S3 and S6 skies,
+   where the top scrim alone left them invisible. */
+.site-nav__mark::after { content: ''; position: absolute; left: 6px; right: 6px; top: 15px; height: 3px; background: #b2bdc9; border-radius: 2px; box-shadow: 0 0 0 1px rgba(8, 12, 18, 0.55), 0 1px 3px rgba(0, 0, 0, 0.35); }
 .site-nav__mark[data-active='true']::after { left: 2px; right: 2px; background: #fff; }
 .site-nav__quality { background: #101923; color: #e0e7ef; min-height: 32px; }
 /* Intrinsic tracks respond to text zoom as well as viewport width. */

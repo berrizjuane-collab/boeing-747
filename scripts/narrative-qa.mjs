@@ -1,12 +1,11 @@
 import { qaSource } from './qa-source.mjs'
 import { chromium } from 'playwright'
-import { spawn } from 'node:child_process'
+import { startQaServer } from './qa-server.mjs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import assert from 'node:assert/strict'
 const out=process.env.QA_DIR ?? 'artifacts/f5-f6/narrative'
 await mkdir(out,{recursive:true})
-const server=spawn(process.execPath,['node_modules/vite/bin/vite.js','preview','--outDir',process.env.QA_DIST??'dist','--host','127.0.0.1','--port','4173','--strictPort'],{stdio:['ignore','pipe','pipe']})
-await new Promise((resolve,reject)=>{server.stdout.on('data',d=>{if(d.toString().includes('Local:'))resolve()});server.on('error',reject)})
+const server=await startQaServer({extraArgs:['--outDir',process.env.QA_DIST??'dist']})
 const report={source:await qaSource(),viewports:[],errors:[],checks:[]};let browser
 try {
  browser=await chromium.launch({executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH||undefined,args:['--no-sandbox','--no-zygote','--single-process','--use-angle=swiftshader','--enable-unsafe-swiftshader']})

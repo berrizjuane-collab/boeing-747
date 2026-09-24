@@ -8,6 +8,7 @@ import { applyGroundTint } from '../lib/terrainGroundCurves'
 import { aerodromeDetailVisible, undercastOpacity } from '../lib/worldPersistence'
 import { getAircraftPose } from '../lib/aircraftPose'
 import { createTerrainGroundMaterial } from '../lib/terrainGroundMaterial'
+import { patchDeckDissolve } from '../lib/deckDissolve'
 import { getTerrainSurfaceMaps, hasCachedTerrainSurfaceMaps, TERRAIN_SURFACE_MAP_SIZE, type TerrainSurfaceMaps } from '../lib/terrainSurfaceMaps'
 import { useQualityStore } from '../state/qualityStore'
 import { useAssetState } from '../state/assetState'
@@ -39,7 +40,12 @@ const TERRAIN_RECENTER_STEP = 200
 export function TerrainGround() {
   const meshRef = useRef<Mesh>(null)
   const geometry = useMemo(createTerrainDiscGeometry, [])
-  const { material } = useMemo(createTerrainGroundMaterial, [])
+  const { material } = useMemo(() => {
+    const created = createTerrainGroundMaterial()
+    // Fades with the aerodrome into the closing deck (deckDissolve.ts).
+    patchDeckDissolve(created.material)
+    return created
+  }, [])
   const lastCenter = useRef({ x: Number.NaN, z: Number.NaN })
   const tier = useQualityStore((state) => state.tier)
   const mapSize = TERRAIN_SURFACE_MAP_SIZE[tier]

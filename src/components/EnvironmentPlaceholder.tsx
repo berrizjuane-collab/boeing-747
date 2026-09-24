@@ -15,8 +15,9 @@ import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
 import { TerrainGround } from './TerrainGround'
 import { EXTERIOR_LIGHTS, sampleEnvironmentTheme } from '../lib/environmentTheme'
 import { goldenHourWeight, highAltitudeWeight, sunsetWeight } from '../lib/hdriTheme'
-import { activeProbe, probeIntensityScale } from '../lib/iblSchedule'
-import { getCabinProbe } from '../lib/cabinProbe'
+import { probeBlend } from '../lib/iblSchedule'
+import { getCabinFillTexture } from '../lib/cabinProbe'
+import { ProbeBlender } from '../lib/probeBlender'
 import { duskColorMix, exposureMultiplier } from '../lib/thresholdLighting'
 import { createSkyDomeMaterial } from '../lib/skyDomeMaterial'
 import { exposureState } from '../state/exposureState'
@@ -136,21 +137,23 @@ export function EnvironmentPlaceholder() {
 
   /**
    * plan6 4.3 (A14): the single owner of `scene.environment`. Every probe is
-   * resolved here, including the cabin's — InteriorLighting used to install
-   * its own and restore whatever it found, which meant two components fought
-   * over the same field across S4–S6 and the handover depended on which one
-   * unmounted last. All four probes are convolved up front so no PMREM work
-   * lands on a threshold frame.
+   * an equirectangular source mixed by ProbeBlender, which the renderer then
+   * convolves: hand-overs blend over a short window at each physical crossing
+   * instead of swapping cubemaps (iblSchedule.ts). The blend is quantised,
+   * so a crossing costs a bounded number of convolutions and none at all
+   * while the mix is unchanged.
    */
   const probes = useMemo(
     () => ({
       golden: goldenHourMap,
       highAltitude: highAltitudeMap,
       sunset: sunsetMap,
-      cabin: getCabinProbe(gl),
+      cabin: getCabinFillTexture(),
     }),
-    [gl, goldenHourMap, highAltitudeMap, sunsetMap],
+    [goldenHourMap, highAltitudeMap, sunsetMap],
   )
+  const blender = useMemo(() => new ProbeBlender(), [])
+  useEffect(() => () => blender.dispose(), [blender])
 
   useFrame(() => {
     const { progress } = useScrollStore.getState()
@@ -161,8 +164,9 @@ export function EnvironmentPlaceholder() {
       scene.fog.color.copy(fogColorRef.current)
       scene.fog.density = theme.fogDensity
     }
-    scene.environment = probes[activeProbe(progress)]
-    scene.environmentIntensity = theme.environmentIntensity * probeIntensityScale(progress)
+    const blend = probeBlend(progress)
+    scene.environment = blender.update(gl, probes[blend.from], probes[blend.to], blend.weight)
+    scene.environmentIntensity = theme.environmentIntensity
 
     const revealStart = loadingState.revealStartSeconds
     const loadReveal = qaTime !== null ? 1 : revealStart === null ? 0 : clamp01Reveal((performance.now() / 1000 - revealStart) / LOAD_REVEAL_DURATION)

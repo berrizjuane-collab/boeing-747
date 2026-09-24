@@ -24,9 +24,14 @@ export const UNDERCAST_Y = 14
  * comfortably above the deck itself, so it is closing *under* the aircraft
  * rather than around it.
  */
-export const UNDERCAST_FADE_START = 17
-/** Aircraft altitude at which it is fully closed. The takeoff reaches 31.4. */
-export const UNDERCAST_FADE_END = 27
+export const UNDERCAST_FADE_START = 15
+/**
+ * Aircraft altitude at which it is fully closed. The takeoff reaches 31.4.
+ * 17→27 closed the deck over 1.8 % of the page (0.2465–0.2645), which a
+ * frame-by-frame sweep read as the runway turning into cloud almost at once;
+ * 15→30.5 spreads the same closing over 3 % (0.2435–0.273).
+ */
+export const UNDERCAST_FADE_END = 30.5
 /** Deck opacity past which the aerodrome's fine detail is no longer visible through it. */
 export const DETAIL_CULL_OPACITY = 0.98
 

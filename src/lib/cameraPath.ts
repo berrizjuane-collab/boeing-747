@@ -1,6 +1,6 @@
 import { CatmullRomCurve3, Quaternion, Vector3 } from 'three'
 import { SECTIONS, getActiveSectionIndex } from './sections'
-import { INTERIOR_ANCHORS_WORLD, interiorToWorld } from './sceneLayout'
+import { FLYING_POSE, INTERIOR_ANCHORS_WORLD, interiorToWorld } from './sceneLayout'
 import { cabinRouteSpeed, sampleCabinRoute } from './cabinRoute'
 import { createMotionProfile, type MotionKnot } from './motionProfile'
 import { allocateShotSpans, ROTATION_COST_PER_RADIAN, SHOT_SHEET, type InteriorZoneKey, type ShotBand } from './shotSheet'
@@ -195,6 +195,8 @@ function curveFor(fromIndex: number, toIndex: number): BoundedCurve | null {
   return null
 }
 
+const AIRCRAFT_CENTRE = new Vector3(...FLYING_POSE.position)
+
 const LOOK_DIRECTIONS = KEYFRAMES.map((keyframe) =>
   new Vector3(...keyframe.camTarget).sub(new Vector3(...keyframe.camPos)).normalize(),
 )
@@ -205,6 +207,17 @@ const LOOK_ROTATIONS = LOOK_DIRECTIONS.slice(0, -1).map((direction, index) =>
   new Quaternion().setFromUnitVectors(direction, LOOK_DIRECTIONS[index + 1]),
 )
 const IDENTITY_ROTATION = new Quaternion()
+
+/**
+ * Where a subject-tracking shot looks: the point on its closing keyframe's
+ * look ray at the aircraft's distance, so tracking it ends on exactly that
+ * keyframe's direction and the next shot starts without a turn step.
+ */
+const SUBJECT_POINTS = KEYFRAMES.map((keyframe, index) => {
+  const position = new Vector3(...keyframe.camPos)
+  const distance = position.distanceTo(AIRCRAFT_CENTRE)
+  return position.addScaledVector(LOOK_DIRECTIONS[index], distance)
+})
 
 const INTERIOR_SECTION = SECTIONS[4]
 
@@ -407,6 +420,14 @@ export function sampleCamera(progress: number): SampledCamera {
     lookRotation.slerpQuaternions(IDENTITY_ROTATION, LOOK_ROTATIONS[band.fromIndex], t)
   }
   const lookDirection = LOOK_DIRECTIONS[band.fromIndex].clone().applyQuaternion(lookRotation).normalize()
+  if (band.trackSubject) {
+    const [start, end, skew = 1] = band.trackSubject
+    const u = Math.min(1, Math.max(0, (t - start) / (end - start))) ** skew
+    const weight = u * u * (3 - 2 * u)
+    const toSubject = SUBJECT_POINTS[band.toIndex].clone().sub(position).normalize()
+    const handOver = new Quaternion().setFromUnitVectors(lookDirection, toSubject)
+    lookDirection.applyQuaternion(IDENTITY_ROTATION.clone().slerp(handOver, weight)).normalize()
+  }
   const lookDistance = LOOK_DISTANCES[band.fromIndex] + (LOOK_DISTANCES[band.toIndex] - LOOK_DISTANCES[band.fromIndex]) * t
   const target = position.clone().addScaledVector(lookDirection, lookDistance)
   // A lens change is its own move, not a by-product of how fast the camera

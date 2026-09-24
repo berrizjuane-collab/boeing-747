@@ -1,7 +1,8 @@
 import { measureScreenshot } from './qa-image-metrics.mjs'
 import { createHash } from 'node:crypto'
 import { mkdir, writeFile, readFile } from 'node:fs/promises'
-import { execFileSync, spawn } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
+import { startQaServer } from './qa-server.mjs'
 import path from 'node:path'
 import { chromium } from 'playwright'
 
@@ -43,8 +44,7 @@ let browser, page, server, releaseInterior
 let navigationStartedAt = 0
 try {
   if (!process.env.QA_URL) {
-    server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', ...(process.env.QA_DEV === '1' ? [] : ['preview']), '--host', '127.0.0.1', '--port', '4173', '--strictPort'], { stdio: ['ignore', 'pipe', 'pipe'] })
-    await new Promise((resolve, reject) => { server.stdout.on('data', d => { if (d.toString().includes('Local:')) resolve() }); server.on('error', reject); server.on('exit', code => reject(new Error(`server exited ${code}`))) })
+    server = await startQaServer({ port: Number(process.env.QA_PORT ?? 4173), dev: process.env.QA_DEV === '1' })
   }
   browser = await chromium.launch({ headless: true, executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined, args: ['--no-sandbox', '--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--disable-dev-shm-usage'] })
   report.browser = browser.version()
@@ -52,7 +52,11 @@ try {
   // Lifecycle stress uses reduced motion to revisit mounts without spending
   // hundreds of software-rendered frames integrating each identical stop.
   // Real-clock movement is covered separately by QA_VIDEO.
-  if(process.env.QA_CYCLES==='1' || process.env.QA_SWEEP==='1'){await page.emulateMedia({reducedMotion:'reduce'});report.reducedMotion=true}
+  // QA_REDUCED_MOTION lets editorial captures skip integrating presented
+  // progress at software-rendered frame rates: with time frozen (?time=12)
+  // the settled frame is the same, and QA_VIDEO covers real-clock movement.
+  const reduceMotion = process.env.QA_CYCLES==='1' || process.env.QA_SWEEP==='1' || process.env.QA_REDUCED_MOTION==='1'
+  if(reduceMotion){await page.emulateMedia({reducedMotion:'reduce'});report.reducedMotion=true}
   page.on('response', r => { if(r.status() >= 400)report.errors.push({type:'http',url:r.url(),status:r.status()}) })
   page.on('console', m => { if(m.type()==='error')report.errors.push({type:'console',message:m.text()}) })
   page.on('pageerror', e => report.errors.push({ type: 'page', message: e.message }))
@@ -63,8 +67,8 @@ try {
   })
   if (process.env.QA_INTERIOR_ERROR === '1') await page.route('**/models/interior.glb', route => route.abort())
   if (process.env.QA_SLOW_INTERIOR === '1') await page.route('**/models/interior.glb', async route => { await new Promise(resolve => {releaseInterior=resolve}); await route.continue() })
-  const url = new URL(process.env.QA_URL ?? 'http://127.0.0.1:4173/boeing-747/')
-  if (process.env.QA_CYCLES === '1' || process.env.QA_SWEEP === '1') url.searchParams.set('motion', '3d')
+  const url = new URL(process.env.QA_URL ?? `http://127.0.0.1:${process.env.QA_PORT ?? 4173}/boeing-747/`)
+  if (reduceMotion) url.searchParams.set('motion', '3d')
   url.searchParams.set('qa', '1'); url.searchParams.set('quality', tier)
   if (process.env.QA_VIDEO !== '1') url.searchParams.set('time', '12')
   if (process.env.QA_VIEW) url.searchParams.set('view', process.env.QA_VIEW)
@@ -132,10 +136,17 @@ try {
         }
       }, captureName)
       report.captures.push({ name: captureName, requested: progress, frame: state, imageMetrics, contentCheck })
+      if (captureName === 'threshold') {
+        // The caption must stay a caption: its backdrop once covered the
+        // whole viewport and blacked out the entire nose crossing.
+        const line = await page.evaluate(() => { const el = document.querySelector('.overlay__threshold-line[data-active="true"]'); const r = el?.getBoundingClientRect(); return r ? { area: r.width * r.height / (innerWidth * innerHeight), bg: getComputedStyle(el).backgroundColor } : null })
+        report.thresholdLine = line
+        if (line && line.area > .05) throw new Error(`Threshold caption backdrop covers ${(line.area * 100).toFixed(1)}% of the viewport`)
+      }
       if(captureName==='opening' && imageMetrics.clippedWhitePct>=2)throw new Error('Opening clipped whites >=2%')
       if(captureName==='spec' && imageMetrics.panelContrastEstimate<4.5)throw new Error('Spec contrast <4.5')
       if (captureName === 'takeoff-first' && (contentCheck.activeSection !== 'takeoff' || contentCheck.takeoffRows.filter(row => row.visible).length !== 1)) throw new Error('The 13% editorial stop must show exactly the first takeoff datum')
-      if (captureName === 'spec' && (contentCheck.activeSection !== 'climb' || contentCheck.specRowCount !== 6 || !contentCheck.panelText.includes('Envergadura'))) throw new Error('The spec editorial stop must render all six data rows')
+      if (captureName === 'spec' && (contentCheck.activeSection !== 'climb' || contentCheck.specRowCount !== 6 || !/envergadura/i.test(contentCheck.panelText))) throw new Error('The spec editorial stop must render all six data rows')
       console.log(captureName, state.progress, state.zone, state.memory)
     }
   }
@@ -229,7 +240,9 @@ try {
             const tick=now=>{
               const frame=window.__MERIDIAN_FRAME__
               if(frame && frame.frameId>before+2 && Math.abs(frame.progress-target)<.001 && Math.abs(frame.targetProgress-target)<.001){samples.push(frame);resolve();return}
-              if(now-started>60000){reject(new Error(`Warm-up did not settle at ${target}`));return}
+              // Generous on purpose: on a two-core software renderer a stop that
+              // crosses a probe blend convolves a new environment per frame.
+              if(now-started>180000){reject(new Error(`Warm-up did not settle at ${target}`));return}
               requestAnimationFrame(tick)
             };requestAnimationFrame(tick)
           })

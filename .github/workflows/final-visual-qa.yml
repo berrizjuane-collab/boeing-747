@@ -31,23 +31,49 @@ jobs:
   quality-sweep:
     needs: static-checks
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # Measured with the runner's two cores emulated locally (taskset); see
+    # docs/evidence/round6/inspeccion. The margin is for runner variance.
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
+        # Route sweeps check counters, budgets, resources and progress in
+        # both directions, none of which depend on resolution, so they run
+        # at 960x600. Editorial captures, which are about the picture, keep
+        # 1440x900 in their own job instead of sharing one with a sweep.
         include:
-          - tier: low
+          - name: low
+            tier: low
+            sweep: '1'
             cycles: '1'
             tier_cache: '1'
             captures: none
-          - tier: mid
+            width: '960'
+            height: '600'
+          - name: mid
+            tier: mid
+            sweep: '1'
             cycles: '0'
             tier_cache: '0'
             captures: none
-          - tier: high
+            width: '960'
+            height: '600'
+          - name: high
+            tier: high
+            sweep: '1'
+            cycles: '0'
+            tier_cache: '0'
+            captures: none
+            width: '960'
+            height: '600'
+          - name: high-editorial
+            tier: high
+            sweep: '0'
             cycles: '0'
             tier_cache: '0'
             captures: opening,takeoff-first,takeoff-roll,takeoff-end,climb-entry,spec,threshold,cockpit,economy,stair,upper,exit-opening,exit-middle,exit-end,departure,footer
+            width: '1440'
+            height: '900'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -57,44 +83,45 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run build
-      - name: Sweep the complete route in both directions
+      - name: Run the ${{ matrix.name }} route check
         run: npm run qa:runtime
         env:
           QA_TIER: ${{ matrix.tier }}
           QA_CYCLES: ${{ matrix.cycles }}
           QA_TIER_CACHE: ${{ matrix.tier_cache }}
-          QA_SWEEP: '1'
+          QA_SWEEP: ${{ matrix.sweep }}
           QA_SWEEP_STEP: '0.01'
+          QA_REDUCED_MOTION: '1'
           QA_CAPTURES: ${{ matrix.captures }}
           QA_SOURCE_SHA: ${{ github.sha }}
-          QA_DIR: artifacts/phase7/${{ matrix.tier }}/sweep
-          QA_WIDTH: '1440'
-          QA_HEIGHT: '900'
+          QA_DIR: artifacts/phase7/${{ matrix.name }}
+          QA_WIDTH: ${{ matrix.width }}
+          QA_HEIGHT: ${{ matrix.height }}
           QA_TIMEOUT: '300000'
       - name: Retain route measurements
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: meridian-phase7-${{ matrix.tier }}-report
+          name: meridian-phase7-${{ matrix.name }}-report
           path: |
-            artifacts/phase7/${{ matrix.tier }}/sweep/report.json
-            artifacts/phase7/${{ matrix.tier }}/sweep/failure.png
+            artifacts/phase7/${{ matrix.name }}/report.json
+            artifacts/phase7/${{ matrix.name }}/failure.png
           if-no-files-found: error
           retention-days: 30
 
       - name: Retain High editorial captures for visual review
-        if: always() && matrix.tier == 'high'
+        if: always() && matrix.name == 'high-editorial'
         uses: actions/upload-artifact@v4
         with:
           name: meridian-phase7-high-editorial-captures
-          path: artifacts/phase7/high/sweep/*.png
+          path: artifacts/phase7/high-editorial/*.png
           if-no-files-found: error
           retention-days: 30
 
   dynamic-tour:
     needs: static-checks
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

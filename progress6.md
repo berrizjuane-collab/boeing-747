@@ -426,3 +426,57 @@ artefactos CI y la matriz de GPU física/escritorio/móvil son gates distintos;
 no se declaran aprobados por compilar ni por usar SwiftShader. No se modificó
 el modelo exterior ni se borraron repositorios. Evidencia e instrucciones:
 [`docs/evidence/round6/f7-f8/README.md`](docs/evidence/round6/f7-f8/README.md).
+
+---
+
+# Inspección fotograma a fotograma y reparación de continuidad
+
+Fecha: 2026-09-24. Base: `4ca7d68` (inspección de `3117af2`, evidencia en
+[`docs/evidence/round6/inspeccion`](docs/evidence/round6/inspeccion/README.md)).
+
+## Por qué el CI nunca dio veredicto
+
+Los tres runs de *Final visual QA* sobre F5–F8 se cancelaron a los 60 min sin
+imprimir `runtime-ready`. Causa reproducida: con `CI` definido, picocolors
+colorea la salida de `vite preview` aunque sea una tubería, y la línea queda
+como `\x1b[1mLocal\x1b[22m:`; los tres arneses esperaban `includes('Local:')`
+sin límite de tiempo. `scripts/qa-server.mjs` arranca el servidor con
+`NO_COLOR`, elimina secuencias ANSI y falla en 60 s en vez de colgarse. Además,
+la parada `spec` comparaba `innerText` con «Envergadura», pero
+`text-transform: uppercase` lo devuelve como «ENVERGADURA»: fallaba siempre
+con el panel correcto.
+
+## Saltos corregidos
+
+| Progreso | Antes | Ahora |
+|---|---|---|
+| 0,42–0,50 | `.overlay__threshold-line` (fixed, inset:0) recibió fondo opaco en F6: telón a pantalla completa durante 8 % del scroll | Pastilla del tamaño del texto; el arnés falla si cubre >5 % del viewport |
+| 0,279→0,280 y 0,454→0,456 | Cambio de sonda IBL en un fotograma, con pozo de intensidad al 45 % | Fundido real: `ProbeBlender` mezcla las dos equirectangulares y three convoluciona el resultado (16 pasos, cubo 256). Ventanas en los cruces medidos: morro 0,420 (antes supuesto 0,46), puerta 0,833 |
+| 0,261→0,262 | Bosque del horizonte, terminal y torre (46 m, más alta que el crucero) desaparecían en un fotograma | Dither de disolución en todos los materiales del aeródromo y terreno, completo antes del cull |
+| 0,2465–0,2645 | Capa de nubes cerrada en 1,8 % del scroll | 15→30,5 u de altitud: 3 % (0,2435–0,273) |
+| 0,404–0,412 | Anillo de 5,85 u flotando fuera del morro (~4 u de radio) | Retirado; se conserva el marco de la puerta real |
+| 0,86–0,895 | Avión fuera de cuadro y tras el panel derecho | `S6-break-out` entrega la mirada al avión (`trackSubject`); panel de salida a la izquierda. ≥4 muestras de silueta en cuadro en todo 0,835–0,95 a 16:10; velocidad en pantalla 0,113 (límite 0,12), giro máx. 2,47°/0,001 |
+| S3/S6 | Marcas de navegación invisibles sobre cielo claro | Contorno oscuro de 1 px |
+
+Pruebas: **84/84** (nuevo `tests/inspection-continuity.test.mjs`; 4.3 de la
+fase 4 reescrito: exige fundido continuo y ventanas en los cruces medidos, no
+un pozo). Lint, typecheck y build correctos.
+
+## Presupuesto del CI
+
+Los runners de repos privados tienen dos núcleos. La matriz separa barridos de
+ruta (contadores, presupuestos, memoria y monotonía, independientes de la
+resolución: 960×600) de las 16 capturas editoriales (1440×900, job propio) y
+captura con movimiento reducido y reloj congelado. Límite de 90 min. Tiempos
+medidos localmente con `taskset` a dos núcleos en la sección siguiente.
+
+### Tiempos medidos (Chromium 141 + SwiftShader, `taskset` a dos núcleos, `CI=true`)
+
+| Job | Resultado | Minutos |
+|---|---|---:|
+| high-editorial (16 capturas 1440×900) | pasa | 29 |
+| dynamic-tour (0→1→0 reloj real, Low 960×640) | pasa; salto máx. 0,0125/0,0144, sin errores | 39 |
+
+Un paso de mezcla IBL cuesta ~1,8 s adicionales en software con cubo 256
+(~12 s con cubo 512, descartado). La espera de asentamiento del warm-up del
+tour pasa de 60 s a 180 s por ese motivo; en GPU física es de milisegundos.
