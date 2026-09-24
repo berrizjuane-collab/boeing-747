@@ -66,12 +66,23 @@ jobs:
             captures: none
             width: '960'
             height: '600'
-          - name: high-editorial
+          # Sixteen editorial stops at 1440x900 took over an hour on a
+          # two-core runner in one job; two parallel halves keep every stop
+          # and the resolution while halving wall time.
+          - name: high-editorial-a
             tier: high
             sweep: '0'
             cycles: '0'
             tier_cache: '0'
-            captures: opening,takeoff-first,takeoff-roll,takeoff-end,climb-entry,spec,threshold,cockpit,economy,stair,upper,exit-opening,exit-middle,exit-end,departure,footer
+            captures: opening,takeoff-first,takeoff-roll,takeoff-end,climb-entry,spec,threshold,cockpit
+            width: '1440'
+            height: '900'
+          - name: high-editorial-b
+            tier: high
+            sweep: '0'
+            cycles: '0'
+            tier_cache: '0'
+            captures: economy,stair,upper,exit-opening,exit-middle,exit-end,departure,footer
             width: '1440'
             height: '900'
     steps:
@@ -113,14 +124,14 @@ jobs:
           retention-days: 14
 
       - name: Retain High editorial captures for visual review
-        if: always() && matrix.name == 'high-editorial'
+        if: always() && startsWith(matrix.name, 'high-editorial')
         # Evidence, not the verdict: the check above is what gates Pages.
         # An exhausted artifact quota must not turn a passing run red.
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
-          name: meridian-phase7-high-editorial-captures
-          path: artifacts/phase7/high-editorial/*.png
+          name: meridian-phase7-${{ matrix.name }}-captures
+          path: artifacts/phase7/${{ matrix.name }}/*.png
           if-no-files-found: error
           retention-days: 14
 
