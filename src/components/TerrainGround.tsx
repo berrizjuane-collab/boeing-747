@@ -1,5 +1,5 @@
 import { useFrame } from '@react-three/fiber'
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Vector2, type Mesh } from 'three'
 import { updateCanopyMistColor } from '../lib/canopyMist'
 import { sampleEnvironmentTheme } from '../lib/environmentTheme'
@@ -8,8 +8,9 @@ import { applyGroundTint } from '../lib/terrainGroundCurves'
 import { aerodromeDetailVisible, undercastOpacity } from '../lib/worldPersistence'
 import { getAircraftPose } from '../lib/aircraftPose'
 import { createTerrainGroundMaterial } from '../lib/terrainGroundMaterial'
-import { createTerrainSurfaceMaps, TERRAIN_SURFACE_MAP_SIZE } from '../lib/terrainSurfaceMaps'
+import { getTerrainSurfaceMaps, hasCachedTerrainSurfaceMaps, TERRAIN_SURFACE_MAP_SIZE, type TerrainSurfaceMaps } from '../lib/terrainSurfaceMaps'
 import { useQualityStore } from '../state/qualityStore'
+import { useAssetState } from '../state/assetState'
 import { useScrollStore } from '../state/scrollStore'
 import { terrainGenerationStats } from '../state/terrainGenerationStats'
 
@@ -41,31 +42,39 @@ export function TerrainGround() {
   const { material } = useMemo(createTerrainGroundMaterial, [])
   const lastCenter = useRef({ x: Number.NaN, z: Number.NaN })
   const tier = useQualityStore((state) => state.tier)
+  const mapSize = TERRAIN_SURFACE_MAP_SIZE[tier]
+  const [surfaceMaps, setSurfaceMaps] = useState<TerrainSurfaceMaps | null>(null)
 
-  // plan4.md G2/04-04: regenerated only when the tier actually changes
-  // (TERRAIN_SURFACE_MAP_SIZE keyed by tier), not every frame — texture
-  // generation is the ~1M-texel cost budgeted in progress4.md 04-04, not a
-  // per-frame one. Disposed on regeneration/unmount so switching tiers
-  // doesn't leak the previous tier's GPU textures (same pattern
-  // ExteriorAsset.tsx already uses for aircraftSurfaceMaps' textures).
-  const surfaceMaps = useMemo(() => {
-    const startedAt = performance.now()
-    const maps = createTerrainSurfaceMaps(TERRAIN_SURFACE_MAP_SIZE[tier])
-    terrainGenerationStats.lastGenerationMs = performance.now() - startedAt
-    return maps
-  }, [tier])
+  // Generate the large CPU maps in a module worker. The cache key is actual
+  // resolution, so High↔Mid reuses the same 1024² payload and Low can return
+  // to its already-generated 512² set without a main-thread hitch.
   useEffect(() => {
+    let active = true
+    const startedAt = performance.now()
+    const cached = hasCachedTerrainSurfaceMaps(mapSize)
+    getTerrainSurfaceMaps(mapSize).then((maps) => {
+      if (!active) return
+      terrainGenerationStats.lastGenerationMs = cached ? 0 : performance.now() - startedAt
+      terrainGenerationStats.mapSize = mapSize
+      if (cached) terrainGenerationStats.cacheHitCount += 1
+      else terrainGenerationStats.generatedMapCount += 1
+      terrainGenerationStats.ready = true
+      setSurfaceMaps(maps)
+    }).catch((error: Error) => {
+      if (active) useAssetState.getState().set('environment', 'error', error.message)
+    })
+    return () => { active = false }
+  }, [mapSize])
+  useEffect(() => {
+    if (!surfaceMaps) return
     material.map = surfaceMaps.albedo
     material.normalMap = surfaceMaps.normal
     material.normalScale = TERRAIN_NORMAL_SCALE
     material.roughnessMap = surfaceMaps.roughness
     material.roughness = 1
     material.needsUpdate = true
-    return () => {
-      surfaceMaps.albedo.dispose()
-      surfaceMaps.normal.dispose()
-      surfaceMaps.roughness.dispose()
-    }
+    // `surfaceMapCache` owns these resources across tier changes and scene
+    // remounts; disposing them here would poison a later cache hit.
   }, [material, surfaceMaps])
 
   useFrame(({ camera }) => {
@@ -99,7 +108,7 @@ export function TerrainGround() {
     // cloud deck above it is closed (worldPersistence.ts). The world now
     // goes away because something covers it, not because scroll passed a
     // number.
-    mesh.visible = aerodromeDetailVisible(undercastOpacity(getAircraftPose(progress).altitude))
+    mesh.visible = surfaceMaps !== null && aerodromeDetailVisible(undercastOpacity(getAircraftPose(progress).altitude))
   })
 
   return <mesh ref={meshRef} name="Environment · Terrain ground" geometry={geometry} material={material} receiveShadow />

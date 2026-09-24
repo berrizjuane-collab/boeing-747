@@ -15,7 +15,7 @@ function linearChannel(byte) {
   return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
 }
 
-export async function measureScreenshot(file, panelBounds) {
+export async function measureScreenshot(file, panelBounds, chromeBounds = [], deviceScaleFactor = 1) {
   const { data, info } = await sharp(file).removeAlpha().raw().toBuffer({ resolveWithObject: true })
   const luminanceHistogram = new Uint32Array(256)
   let lumaSum = 0
@@ -41,12 +41,18 @@ export async function measureScreenshot(file, panelBounds) {
     panelContrastEstimate: null,
   }
 
-  const horizon = horizonMetrics(data, info)
+  // These narrow side rails stay outside the centered aircraft/terminal
+  // footprint in the outdoor editorial frames. DOM chrome is independently
+  // masked by measured bounds so it cannot become the strongest edge.
+  const roiXRanges = [[0, 0.04], [0.96, 1]]
+  const metricOptions = { xRanges: roiXRanges, excludeRects: [panelBounds, ...chromeBounds].filter(Boolean), deviceScaleFactor }
+  const horizon = horizonMetrics(data, info, metricOptions)
   result.horizonRow = horizon.horizonRow
   result.horizonStepEstimate = horizon.horizonStepEstimate
   result.horizonStepMedian = horizon.horizonStepMedian
   result.horizonStepRatio = horizon.horizonStepRatio
-  result.groundDetailEnergy = groundDetailEnergy(data, info, horizon.horizonRow)
+  result.groundDetailEnergy = groundDetailEnergy(data, info, horizon.horizonRow, metricOptions)
+  result.horizonRoi = { xRanges: roiXRanges, excludedDomRects: metricOptions.excludeRects.length, deviceScaleFactor }
 
   if (panelBounds) {
     const left = Math.max(0, Math.floor(panelBounds.x + 4))
@@ -77,4 +83,3 @@ export async function measureScreenshot(file, panelBounds) {
 
   return result
 }
-

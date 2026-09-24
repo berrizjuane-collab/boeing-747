@@ -1,4 +1,4 @@
-import { Bloom, DepthOfField, EffectComposer, GodRays, Noise, SMAA, ToneMapping, Vignette } from '@react-three/postprocessing'
+import { Bloom, DepthOfField, EffectComposer, FXAA, GodRays, Noise, SMAA, ToneMapping, Vignette } from '@react-three/postprocessing'
 import { useFrame } from '@react-three/fiber'
 import { SMAAPreset, type DepthOfFieldEffect, type GodRaysEffect } from 'postprocessing'
 import { useRef, type JSX, type RefObject } from 'react'
@@ -63,21 +63,15 @@ export function PostFX({ sunRef }: { sunRef: RefObject<Mesh | null> }) {
   })
 
   if (settings.postProcessing === 'toneMappingOnly') {
-    // No <SMAA> here: SMAA is a real multi-pass technique (edge detection +
-    // blend weights + neighborhood blend), not something `postprocessing`
-    // can fold into the single blended pass the other effects below share —
-    // measured at +3 draw calls (Mobile Low hero 8->11), which pushed past
-    // Fase 0 item 02's own already-verified ≤10 target even though it's
-    // nowhere near the real <100 tier ceiling (plan3.md §6). This tier is
-    // deliberately "tone mapping and nothing else" (PLAN.md §7.1) for the
-    // weakest hardware the site targets; keeping that floor tier's Fase 0
-    // number intact won over paying for AA on exactly the devices this
-    // budget exists to protect.
+    // FXAA stays in the composer's merged screen pass. SMAA needs extra
+    // intermediate passes, so the floor tier keeps its draw-call budget
+    // while still antialiasing moving silhouettes.
     return (
       <EffectComposer multisampling={0}>
         <ExposurePass />
         <SectionGrade />
         <ToneMapping mode={ACTIVE_TONE_MAPPING_MODE} />
+        <FXAA />
       </EffectComposer>
     )
   }

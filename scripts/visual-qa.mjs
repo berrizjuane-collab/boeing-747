@@ -206,11 +206,17 @@ async function screenshot(page, name, progress) {
       panelBounds: bounds
         ? { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height }
         : null,
+      chromeBounds: [document.querySelector('.site-nav'), document.querySelector('.debug-hud')]
+        .filter(Boolean)
+        .map((element) => {
+          const rect = element.getBoundingClientRect()
+          return { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
+        }),
       quality,
       performance: window.__MERIDIAN_PERF__ ?? null,
     }
   })
-  const imageMetrics = await measureScreenshot(target, state.panelBounds)
+  const imageMetrics = await measureScreenshot(target, state.panelBounds, state.chromeBounds, 1)
   report.captures.push({ name, progress, ...state, imageMetrics })
   console.log(
     `[visual-qa] captured ${name}: ${state.quality ?? 'unknown'} · ` +

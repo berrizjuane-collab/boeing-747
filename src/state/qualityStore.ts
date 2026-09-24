@@ -13,6 +13,7 @@ export type QualityTier = 'high' | 'mid' | 'low'
 export interface TierSettings {
   label: string
   dprMax: number
+  antialiasing: 'fxaa' | 'smaa'
   /** §7.1's own grouping — 'full' also includes godrays as the desktop-high
    * enhancement per §7.4 (godrays isn't its own row in the tier table). */
   postProcessing: 'full' | 'bloomVignette' | 'toneMappingOnly'
@@ -36,6 +37,7 @@ export const TIER_SETTINGS: Record<QualityTier, TierSettings> = {
   high: {
     label: 'Desktop High',
     dprMax: 2.0,
+    antialiasing: 'smaa',
     postProcessing: 'full',
     particlesPct: 1,
     interiorRealtimeShadows: true,
@@ -43,6 +45,7 @@ export const TIER_SETTINGS: Record<QualityTier, TierSettings> = {
   mid: {
     label: 'Desktop Low / Mobile High',
     dprMax: 1.5,
+    antialiasing: 'smaa',
     postProcessing: 'bloomVignette',
     particlesPct: 0.4,
     interiorRealtimeShadows: false,
@@ -50,6 +53,7 @@ export const TIER_SETTINGS: Record<QualityTier, TierSettings> = {
   low: {
     label: 'Mobile Low',
     dprMax: 1.0,
+    antialiasing: 'fxaa',
     postProcessing: 'toneMappingOnly',
     particlesPct: 0,
     interiorRealtimeShadows: false,

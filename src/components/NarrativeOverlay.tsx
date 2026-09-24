@@ -10,15 +10,9 @@ import {
   THRESHOLD_LINE,
 } from '../lib/content'
 import { localProgress, SECTIONS } from '../lib/sections'
+import { TAKEOFF_REVEAL_AT } from '../lib/narrativeLayout'
 import { useScrollStore } from '../state/scrollStore'
 import { usePresentedActive } from '../lib/usePresentedActive'
-
-// Fraction of S2's own local progress (0..1) at which each TAKEOFF_DATA
-// item reveals — PLAN.md §3 S2 asks for data "disparados progresivamente
-// conforme avanza el scroll", not all four together on section entry.
-// Needs its own rAF loop rather than the activeIndex hook: activeIndex only
-// changes once for all of S2, which is too coarse for a reveal *within* it.
-const TAKEOFF_REVEAL_AT = [0.08, 0.32, 0.58, 0.8]
 
 function TakeoffData() {
   const itemRefs = useRef<(HTMLLIElement | null)[]>([])

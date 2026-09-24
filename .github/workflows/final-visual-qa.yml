@@ -2,6 +2,11 @@ name: Final visual QA
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - 'README.md'
+      - 'plan6.md'
+      - 'progress6.md'
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -22,7 +27,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run lint && npm test && npm run qa:hdri && npm run qa:interior && npm run build
-  visual-evidence:
+
+  quality-sweep:
     needs: static-checks
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -30,15 +36,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: low
-            tier: low
-            video: '0'
-          - name: high
-            tier: high
-            video: '0'
-          - name: tour
-            tier: low
-            video: '1'
+          - tier: low
+            cycles: '1'
+            tier_cache: '1'
+            captures: none
+          - tier: mid
+            cycles: '0'
+            tier_cache: '0'
+            captures: none
+          - tier: high
+            cycles: '0'
+            tier_cache: '0'
+            captures: opening,takeoff-first,takeoff-roll,takeoff-end,climb-entry,spec,threshold,cockpit,economy,stair,upper,exit-opening,exit-middle,exit-end,departure,footer
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -46,24 +55,75 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium ffmpeg
+      - run: npx playwright install --with-deps chromium
       - run: npm run build
-      - name: Capture verified frames (fixed tier before first render)
+      - name: Sweep the complete route in both directions
         run: npm run qa:runtime
         env:
           QA_TIER: ${{ matrix.tier }}
-          QA_BUTTON: ${{ matrix.name == 'low' && '1' || '0' }}
-          QA_VIDEO: ${{ matrix.video }}
+          QA_CYCLES: ${{ matrix.cycles }}
+          QA_TIER_CACHE: ${{ matrix.tier_cache }}
+          QA_SWEEP: '1'
+          QA_SWEEP_STEP: '0.01'
+          QA_CAPTURES: ${{ matrix.captures }}
           QA_SOURCE_SHA: ${{ github.sha }}
-          QA_DIR: artifacts/phase6/${{ matrix.name }}
+          QA_DIR: artifacts/phase7/${{ matrix.tier }}/sweep
           QA_WIDTH: '1440'
           QA_HEIGHT: '900'
-          QA_TIMEOUT: '600000'
-      - name: Upload evidence including partial failure report
+          QA_TIMEOUT: '300000'
+      - name: Retain route measurements
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: meridian-phase6-${{ matrix.name }}
-          path: artifacts/phase6
+          name: meridian-phase7-${{ matrix.tier }}-report
+          path: |
+            artifacts/phase7/${{ matrix.tier }}/sweep/report.json
+            artifacts/phase7/${{ matrix.tier }}/sweep/failure.png
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Retain High editorial captures for visual review
+        if: always() && matrix.tier == 'high'
+        uses: actions/upload-artifact@v4
+        with:
+          name: meridian-phase7-high-editorial-captures
+          path: artifacts/phase7/high/sweep/*.png
+          if-no-files-found: error
+          retention-days: 30
+
+  dynamic-tour:
+    needs: static-checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - name: Scroll continuously from 0 to 100 percent and back
+        run: npm run qa:runtime
+        env:
+          QA_TIER: low
+          QA_VIDEO: '1'
+          QA_RECORD_VIDEO: '1'
+          QA_CAPTURES: none
+          QA_SOURCE_SHA: ${{ github.sha }}
+          QA_DIR: artifacts/phase8/dynamic-tour
+          QA_WIDTH: '960'
+          QA_HEIGHT: '640'
+          QA_TIMEOUT: '300000'
+      - name: Retain movement report and full-route video
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: meridian-phase8-tour-report
+          path: |
+            artifacts/phase8/dynamic-tour/report.json
+            artifacts/phase8/dynamic-tour/*.webm
+            artifacts/phase8/dynamic-tour/failure.png
           if-no-files-found: error
           retention-days: 30

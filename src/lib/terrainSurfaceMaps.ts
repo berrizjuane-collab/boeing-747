@@ -17,6 +17,22 @@ export interface TerrainSurfaceMaps {
   roughnessRange: readonly [number, number]
 }
 
+// The terrain material is shared for the lifetime of the scene. High and
+// Mid intentionally resolve to the same 1024px maps; keeping a tiny cache by
+// the actual generation parameters avoids rebuilding a million texels when
+// switching between those tiers, or when returning from Low. The cache owns
+// these textures until the page itself is discarded.
+const surfaceMapCache = new Map<number, Promise<TerrainSurfaceMaps>>()
+const readyMapSizes = new Set<number>()
+
+export interface TerrainSurfaceMapPayload {
+  size: number
+  albedoData: Uint8Array
+  normalData: Uint8Array
+  roughnessData: Uint8Array
+  roughnessRange: readonly [number, number]
+}
+
 /**
  * plan4.md G2/§3.9: tier-scaled per §04-04's declared budget (high/mid
  * 1024², low 512²) — the same tier already threading through
@@ -159,7 +175,7 @@ function albedoAt(u: number, v: number, mask: number): Color {
  * only adds normal/roughness), there's no base terrain photograph to
  * preserve here.
  */
-export function createTerrainSurfaceMaps(size: number): TerrainSurfaceMaps {
+export function createTerrainSurfaceMapPayload(size: number): TerrainSurfaceMapPayload {
   const albedoData = new Uint8Array(size * size * 4)
   const normalData = new Uint8Array(size * size * 4)
   const roughnessData = new Uint8Array(size * size * 4)
@@ -211,38 +227,80 @@ export function createTerrainSurfaceMaps(size: number): TerrainSurfaceMaps {
     }
   }
 
-  const albedo = new DataTexture(albedoData, size, size, RGBAFormat, UnsignedByteType)
-  albedo.name = 'MERIDIAN_terrain_albedo'
-  albedo.colorSpace = SRGBColorSpace
-  albedo.wrapS = RepeatWrapping
-  albedo.wrapT = RepeatWrapping
-  albedo.magFilter = LinearFilter
-  albedo.minFilter = LinearMipmapLinearFilter
-  albedo.generateMipmaps = true
-  albedo.needsUpdate = true
-
-  const normal = new DataTexture(normalData, size, size, RGBAFormat, UnsignedByteType)
-  normal.name = 'MERIDIAN_terrain_normal'
-  normal.wrapS = RepeatWrapping
-  normal.wrapT = RepeatWrapping
-  normal.magFilter = LinearFilter
-  normal.minFilter = LinearMipmapLinearFilter
-  normal.generateMipmaps = true
-  normal.needsUpdate = true
-
-  const roughness = new DataTexture(roughnessData, size, size, RGBAFormat, UnsignedByteType)
-  roughness.name = 'MERIDIAN_terrain_roughness'
-  roughness.wrapS = RepeatWrapping
-  roughness.wrapT = RepeatWrapping
-  roughness.magFilter = LinearFilter
-  roughness.minFilter = LinearMipmapLinearFilter
-  roughness.generateMipmaps = true
-  roughness.needsUpdate = true
-
   return {
-    albedo,
-    normal,
-    roughness,
+    size,
+    albedoData,
+    normalData,
+    roughnessData,
     roughnessRange: [roughnessMin / 255, roughnessMax / 255],
   }
+}
+
+function makeTexture(data: Uint8Array, size: number, name: string, srgb = false): DataTexture {
+  const texture = new DataTexture(data, size, size, RGBAFormat, UnsignedByteType)
+  texture.name = name
+  if (srgb) texture.colorSpace = SRGBColorSpace
+  texture.wrapS = RepeatWrapping
+  texture.wrapT = RepeatWrapping
+  texture.magFilter = LinearFilter
+  texture.minFilter = LinearMipmapLinearFilter
+  texture.generateMipmaps = true
+  texture.needsUpdate = true
+  return texture
+}
+
+export function createTerrainSurfaceMapsFromPayload(payload: TerrainSurfaceMapPayload): TerrainSurfaceMaps {
+  const { size } = payload
+  const albedo = makeTexture(payload.albedoData, size, 'MERIDIAN_terrain_albedo', true)
+  const normal = makeTexture(payload.normalData, size, 'MERIDIAN_terrain_normal')
+  const roughness = makeTexture(payload.roughnessData, size, 'MERIDIAN_terrain_roughness')
+
+  return { albedo, normal, roughness, roughnessRange: payload.roughnessRange }
+}
+
+export function createTerrainSurfaceMaps(size: number): TerrainSurfaceMaps {
+  return createTerrainSurfaceMapsFromPayload(createTerrainSurfaceMapPayload(size))
+}
+
+function createTerrainSurfaceMapsInWorker(size: number): Promise<TerrainSurfaceMaps> {
+  if (typeof Worker === 'undefined') return Promise.resolve(createTerrainSurfaceMaps(size))
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(new URL('./terrainSurfaceMaps.worker.ts', import.meta.url), { type: 'module' })
+    worker.onmessage = (event: MessageEvent<TerrainSurfaceMapPayload>) => {
+      worker.terminate()
+      resolve(createTerrainSurfaceMapsFromPayload(event.data))
+    }
+    worker.onerror = (event) => {
+      worker.terminate()
+      reject(new Error(event.message || 'Terrain texture worker failed'))
+    }
+    worker.postMessage({ size })
+  })
+}
+
+export function getTerrainSurfaceMaps(size: number): Promise<TerrainSurfaceMaps> {
+  const cached = surfaceMapCache.get(size)
+  if (cached) return cached
+  const promise = createTerrainSurfaceMapsInWorker(size)
+    .catch(() => createTerrainSurfaceMaps(size))
+    .then((maps) => { readyMapSizes.add(size); return maps })
+  surfaceMapCache.set(size, promise)
+  return promise
+}
+
+export function hasCachedTerrainSurfaceMaps(size: number): boolean {
+  return readyMapSizes.has(size)
+}
+
+/** Useful for isolated tests and explicit scene shutdowns. */
+export async function disposeTerrainSurfaceMapCache(): Promise<void> {
+  const entries = [...surfaceMapCache.values()]
+  surfaceMapCache.clear()
+  const maps = await Promise.all(entries)
+  for (const set of maps) {
+    set.albedo.dispose()
+    set.normal.dispose()
+    set.roughness.dispose()
+  }
+  readyMapSizes.clear()
 }

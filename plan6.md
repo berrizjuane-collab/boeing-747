@@ -4,6 +4,14 @@
 [`progress6.md`](./progress6.md). La planificación original sigue abajo; sus
 criterios de aceptación no se dan por cumplidos sólo por implementar código.
 
+**Actualización 2026-09-24:** F7/F8 tienen instrumentación, caché/worker de
+terreno, regresión de ida/vuelta, capturas/vídeo retenidos y Pages condicionado
+al mismo SHA. Pruebas locales: 82/82, lint, build, HDRI y GLB interior pasan.
+El runner recuperado no tiene Chromium; el resultado de la matriz CI queda
+pendiente y no se certifica rendimiento en GPU física. La revisión visual de
+los artefactos CI también queda pendiente. Ver [`progress6.md`](./progress6.md)
+y la [evidencia F7–F8](./docs/evidence/round6/f7-f8/README.md).
+
 **Fecha:** 2026-09-18. **Estado:** planificación; ninguna corrección implementada en esta ronda.
 
 **Repositorio:** `berrizjuane-collab/boeing-747`. **Base auditada:** `52725ba2225351ecf350f06e06be564c65cb6ddd` (`main`).

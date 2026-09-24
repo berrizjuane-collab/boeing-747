@@ -6,8 +6,8 @@ after(() => server.close())
 const { PAPI_BANKS, papiSignal } = await server.ssrLoadModule('/src/lib/approachLights.ts')
 const { HANGARS, TAXIWAY, TERMINAL } = await server.ssrLoadModule('/src/lib/airportLayout.ts')
 const { RUNWAY_WIDTH } = await server.ssrLoadModule('/src/lib/runwayGeometry.ts')
-const { SECTION_DESTINATIONS } = await server.ssrLoadModule('/src/lib/narrativeLayout.ts')
-const { SECTIONS } = await server.ssrLoadModule('/src/lib/sections.ts')
+const { SECTION_DESTINATIONS, TAKEOFF_REVEAL_AT } = await server.ssrLoadModule('/src/lib/narrativeLayout.ts')
+const { SECTIONS, localProgress } = await server.ssrLoadModule('/src/lib/sections.ts')
 const { deriveScrollSnapshot } = await server.ssrLoadModule('/src/state/scrollStore.ts')
 
 test('F5: hangar footprints clear the runway, taxiway, terminal and each other', () => {
@@ -32,4 +32,9 @@ test('F5: both PAPI banks read four red below path, two/two on path, four white 
 test('F6: section navigation lands inside each section, with a readable cockpit dwell', () => {
   SECTION_DESTINATIONS.forEach((p,i)=>assert.ok(p>SECTIONS[i].start && p<SECTIONS[i].end))
   assert.equal(deriveScrollSnapshot(SECTION_DESTINATIONS[4]).interiorZone,'cockpit')
+})
+test('F6: the first S2 data row is visible at the editorial 13% stop', () => {
+  const local = localProgress(0.13, SECTIONS[1])
+  assert.ok(local >= TAKEOFF_REVEAL_AT[0])
+  assert.ok(local < TAKEOFF_REVEAL_AT[1])
 })

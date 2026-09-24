@@ -8,6 +8,7 @@ import { FLYING_POSE, INTERIOR_LOCAL_OFFSET, interiorToWorld, INTERIOR_MANIFEST 
 import { qaView, qaWireframe, qaZoneColors } from '../lib/qaConfig'
 import { useAssetState } from '../state/assetState'
 import { useScrollStore } from '../state/scrollStore'
+import { renderPreparationStats } from '../state/renderPreparationStats'
 
 useGLTF.setDecoderPath(`${import.meta.env.BASE_URL}draco/`)
 // Cache ownership matches useGLTF's URL cache. No per-mount disposal of a
@@ -76,6 +77,7 @@ export function InteriorAsset() {
     status.set('interior', 'prepared')
     // Upload textures and compile the prepared materials before releasing
     // the threshold. Scene is still invisible to the user behind S0/S4.
+    const uploadStartedAt = performance.now()
     const textures = new Set<unknown>()
     resource.scene.traverse((object) => {
       const material = (object as Mesh).material as MeshStandardMaterial | undefined
@@ -84,7 +86,10 @@ export function InteriorAsset() {
         if (value?.isTexture && !textures.has(value)) { textures.add(value); gl.initTexture(value) }
       }
     })
+    renderPreparationStats.textureUploadMs = performance.now() - uploadStartedAt
+    const compileStartedAt = performance.now()
     gl.compileAsync(resource.scene, camera, scene).then(() => {
+      renderPreparationStats.shaderCompileWaitMs = performance.now() - compileStartedAt
       if (live) status.set('interior', 'ready')
     }).catch((error: Error) => { if (live) status.set('interior', 'error', error.message) })
     return () => { live = false }

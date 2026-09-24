@@ -16,8 +16,14 @@ Implementación de las primeras tres fases del plan 6 (**0, 1 y 2**): diagnósti
 reproducible, progreso presentado único, preparación real y recuperación de
 assets, propiedad estable de recursos y reconstrucción/registro de la cabina.
 Consulta resultados y límites en `progress6.md` y el contrato geométrico en
-[`INTERIOR_LAYOUT.md`](./INTERIOR_LAYOUT.md). Las fases 3–7 siguen pendientes:
-coreografía, transiciones, materiales/iluminación, móvil y rendimiento final.
+[`INTERIOR_LAYOUT.md`](./INTERIOR_LAYOUT.md). Las fases 3–6 tienen avances
+documentados pero conservan gates visuales de aceptación abiertos. F7/F8 ya
+tienen instrumentación, regresión completa y
+despliegue condicionado al mismo SHA; sus resultados y límites quedan en
+[`progress6.md`](./progress6.md) y
+[`evidencia F7–F8`](./docs/evidence/round6/f7-f8/README.md). La aceptación de
+frame pacing en GPU física y la revisión visual final siguen explícitamente
+pendientes.
 
 ## Desarrollo
 
@@ -134,7 +140,11 @@ estática al activar movimiento reducido, paneles adaptables y hotspots con
 oclusión. Se completó el trabajo de acabado pendiente en vegetación,
 aeropuerto y atmósfera. Ver [progress6.md](progress6.md) y la
 [evidencia F5–F6](docs/evidence/round6/f5-f6/README.md).
-Las fases F7 (rendimiento) y F8 (regresión/cierre global) siguen pendientes.
+F7 instrumenta el coste de terreno, texturas, shaders, recorrido y recursos;
+F8 ejecuta regresión ida/vuelta, conserva capturas y vídeo en artefactos CI, y
+solo permite Pages después de que el mismo SHA pase QA. Los límites de la
+validación y los gates aún abiertos están en
+[`evidencia F7–F8`](./docs/evidence/round6/f7-f8/README.md).
 
 ```bash
 node scripts/narrative-qa.mjs

@@ -370,3 +370,59 @@ cielo 236,29; blancos recortados 0 % en ambas. La comparación intermedia de
 once capturas queda registrada como calibración, no como imagen final aprobada.
 Las capturas no se subieron: la revisión automática rechazó su publicación
 sin autorización explícita; los informes y comandos quedan en el repositorio.
+
+---
+
+# Implementación de F7 y cierre de regresión F8
+
+Fecha: 2026-09-24. Base de `main` revisada antes del cambio:
+`736cce46223535fc0ef97d3dabeee3d7d829be0f`. El trabajo cubre la
+instrumentación/rendimiento de F7 y la infraestructura de regresión/publicación
+de F8. No se atribuye aquí resultado a una corrida CI todavía pendiente.
+
+## F7 — rendimiento medible y adaptación por tier
+
+- Los mapas del terreno se generan en un Web Worker y transfieren los tres
+  buffers de píxeles. El caché se indexa por resolución efectiva, por lo que
+  High y Mid comparten 1024²; Low conserva su conjunto 512². Las métricas
+  exponen tiempo, tamaño, cantidad de generaciones y reutilizaciones.
+- `StatsCollector` añade subida de texturas y espera real de `compileAsync` a
+  la telemetría. El runtime QA conserva arranque frío, primera entrada,
+  repetición caliente, frame time/FPS, draw calls, triángulos, memoria y tareas
+  largas.
+- Auto-tier espera el warm-up, ignora pestañas ocultas y frames anómalos, y
+  decide a partir de p95 sostenido. Una selección manual desactiva cambios
+  posteriores. FXAA da antialiasing también a Low sin sumar el coste de los
+  pases SMAA; los tiers siguen gobernando partículas, haces, sombras y DPR.
+- El QA de runtime verifica presupuestos Low/Mid/High en cada punto del
+  recorrido. La matriz CI está configurada para escanear 0→1→0 cada 0,01;
+  Low también verifica ciclos y transiciones Low→High→Mid→Low.
+
+Pruebas locales: **82/82**, lint, build, HDRI y GLB interior pasan. HDRI máximo
+mean/median ratio 1,923/2,339. El GLB conserva 266 asientos, 69.129 triángulos,
+46 batches y ownership/anchors opacos aprobados. Sigue la advertencia de bundle
+(1.593,35 kB minificado, 485,50 kB gzip). Esta copia no tenía Chromium: el
+barrido visual/rendimiento debe quedar acreditado por CI. Su SwiftShader no
+podrá certificar FPS de GPU física.
+
+## F8 — regresión, evidencia y despliegue seguro
+
+- Las 16 paradas editoriales comprueban el frame presentado, zona DOM, datos,
+  contraste y recorte; el sweep mide progreso en ambos sentidos. El recorrido
+  dinámico cubre 0–100–0, informa frame pacing, saltos y long tasks.
+- La detección del horizonte y el detalle del suelo usan bandas laterales y
+  máscaras DOM explícitas; las pruebas F8 comprueban exclusión de paneles,
+  avión y edificios centrales.
+- El arnés falla si faltan métricas de frame/memoria o exceden presupuestos.
+  Actions conservará reportes, las capturas High y el vídeo WebM por 30 días.
+- Pages se ejecuta mediante `workflow_run` de `Final visual QA`; exige
+  conclusión verde de un evento `push` en `main` y construye exactamente el
+  `head_sha` validado. Se respetan las condiciones de Pages para el repo
+  privado.
+
+Estado al registrar esta entrada: workflow configurado, verificación local
+estática aprobada, runtime CI aún no completado. La revisión visual de los
+artefactos CI y la matriz de GPU física/escritorio/móvil son gates distintos;
+no se declaran aprobados por compilar ni por usar SwiftShader. No se modificó
+el modelo exterior ni se borraron repositorios. Evidencia e instrucciones:
+[`docs/evidence/round6/f7-f8/README.md`](docs/evidence/round6/f7-f8/README.md).

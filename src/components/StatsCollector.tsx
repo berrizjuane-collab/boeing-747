@@ -10,6 +10,7 @@ import { ACTIVE_TONE_MAPPING_LABEL } from '../lib/postFxConfig'
 import { perfStats } from '../state/perfStats'
 import { exposureState } from '../state/exposureState'
 import { terrainGenerationStats } from '../state/terrainGenerationStats'
+import { renderPreparationStats } from '../state/renderPreparationStats'
 
 declare global {
   interface Window {
@@ -36,6 +37,11 @@ declare global {
        * against the plan3.md §3.2 80-200ms estimate instead of trusting it
        * unverified. Null until the terrain texture has generated once. */
       terrainGenerationMs: number | null
+      terrainMapSize: number | null
+      terrainGeneratedMapCount: number
+      terrainCacheHitCount: number
+      textureUploadMs: number | null
+      shaderCompileWaitMs: number | null
     }
   }
 }
@@ -130,10 +136,16 @@ export function StatsCollector() {
       sceneEnvironmentIsNull: scene.environment === null,
       effectiveExposure: exposureState.value,
       terrainGenerationMs: terrainGenerationStats.lastGenerationMs,
+      terrainMapSize: terrainGenerationStats.mapSize,
+      terrainGeneratedMapCount: terrainGenerationStats.generatedMapCount,
+      terrainCacheHitCount: terrainGenerationStats.cacheHitCount,
+      textureUploadMs: renderPreparationStats.textureUploadMs,
+      shaderCompileWaitMs: renderPreparationStats.shaderCompileWaitMs,
     }
     if (gl.info.render.calls > 0) {
       for (const key of ['exterior', 'environment'] as const) {
-        if (useAssetState.getState().assets[key].stage === 'prepared') useAssetState.getState().set(key, 'ready')
+        const terrainReady = key !== 'environment' || terrainGenerationStats.ready
+        if (terrainReady && useAssetState.getState().assets[key].stage === 'prepared') useAssetState.getState().set(key, 'ready')
       }
     }
     const scroll = useScrollStore.getState()
