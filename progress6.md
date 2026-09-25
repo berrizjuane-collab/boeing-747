@@ -518,3 +518,12 @@ ascenso, con transiciones suavizadas (paso máximo 0,02 NDC por 0,001) y cero
 en retrato, cabina y salida. Muestras de silueta bajo un panel entre 0 y
 0,425: **2.092 → 644**. El suelo terracota se conserva por decisión del
 propietario.
+
+### Primer despliegue (2026-09-25)
+
+Con el repositorio público y Pages en modo *GitHub Actions*, *Final visual
+QA* **#54** sobre `1f38638` pasó en 21 min (runners de cuatro núcleos) y
+*Deploy to GitHub Pages* **#23** ejecutó `verify-qa`, `build` y `deploy`:
+`https://berrizjuane-collab.github.io/boeing-747/` sirve exactamente ese SHA.
+Pendiente fuera del alcance de esta sesión: frame pacing en GPU física y
+dispositivos reales (toda la verificación usó SwiftShader).
