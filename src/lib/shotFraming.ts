@@ -134,3 +134,47 @@ export function landmarkScreenSpeed(progress: number, landmark: Vector3, aspect:
   const dy = after.y - before.y
   return Math.hypot(dx, dy) / (2 * step)
 }
+
+/**
+ * Composition offset, in NDC x, applied as a lens shift (CameraRig's
+ * setViewOffset): the subject is composed into the part of a landscape frame
+ * the section copy leaves free, without turning the camera or changing
+ * perspective. Positive moves the picture right, away from a left-hand
+ * panel; negative moves it left, away from a right-hand one.
+ *
+ * Measured before this existed (16:10, panels begin at |x| ≈ 0.43): the S2
+ * panel covered the nose from 0.22 to 0.28 (nose at x 0.52–0.62) and the
+ * S3 spec panel covered the tail from 0.32 to 0.36 (tail to x −1.0). The
+ * S2→S3 swap of sides is crossed over 3.5 % of scroll, a slide slower than
+ * the track shots' own screen-speed budget. Interior and exit shots are
+ * composed on the aisle and door axes and are left centred.
+ */
+const FRAMING_KEYS: readonly (readonly [progress: number, shift: number])[] = [
+  [0, 0.2],
+  [0.085, 0.2],
+  [0.13, -0.08],
+  [0.22, -0.25],
+  [0.265, -0.25],
+  [0.33, 0.4],
+  [0.38, 0.4],
+  [0.4, 0.33],
+  [0.425, 0],
+]
+
+/** Below this aspect the copy sits under the picture, not beside it. */
+const FRAMING_MIN_ASPECT = 1.05
+const FRAMING_FULL_ASPECT = 1.35
+
+export function framingShift(progress: number, aspect: number): number {
+  const landscape = Math.min(1, Math.max(0, (aspect - FRAMING_MIN_ASPECT) / (FRAMING_FULL_ASPECT - FRAMING_MIN_ASPECT)))
+  if (landscape === 0) return 0
+  const last = FRAMING_KEYS[FRAMING_KEYS.length - 1]
+  if (progress >= last[0]) return last[1] * landscape
+  let index = 1
+  while (index < FRAMING_KEYS.length - 1 && progress > FRAMING_KEYS[index][0]) index += 1
+  const [fromProgress, fromShift] = FRAMING_KEYS[index - 1]
+  const [toProgress, toShift] = FRAMING_KEYS[index]
+  const t = Math.min(1, Math.max(0, (progress - fromProgress) / (toProgress - fromProgress)))
+  const eased = t * t * (3 - 2 * t)
+  return (fromShift + (toShift - fromShift) * eased) * landscape
+}

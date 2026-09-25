@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react'
 import { PerspectiveCamera as PerspectiveCameraImpl, Vector3 } from 'three'
 import { sampleCamera } from '../lib/cameraPath'
 import { approachEnvelope, walkSwayTarget } from '../lib/cameraEnvelopes'
-import { horizontalPreservingFov } from '../lib/shotFraming'
+import { framingShift, horizontalPreservingFov } from '../lib/shotFraming'
 import { SECTIONS, localProgress } from '../lib/sections'
 import { reducedMotionState } from '../state/reducedMotion'
 import { useScrollStore } from '../state/scrollStore'
@@ -122,6 +122,12 @@ export function CameraRig({ enabled }: { enabled: boolean }) {
       // viewport narrows, so narrower-than-reference aspects open the lens to
       // hold the authored horizontal field instead of stretching or cutting.
       camera.fov = horizontalPreservingFov(fov, size.width / size.height)
+      // Lens shift that composes the subject into the side the copy leaves
+      // free (shotFraming.ts framingShift). setViewOffset moves the window,
+      // so a picture shift of +s NDC is an offset of -s * width / 2.
+      const shift = framingShift(progress, size.width / size.height)
+      if (Math.abs(shift) > 1e-4) camera.setViewOffset(size.width, size.height, (-shift * size.width) / 2, 0, size.width, size.height)
+      else if (camera.view?.enabled) camera.clearViewOffset()
       camera.updateProjectionMatrix()
     }
     camera.updateMatrixWorld(true)

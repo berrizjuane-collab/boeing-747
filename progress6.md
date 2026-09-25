@@ -506,3 +506,15 @@ fallaba por la misma cuota; ahora su build exige la misma condición que el
 deploy (repo público o `PAGES_ENABLED`). Publicar requiere que el propietario
 haga el repositorio público (el almacenamiento de artefactos es gratuito en
 repos públicos) y elija *GitHub Actions* como origen de Pages.
+
+### Composición frente a los paneles (2026-09-25)
+
+Medido en 16:10 (paneles desde |x| ≈ 0,43 NDC): el panel del S2 tapaba el
+morro de 0,22 a 0,28 y la ficha técnica del S3 la cola de 0,32 a 0,36.
+`framingShift` (shotFraming.ts) aplica un desplazamiento de lente
+(`setViewOffset`) que compone el avión en el lado libre del cuadro apaisado,
+sin girar la cámara: +0,2 en el hero, −0,25 en el despegue, +0,4 en el
+ascenso, con transiciones suavizadas (paso máximo 0,02 NDC por 0,001) y cero
+en retrato, cabina y salida. Muestras de silueta bajo un panel entre 0 y
+0,425: **2.092 → 644**. El suelo terracota se conserva por decisión del
+propietario.
